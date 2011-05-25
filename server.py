@@ -153,7 +153,7 @@ def getStake(topicID, bounty, user):
     return result
 
 def getHistory(topicID):
-    cursor = cherrypy.thread_data.db.cursor()
+    cursor  = cherrypy.thread_data.db.cursor()
     cursor.execute(" SELECT user, probability, time FROM all_bets "+
                    " WHERE topicID = %s " +
                    " ORDER BY time ASC", (topicID))
