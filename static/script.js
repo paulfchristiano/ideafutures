@@ -198,7 +198,7 @@ function isClosed(id){
 
 function serverQuery(query, f){
     if (typeof(f)=='undefined') f = function(){};
-    if (! ('username' in query) ) query['username']=user;
+    if (! ('user' in query) ) query['user']=user;
     $.post('query', query, function(xml){
         setCurrentTime(xml);
         $(xml).find('topic').each(function(){

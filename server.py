@@ -5,11 +5,12 @@ from datetime import datetime
 import cherrypy
 import sys
 
-def initialize():
-    global db
-    db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
 
-initialize()
+
+def connect(thread_index):
+    cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
+
+cherrypy.engine.subscribe('start_thread', connect)
 
 def wrapXML(name, val):
     return "<" + name + ">" + val + "</" + name + ">"
@@ -22,7 +23,7 @@ def dictionaryToXML(name, toDescribe):
 
 
 def getTopic(topicID):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT owner, description, age, resolved, bounty, maxstake, currentbet, lastmodified, lastmodifiedby, definition, closes FROM topics " + 
                     "WHERE id = %s", (topicID,))
     row = cursor.fetchone()
@@ -31,7 +32,7 @@ def getTopic(topicID):
         'lastbettime':row[7], 'lastbetter':row[8], 'definition':row[9], 'closes':row[10]})
 
 def getUser(username):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT reputation FROM users " +
                    "WHERE name = %s", (username,))
     row = cursor.fetchone()
@@ -50,7 +51,7 @@ def topicXML(row):
     return dictionaryToXML('topic', rowToTopic(row))
 
 def executeSearch(search):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute(" SELECT * FROM topics"
                    " WHERE domain=%s and resolved=0 "
                    " ORDER BY age DESC", (search,))
@@ -64,10 +65,10 @@ def executeSearch(search):
     return wrapXML("search", result)
 
 def submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("INSERT INTO topics (owner,bounty,maxstake,description, definition, domain, closes) "+
                    "VALUES (%s, %s, %s, %s, %s, %s, %s)", (user, bounty, maxstake, description, definition, domain, closes))
-    topicID = db.insert_id()
+    topicID = cherrypy.thread_data.db.insert_id()
     insertBet(user, probability, topicID)
 
 def insertBet(user, probability, topicID):
@@ -82,7 +83,7 @@ def parseDate(s):
     return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
 
 def makeBet(user, probability, topicID,lastbettime):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT reputation FROM users WHERE name = %s", (user,))
     row = cursor.fetchone()
     reputation = row[0]
@@ -103,7 +104,7 @@ def makeBet(user, probability, topicID,lastbettime):
     return "<makebet><response>success</response></makebet>"
 
 def resolveBet(topicID, outcome):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT resolved, bounty FROM topics WHERE id=%s", (topicID,))
     row = cursor.fetchone()
     if (row == None) or (row[0] == 1):
@@ -135,7 +136,7 @@ def resolveBet(topicID, outcome):
         
 
 def getStake(topicID, bounty, user):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT user, probability FROM all_bets WHERE topicID=%s", (topicID,))
     rows = cursor.fetchall()
     rows = list(rows)
@@ -152,7 +153,7 @@ def getStake(topicID, bounty, user):
     return result
 
 def getHistory(topicID):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute(" SELECT user, probability, time FROM all_bets "+
                    " WHERE topicID = %s " +
                    " ORDER BY time ASC", (topicID))
@@ -166,7 +167,7 @@ def getHistory(topicID):
     return wrapXML("history", result);
 
 def executeLogin(username, password):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT password, reputation FROM users " + 
                    "WHERE name = %s", (username,))
     row = cursor.fetchone()
@@ -176,10 +177,10 @@ def executeLogin(username, password):
     elif row[0] != password:
         return "<login>wrongpassword</login>"
     else:
-        return "<login>success</login><user><name>%s</name> <reputation>%f</reputation></user>" % (username, row[1])
+        return "<login>success</login>";
 
 def executeSignup(username, password):
-    cursor = db.cursor()
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT name FROM users " + 
                    "WHERE name = %s", (username,))
     row = cursor.fetchone()
@@ -266,8 +267,10 @@ class HelloWorld:
                 result += executeLogin(user, password)
             if (signup != None):
                 result += executeSignup(username, password)
-        except Exception as e:
+        except MySQLdb.Error, e:
             result += "<error>" + str(e) + "</error>"
+            cherrypy.thread_data.db.close()
+            cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
         result += "<currenttime>" + str(datetime.now())+ "</currenttime>"
         result += "</body>"
         return result
