@@ -1,0 +1,3 @@
+A simple implementation of a prediction market. 
+server.py is a server built with CherryPy, which provides a jjjj:w.
+static/script.js contains the javascript which handles all of the site logic.
