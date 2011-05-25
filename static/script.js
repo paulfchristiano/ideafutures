@@ -307,6 +307,7 @@ function getPayoff(outcome){
 
 
 function getCommitment(id,h, outcome){
+    if (h.length == 0) return 0;
     claim = cachedClaims[id];
     result = 0;
     p = h[0]['probability'];
