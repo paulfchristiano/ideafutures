@@ -1,3 +1,6 @@
 A simple implementation of a prediction market. 
-server.py is a server built with CherryPy, which provides a jjjj:w.
-static/script.js contains the javascript which handles all of the site logic.
+server.py is a server built with CherryPy, which provides access to the SQL database.
+The code in this repository uses a test database hosted on paulfc.scripts.mit.edu.
+
+The folder static contains static files hosted by the server.
+In particular, static/script.js contains the javascript which handles all of the site logic.
