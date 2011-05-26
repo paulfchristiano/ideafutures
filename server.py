@@ -70,8 +70,10 @@ def submitTopic(user, probability, bounty, maxstake, description, definition, do
                    "VALUES (%s, %s, %s, %s, %s, %s, %s)", (user, bounty, maxstake, description, definition, domain, closes))
     topicID = cherrypy.thread_data.db.insert_id()
     insertBet(user, probability, topicID)
+    cursor.close()
 
 def insertBet(user, probability, topicID):
+    cursor = cherrypy.thread_data.db.cursor()
     cursor.execute(" INSERT INTO all_bets (user, probability, topicID)"
                  + " VALUES (%s, %s, %s)", (user, probability, topicID));
     cursor.execute(" UPDATE topics "+
@@ -113,6 +115,8 @@ def resolveBet(topicID, outcome):
     cursor.execute("UPDATE topics SET resolved=1 WHERE id=%s", (topicID,))
     cursor.execute("SELECT user, probability FROM all_bets WHERE topicID=%s", (topicID,))
     rows = cursor.fetchall()
+    if len(rows) == 0: 
+        return
     rows = list(rows)
     rows.append(rows[0])
     probability = rows[0][1]
@@ -242,20 +246,21 @@ class HelloWorld:
   </body>
 </html>
     """
-    def query(self, topic=None, user=None, search=None, submitclaim=None, makeBet=None, 
+    def query(self, topic=None, user=None, search=None, submitclaim=None, 
             probability=None, maxstake=None, description=None, definition=None, domain=None,
             closes=None, bounty=None, lastbettime=None, resolvebet=None, outcome=None,
             makebet=None,password=None, login=None, signup=None):
         #result = "Content-type:xml\n"
         result = ""
         result += "<body>"
+        #TODO everything should catch its own errors and report status
         try:
             if submitclaim!=None:
-                result += submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes)
+                submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes)
             if (makebet != None):
-                result += makeBet(username, probability, topic, lastbettime)
+                result += makeBet(user, probability, topic, lastbettime)
             if (resolvebet != None):
-                result += resolveBet(topic, outcome == 'true')
+                resolveBet(topic, outcome == 'true')
             if (topic != None):
                 result += getTopic(topic)
                 result += getHistory(topic)

@@ -220,6 +220,7 @@ h2 a:hover, h2 a:active {
 
 .loading {
     margin-left:10px;
+    margin-right:10px;
     height:25px;
     width:25px;
     visibility:hidden;
