@@ -5,6 +5,7 @@ var displayedClaims = [];
 var currentDisplay = {};
 var cachedClaims = {};
 var cachedSearches = {};
+var cache = {};
 var submitted;
 var loggedIn = false;
 var user;
@@ -15,7 +16,8 @@ var proposedHistory;
 var display;
 var queuedAlert = "";
 var activeLink = "";
-var defaultDisplay = { 'type':'search', 'search':'promoted' }
+var defaultDisplay = { 'type':'search', 'search':'user_default' }
+var activeDomains = {};
 
 function fragmentDisplay(){
     return parseDisplay($.param.fragment());
@@ -24,18 +26,15 @@ function fragmentDisplay(){
 function parseDisplay(x){
     result = {};
     if (x == '') {
-        result['type'] = 'default';
+        return defaultDisplay;
     } else{
         parts  = (x).split("+");
+        result['type'] == parts[0];
         if (parts[0] == 'search'){
-            result['type'] = 'search';
             result['search'] = parts[1];
         } else if (parts[0] == 'displayclaim'){
-            result['type'] = 'displayclaim';
             result['claim'] = parseInt(parts[1]);
-        } else if (parts[0] == 'submitclaim'){
-            result['type'] = 'submitclaim';
-        }
+        } 
     } 
     return result;
 }
@@ -56,8 +55,10 @@ function getData(display){
         serverQuery({'search':display['search']}, function(){
             attemptUpdateDisplay(display);
         });
+    } else if (display['type'] == 'filters'){
+        serverQuery({'alldomains':1, 'userdomains':1});
     } else {
-        serverQuery({'search':domain}, function(){
+        serverQuery({'search':'user_default'}, function(){
             attemptUpdateDisplay(display);
         });
     }
@@ -69,6 +70,10 @@ function cacheContainsClaim(id, requireHistory){
 
 function cacheContainsSearch(search){
     return (search in cachedSearches);
+}
+
+function cacheContains(x){
+    return (x in cache);
 }
 
 function setAlert(message){
@@ -83,7 +88,10 @@ function clearAlert(){
 function attemptUpdateDisplay(newDisplay){
     if (newDisplay['type'] == 'submitclaim' && !loggedIn){
         setAlert("You must be logged in to submit a claim.");
-        changeDisplay({type:'search', search:domain});
+        changeDisplay(defaultDisplay);
+    } else if (newDisplay['type'] == 'filters' && !loggedIn){
+        setAlert("You must be logged in to adjust filters.");
+        changeDisplay(defaultDisplay);
     } else if (readyToDisplay(newDisplay)){
         currentDisplay = newDisplay;
         updateDisplay(newDisplay);
@@ -95,7 +103,9 @@ function readyToDisplay(newDisplay){
         return (cacheContainsClaim(newDisplay['claim'], true));
     } else if (newDisplay['type']=='search'){
         return (cacheContainsSearch(newDisplay['search']));
-    } 
+    }  else if (newDisplay['type']=='filters'){
+        return (cacheContains('alldomains') && cacheContains('userdomains'))
+    }
     return true;
 }
 
@@ -108,6 +118,8 @@ function updateDisplay(newDisplay){
         displayClaim(id);
     } else if (newDisplay['type'] == 'submitclaim'){
         displaySubmitClaim();
+    } else if (newDisplay['type'] == 'filters'){
+        displayFilters();
     }
     // Update sidebar
     newSidebar = loginSidebarBlock();
@@ -226,6 +238,18 @@ function serverQuery(query, f){
         $(xml).find('topic').each(function(){
             cacheClaim(claimFromXML(this));
         });
+        alldomains = []
+        $(xml).find('alldomains').find('domain').each(function(){
+            alldomains.push(this.text());
+        });
+        if (alldomains.length > 0)
+            cache['alldomains'] = alldomains;
+        userdomains = []
+        $(xml).find('userdomains').find('domain').each(function(){
+            userdomains.push(this.text());
+        });
+        if (userdomains.length > 0)
+            cache['userdomains'] = userdomains;
         $(xml).find('search').each(function(){
             result = new Array();
             $(this).find('topic').each(function(){
@@ -414,6 +438,39 @@ function topicBox(id){
     return result;
 }
 
+function displayFilters(){
+    alldomains = cache['alldomains'];
+    for (i = 0; i < alldomains.length; i++){
+        isActiveDomain[alldomains[i]] = 0;
+    }
+    for (i = 0; i < cache['userdomains'].length; i++){
+        isActiveDomain[cache['userdomains'][i]] = 1;
+    }
+    newMainFrame = "";
+    for (i = 0; i < alldomains.length; i++){
+        newMainFrame += domainPicker(alldomains[i]);
+    }
+    $('#mainframe').html(newMainFrame);
+    for (i = 0; i < alldomains.length; i++){
+        $('#domain' + alldomains[i]).click(prepareDomainToggler(alldomains[i]));
+    }
+}
+
+function prepareDomainToggler(domain){
+    oldstate = isActiveDomain[domain];
+    newstate = 1 - oldstate;
+    isActiveDomain[domain] = newstate;
+    if (newstate){
+        $('#domain' + domain).addClass("activedomain");
+    } else {
+        $('#domain' + domain).removeClass("activedomain");
+    }
+}
+
+function domainPicker(domain){
+    return "<div class='row'><a>" + domain + "</a></div>";
+}
+
 function displayClaims(results){
     newMainFrame = "";
     for (i = 0; i < results.length; i++){
@@ -426,9 +483,8 @@ function displayClaims(results){
 }
 
 function prepareLoader(x){
-    var y = x;
     return function(){
-        $('#betloader' + y).css("visibility", "visible"); 
+        $('#betloader' + x).css("visibility", "visible"); 
      }
 }
 
@@ -781,16 +837,15 @@ function signup(username, password){
 }
 
 function deleteBet(id){
-    serverQuery({'topic':id, 'deletebet':1, 'search':domain},
+    serverQuery({'topic':id, 'deletebet':1, 'search':'user_default'},
         function(xml){
             setDisplay(defaultDisplay);
         });
 }
 
 function resolveBet(id, outcome){
-    serverQuery({'topic':id, 'resolvebet':1, 'outcome':outcome, 'search':domain},
+    serverQuery({'topic':id, 'resolvebet':1, 'outcome':outcome, 'search':'user_deault'},
         function(xml){
-            newDisplay = { 'type':'search', 'search':domain};
             setDisplay(defaultDisplay);
         });
 }
@@ -924,11 +979,8 @@ function initializeSidebar(display){
         userstate['domain'] = domain;
         saveState();
         if (currentDisplay['type'] == 'search'){
-            newDisplay = {'type':'search', 'search':domain};
-        } else {
-            newDisplay = currentDisplay;
-        }
-        changeDisplay(newDisplay);
+            changeDisplay(currentDisplay);
+        } 
     });
 }
 
@@ -977,10 +1029,6 @@ function setActiveLink(name){
 }
 
 function changeDisplay(newDisplay){
-    if (newDisplay['type']=='default'){
-        newDisplay['type'] = 'search';
-        newDisplay['search'] = domain;
-    }
     attemptUpdateDisplay(newDisplay);
     getData(newDisplay);
 }
@@ -990,9 +1038,12 @@ $(document).ready(function(){
 
     $(window).bind('hashchange', function(e) {
         newDisplay = fragmentDisplay();
-        if (newDisplay['type'] == 'search' || newDisplay['type'] == 'default') 
+        if (newDisplay['type'] == 'search')
             setActiveLink("#recentclaimsnavbar");
-        else if (newDisplay['type'] == 'submitclaim') setActiveLink("#submitclaimnavbar");
+        else if (newDisplay['type'] == 'submitclaim') 
+            setActiveLink("#submitclaimnavbar");
+        else if (newDisplay['type'] == 'filters') 
+            setActiveLink("#filtersnavbar");
         else setActiveLink(null);
         clearAlert();
         changeDisplay(newDisplay);
