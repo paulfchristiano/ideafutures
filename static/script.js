@@ -15,6 +15,7 @@ var proposedHistory;
 var display;
 var queuedAlert = "";
 var activeLink = "";
+var defaultDisplay = { 'type':'search', 'search':'promoted' }
 
 function fragmentDisplay(){
     return parseDisplay($.param.fragment());
@@ -114,17 +115,37 @@ function updateDisplay(newDisplay){
         newSidebar += betSidebarBlock(id);
     }
     newSidebar += domainSidebarBlock();
-    if (newDisplay['type'] == 'displayclaim' && canAdministrate(id)){
-        newSidebar += administrateClaimSidebarBlock();
+    if (newDisplay['type'] == 'displayclaim' && owner(id)){
+        newSidebar += ownerSidebarBlock();
+    }
+    if (newDisplay['type'] == 'displayclaim' && administrator()){
+        newSidebar += administratorSidebarBlock(newDisplay['claim']);
     }
     $('#sidebar').html(newSidebar);
     initializeSidebar(newDisplay);
 }
 
-function administrateClaimSidebarBlock(){
+function administrator(){
+    return user == 'paulfc';
+}
+
+function ownerSidebarBlock(){
     result = "<div class='sidebarblock'>";
     result += "<div class='row'> <a id='confirm'> Confirm This Claim.</a> </div>";
     result += "<div class='row'> <a id='deny'> Deny This Claim.</a> </div>";
+    result += "</div>";
+    return result;
+}
+
+function administratorSidebarBlock(id){
+    result = "<div class='sidebarblock'>";
+    result += "<div class='row'> <a id='delete'> Delete This Claim.</a> </div>";
+    result += "<div class='row'> <a id='modify'> Modify This Claim.</a> </div>";
+    if (cachedClaims[id]['promoted']){
+        result += "<div class='row'> <a id='unpromote'> Un-Promote This Claim.</a> </div>";
+    } else{
+        result += "<div class='row'> <a id='promote'> Promote This Claim.</a> </div>";
+    }
     result += "</div>";
     return result;
 }
@@ -155,10 +176,8 @@ function cacheSearch(search, result){
 
 function cacheClaim(claim){
     id = claim['id'];
-    if (!(id in cachedClaims) || newerClaim(claim, cachedClaims[id])){
-        cachedClaims[id] = claim;
-        dirtyClaim(id);
-    }
+    cachedClaims[id] = claim;
+    dirtyClaim(id);
 }
 
 function changed(display1, display2){
@@ -173,22 +192,25 @@ function dirtyClaim(id){
 function dirtySearch(search){
 }
 
-function newerClaim(claim1, claim2){
-    return (claim1['lastbettime'] > claim2['lastbettime']);
-}
-
-function submitClaimBox(){
-    newMainFrame = "<div class='submitbetbox'>";
-    newMainFrame += "<div class='row'>Short description: <input type='text' id='shortdescription' size='50' maxlength='200'></input> </div>";
-    newMainFrame += "<div class='row'><div class='left'>Precise definition:</div> <textarea id='longdescription'></textarea> </div>";
-    newMainFrame += "<div class='row'>Bounty: <input type='text' id='bountyinput' size='4' maxlength='5'></input>";
-    newMainFrame += "Maximum Risk (as fraction of reputation): <input type='text' id='maxstakeinput' size='4' maxlength='5'></input>";
-    newMainFrame += "Initial Estimate: <input type='text' id='initialestimate' size='4' maxlength='5'></input> </div>";
-    newMainFrame += "<div class='row'> Market closes (optional): <input type='text' id='closedate'></input> <input type='text' id='closetime'></input> </div>";
-    newMainFrame += "<div class='row'> <a class='orange' id='submitclaimbutton'> Submit Claim </a> </div>";
-    newMainFrame += "<div class='error row' id='submitclaimerror'> </div>";
-    newMainFrame += "</div>";
-    return newMainFrame;
+function submitClaimBox(id){
+    result = "<div class='submitbetbox'>";
+    result += "<div class='row'>Short description:";
+    result += "<input type='text' id='description' size='50' maxlength='200' </input> </div>";
+    result += "<div class='row'><div class='left'>Precise definition:</div>";
+    result += "<textarea id='definition'></textarea> </div>";
+    result += "<div class='row'>Bounty:";
+    result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
+    result += "Maximum Risk (as fraction of reputation):";
+    result += "<input type='text' id='maxstake' size='4' maxlength='5'></input>";
+    result += "Initial Estimate:"
+    result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input> </div>";
+    result += "<div class='row'> Market closes (optional):";
+    result += "<input type='text' id='closedate'></input>";
+    result += "<input type='text' id='closetime'></input> </div>";
+    result += "<div class='row'> <a class='orange' id='submitclaimbutton'> Submit Claim </a> </div>";
+    result += "<div class='error row' id='submitclaimerror'> </div>";
+    result += "</div>";
+    return result;
 }
 
 function isClosed(id){
@@ -221,24 +243,33 @@ function serverQuery(query, f){
     }, "xml");
 }
 
-function initializeSubmitClaim(){
+function initializeSubmitClaim(id){
     submitted = false;
+    claim = (typeof(id)=='undefined') ? 
+        { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
+          'bounty':1.0, 'closes':null} : cachedClaims[id];
+    closedate = humanDate(claim['closes']);
+    closetime = humanTime(claim['closes']);
+    $('#description').val(claim['description']);
+    $('#definition').val(claim['definition']);
     $('#submitclaimbutton').click(function(){
-        submitClaim();
+        submitClaim(id);
     });
-    $('#initialestimate').val(0.5);
+    $('#initialestimate').val(claim['currentbet']);
     $('#initialestimate').focus(function(){
         this.select();
     });
-    $('#maxstakeinput').val(0.5);
-    $('#maxstakeinput').focus(function(){
+    $('#maxstake').val(claim['maxstake']);
+    $('#maxstake').focus(function(){
         this.select();
     });
-    $('#bountyinput').val(1.0);
-    $('#bountyinput').focus(function(){
+    $('#bounty').val(claim['bounty']);
+    $('#bounty').focus(function(){
         this.select();
     });
+    $('#closetime').val(closetime);
     $('#closetime').timepicker({});
+    $('#closedate').val(closedate);
     $('#closedate').datepicker({});
 }
 
@@ -254,35 +285,52 @@ function parseDateTime(strDate, strTime){
     return new Date(dateParts[2], dateParts[0]-1, dateParts[1], timeParts[0], timeParts[1]);
 }
 
-function submitClaim(){
+function submitClaim(id){
     if (submitted) return;
     proposedEstimate = $('#initialestimate').val();
-    bounty = $('#bountyinput').val();
-    maxstake = $('#maxstakeinput').val();
-    description = $('#shortdescription').val();
-    definition = $('#longdescription').val();
+    bounty = $('#bounty').val();
+    maxstake = $('#maxstake').val();
+    description = $('#description').val();
+    definition = $('#definition').val();
     closes = parseDateTime($('#closedate').val(), $('#closetime').val());
     falseRisk = bounty*Math.log(proposedEstimate);
     trueRisk = bounty*Math.log(1 - proposedEstimate);
-    if (trueRisk < -1 * maxstake * reputation || falseRisk < -1 * maxstake * reputation){
-        claimError("You cannot risk that much.");
-    } else if (description.length < 5){
-        claimError("That description is too short.");
-    }else if (bounty <= 0 || isNaN(bounty)){
-        claimError("The bounty must be a positive number.");
-    } else if (isNaN(maxstake) || maxstake <= 0 || maxstake > 1){
-        claimError("The maximum stake must be a number between 0 and 1.");
-    } else if (isNaN(proposedEstimate) || proposedEstimate < 0 || proposedEstimate > 1){
-        claimError("The initial estimate must be a number between 0 and 1.");
-    }else{
-        claimError("");
+    if (typeof(id) == 'undefined'){
+        if (trueRisk < -1 * maxstake * reputation || falseRisk < -1 * maxstake * reputation){
+            claimError("You cannot risk that much.");
+        } else if (description.length < 5){
+            claimError("That description is too short.");
+        }else if (bounty <= 0 || isNaN(bounty)){
+            claimError("The bounty must be a positive number.");
+        } else if (isNaN(maxstake) || maxstake <= 0 || maxstake > 1){
+            claimError("The maximum stake must be a number between 0 and 1.");
+        } else if (isNaN(proposedEstimate) || proposedEstimate < 0 || proposedEstimate > 1){
+            claimError("The initial estimate must be a number between 0 and 1.");
+        }else{
+            claimError("");
+            submitted = true;
+            serverQuery({   submitclaim:1, user:user, probability:proposedEstimate,maxstake:maxstake, description:description, bounty:bounty, 
+                            definition:definition, domain:domain, closes:serverDate(closes) },
+            function(xml){
+                setDisplay(defaultDisplay);
+            });
+        }
+    } else {
         submitted = true;
-        serverQuery({   submitclaim:1, user:user, probability:proposedEstimate,maxstake:maxstake, description:description, bounty:bounty, 
-                        definition:definition, domain:domain, closes:serverDate(closes) },
-        function(xml){
-            setDisplay({'type':'search', 'search':domain});
-        });
+        serverQuery({ editclaim:1, user:user, maxstake:maxstake, description:description, 
+          bounty:bounty, definition:definition, domain:domain, closes:serverDate(closes), 
+          topic:id  },
+            function(xml){
+                setDisplay(defaultDisplay);
+            });
     }
+}
+
+function promoteClaim(id, p){
+    serverQuery({ promoteclaim: (p?1:0), topic:id }, 
+        function(xml){
+            setDisplay(defaultDisplay);
+        });
 }
 
 function claimError(str){
@@ -337,12 +385,13 @@ function claimFromXML(xml){
     result['lastbetter'] = $(xml).find('lastbetter').text();
     result['closes'] = parseDate($(xml).find('closes').text());
     result['owner'] = $(xml).find('owner').text();
+    result['promoted'] = ($(xml).find('promoted').text() == '1');
     result['age'] = parseDate($(xml).find('age').text());
     result['lastbettime'] = parseDate($(xml).find('lastbettime').text());
     result['bounty'] = parseFloat($(xml).find('bounty').text());
     result['maxstake'] = parseFloat($(xml).find('maxstake').text());
     definition = $(xml).find('definition').text();
-    result['definition'] = (definition == 'none') ? null : definition;
+    result['definition'] = (definition == 'none' || definition == '0') ? null : definition;
     return result;
 }           
 
@@ -401,9 +450,9 @@ function displayClaim(id){
     initializeTopic(id);
 }
 
-function displaySubmitClaim(){
-    $('#mainframe').html(submitClaimBox());
-    initializeSubmitClaim();
+function displaySubmitClaim(id){
+    $('#mainframe').html(submitClaimBox(id));
+    initializeSubmitClaim(id);
 }
 
 function definitionBox(id){
@@ -508,18 +557,31 @@ function historyBox(id){
 }
 
 function serverDate(d){
-    month = "" + (d.getMonth() + 1);
-    hour = "" + (d.getHours());
-    minute = "" + d.getMinutes();
-    second = "" + d.getSeconds();
-    day = "" + d.getDate();
-    while (month.length < 2) month="0" + month;
-    while (hour.length < 2) hour="0" + hour;
-    while (minute.length < 2) minute="0" + minute;
-    while (second.length < 2) second="0" + second;
-    while (day.length < 2) day="0" + day;
+    month = padInt(d.getMonth() + 1);
+    hour = padInt(d.getHours());
+    minute = padInt(d.getMinutes());
+    second = padInt(d.getSeconds());
+    day = padInt(d.getDate());
     return "" + (d.getFullYear()) + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
 }
+
+function padInt(x, len){
+    if (typeof(len) == 'undefined') len = 2;
+    x = "" + x;
+    while (x.length < len) x = "0" + x;
+    return x;
+}
+
+function humanDate(d){
+    if (d == null) return "";
+    else return (padInt(d.getMonth())) + "/" + padInt(d.getDate()) + "/" + d.getFullYear();
+}
+
+function humanTime(d){
+    if (d == null) return "";
+    else return padInt(d.getHours()) + ":" + padInt(d.getMinutes());
+}
+
 
 function displayDate(d){
     description = "ago";
@@ -718,11 +780,18 @@ function signup(username, password){
         });
 }
 
+function deleteBet(id){
+    serverQuery({'topic':id, 'deletebet':1, 'search':domain},
+        function(xml){
+            setDisplay(defaultDisplay);
+        });
+}
+
 function resolveBet(id, outcome){
     serverQuery({'topic':id, 'resolvebet':1, 'outcome':outcome, 'search':domain},
         function(xml){
             newDisplay = { 'type':'search', 'search':domain};
-            setDisplay(newDisplay);
+            setDisplay(defaultDisplay);
         });
 }
 
@@ -760,7 +829,7 @@ function domainSidebarBlock(){
     result = "<div class='sidebarblock'> ";
     result += "<div class='row'> Choose a domain: </div>";
     // xxx make this just a little more elegant, unless domains get scrapped really soon
-    result += "<div class='row'> <select id='selectdomain'> <option>Public</opion><option>Test</option><option>Taskforce</option> </select> </div>";
+    result += "<div class='row'> <select id='selectdomain'> <option>Public</opion><option>Test</option><option>Taskforce</option> <option>promoted</option> </select> </div>";
     result += "</div>";
     return result;
 }
@@ -836,6 +905,18 @@ function initializeSidebar(display){
         $('#deny').click(function(){
             resolveBet(id, false);
         });
+        $('#delete').click(function(){
+            deleteBet(id);
+        });
+        $('#modify').click(function(){
+            displaySubmitClaim(id);
+        });
+        $('#promote').click(function(){
+            promoteClaim(id, true);
+        });
+        $('#unpromote').click(function(){
+            promoteClaim(id, false);
+        });
     }
     $('#selectdomain').val(domain);
     $('#selectdomain').change(function(){
@@ -862,7 +943,7 @@ function setDisplay(display){
 }
 
 
-function canAdministrate(id){
+function owner(id){
     claim = cachedClaims[id];
     return (user == claim['owner']);
 }
