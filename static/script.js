@@ -34,7 +34,9 @@ function parseDisplay(x){
             result['search'] = parts[1];
         } else if (parts[0] == 'displayclaim'){
             result['claim'] = parseInt(parts[1]);
-        } 
+        }  else if (parts[0]=='submitclaim'){
+            result['claim'] = parseInt(parts[1]);
+        }
         return result;
     } 
 }
@@ -125,7 +127,10 @@ function updateDisplay(newDisplay){
         id = newDisplay['claim'];
         displayClaim(id);
     } else if (newDisplay['type'] == 'submitclaim'){
-        displaySubmitClaim();
+        if ('claim' in newDisplay)
+            displaySubmitClaim(newDisplay['claim']);
+        else 
+            displaySubmitClaim();
     } else if (newDisplay['type'] == 'filters'){
         displayFilters();
     }
@@ -159,7 +164,7 @@ function ownerSidebarBlock(){
 function administratorSidebarBlock(id){
     result = "<div class='sidebarblock'>";
     result += "<div class='row'> <a id='delete'> Delete This Claim.</a> </div>";
-    result += "<div class='row'> <a id='modify'> Modify This Claim.</a> </div>";
+    result += "<div class='row'> <a id='modify' href='#submitclaim+"+id+"'> Modify This Claim.</a> </div>";
     if (cachedClaims[id]['promoted']){
         result += "<div class='row'> <a id='unpromote'> Un-Promote This Claim.</a> </div>";
     } else{
@@ -226,7 +231,8 @@ function submitClaimBox(id){
     result += "<div class='row'> Market closes (optional):";
     result += "<input type='text' id='closedate'></input>";
     result += "<input type='text' id='closetime'></input> </div>";
-    result += "<div class='row'> <select id='domain'> </select> </div>"
+    result += "<div class='row'> Choose an existing domain: <select id='domain'> </select>";
+    result += " or create a new one: <input type='text' id='domaintext'></input></div>"
     result += "<div class='row'> <a class='orange' id='submitclaimbutton'> Submit Claim </a> </div>";
     result += "<div class='error row' id='submitclaimerror'> </div>";
     result += "</div>";
@@ -250,8 +256,9 @@ function serverQuery(query, f){
         $(xml).find('alldomains').find('domain').each(function(){
             alldomains.push($(this).text());
         });
-        if (alldomains.length > 0)
+        $(xml).find('alldomains').each(function(){
             cache['alldomains'] = alldomains;
+        });
         userdomains = []
         $(xml).find('userdomains').find('domain').each(function(){
             userdomains.push($(this).text());
@@ -279,7 +286,7 @@ function initializeSubmitClaim(id){
     submitted = false;
     claim = (typeof(id)=='undefined') ? 
         { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
-          'bounty':1.0, 'closes':null} : cachedClaims[id];
+          'bounty':1.0, 'closes':null, 'domain':'general'} : cachedClaims[id];
     closedate = humanDate(claim['closes']);
     closetime = humanTime(claim['closes']);
     $('#description').val(claim['description']);
@@ -307,6 +314,7 @@ function initializeSubmitClaim(id){
         domain = cache['alldomains'][i];
         $('#domain').append("<option value='"+domain+"'>"+domain+"</option>");
     }
+    $('#domain').val(claim['domain']);
 }
 
 function parseDate(strDate){
@@ -328,7 +336,8 @@ function submitClaim(id){
     maxstake = $('#maxstake').val();
     description = $('#description').val();
     definition = $('#definition').val();
-    domain = $('#domain').val();
+    domain = $('#domaintext').val();
+    if (domain=='') domain = $('#domain').val();
     closes = parseDateTime($('#closedate').val(), $('#closetime').val());
     falseRisk = bounty*Math.log(proposedEstimate);
     trueRisk = bounty*Math.log(1 - proposedEstimate);
@@ -428,6 +437,7 @@ function claimFromXML(xml){
     result['lastbettime'] = parseDate($(xml).find('lastbettime').text());
     result['bounty'] = parseFloat($(xml).find('bounty').text());
     result['maxstake'] = parseFloat($(xml).find('maxstake').text());
+    result['domain'] = $(xml).find('domain').text();
     definition = $(xml).find('definition').text();
     result['definition'] = (definition == 'none' || definition == '0') ? null : definition;
     return result;
@@ -437,7 +447,7 @@ function topicBox(id){
     claim = cachedClaims[id];
     result = "<div class='topicbox'>";
     href = "#displayclaim+"+id;
-    result += "<h2> <a href='"+href+"' class='betdescription'>" + claim['description'] + "</a> </h2>";
+    result += "<h2> <a href='"+href+"' class='betdescription' id='displaytitle"+id+"'>" + claim['description'] + "</a> </h2>";
     result += "<div class='currentbet orange'>" + displayBet(claim['currentbet']) + "%</div>";
     result += "<a class='orange right' href='" + href + "' id='displaybutton"+id+"'>Bet on it!</a>";
     result += '<img id="betloader'+id+'" class="loading right" src="ajax-loader.gif"></img>';
@@ -524,6 +534,7 @@ function displayClaims(results){
     $('#mainframe').html(newMainFrame);
     for (i = 0; i < results.length; i++){
         $('#displaybutton'  + results[i]).click(prepareLoader(results[i]));
+        $('#displaytitle'  + results[i]).click(prepareLoader(results[i]));
     }
 }
 
@@ -675,7 +686,7 @@ function padInt(x, len){
 
 function humanDate(d){
     if (d == null) return "";
-    else return (padInt(d.getMonth())) + "/" + padInt(d.getDate()) + "/" + d.getFullYear();
+    else return (padInt(d.getMonth()+ 1)) + "/" + padInt(d.getDate()) + "/" + d.getFullYear();
 }
 
 function humanTime(d){
@@ -962,9 +973,6 @@ function initializeSidebar(display){
         });
         $('#delete').click(function(){
             deleteBet(id);
-        });
-        $('#modify').click(function(){
-            displaySubmitClaim(id);
         });
         $('#promote').click(function(){
             promoteClaim(id, true);

@@ -46,13 +46,13 @@ def getUserDomains(user):
 
 def getTopic(topicID):
     cursor = cherrypy.thread_data.db.cursor()
-    cursor.execute("SELECT owner, description, age, resolved, bounty, maxstake, currentbet, lastbettime, lastbetter, definition, closes, promoted FROM topics " + 
+    cursor.execute("SELECT owner, description, age, resolved, bounty, maxstake, currentbet, lastbettime, lastbetter, definition, closes, promoted, domain FROM topics " + 
                     "WHERE id = %s", (topicID,))
     row = cursor.fetchone()
     return dictionaryToXML('topic', {'id':topicID, 'owner':row[0],'description':row[1],
         'age':row[2], 'resolved':row[3], 'bounty':row[4], 'maxstake':row[5], 'currentbet':row[6], 
         'lastbettime':row[7], 'lastbetter':row[8], 'definition':row[9], 'closes':row[10], 
-        'promoted':row[11]})
+        'promoted':row[11], 'domain':row[12]})
 
 def getUser(username):
     cursor = cherrypy.thread_data.db.cursor()
@@ -85,7 +85,10 @@ def executeSearch(search, user=None):
             cursor.execute("SELECT domains FROM users WHERE name=%s", (user,))
             row = cursor.fetchone()
             cursor.close()
-            result += executeSearches(row[0].split(" "))
+            if row == None:
+                result += executeSearches(["promoted"]);
+            else:
+                result += executeSearches(row[0].split(" "))
     else:
         result += executeSearches([search])
     return wrapXML("search", result)
@@ -288,7 +291,7 @@ def executeSignup(username, password):
         cursor.execute("INSERT INTO users (name, password) " + 
                        "VALUES (%s, %s)", (username, password))
         cursor.close()
-        return "<signup> success </signup>"
+        return "<signup>success</signup>"
 
 class HelloWorld:
     def index(self):
@@ -360,14 +363,14 @@ class HelloWorld:
                     result += getHistory(topic)
                 if (deletebet != None):
                     deleteBet(topic)
-                if (user != None):
-                    result += getUser(user)
                 if (search != None):
                     result += executeSearch(search, user)
                 if (login != None):
                     result += executeLogin(user, password)
                 if (signup != None):
-                    result += executeSignup(username, password)
+                    result += executeSignup(user, password)
+                if (user != None):
+                    result += getUser(user)
                 if (newdomains != None):
                     result += changeUserDomains(user, newdomains,time)
                 if (alldomains != None):
@@ -376,7 +379,8 @@ class HelloWorld:
                     result += getUserDomains(user)
                 finished = True
             except MySQLdb.Error, e:
-                cherrypy.thread_data.db.close()
+                if (cherrypy.thread_data.db.open):
+                    cherrypy.thread_data.db.close()
                 cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
                 if (iterations > 5):
                     result += "<error>" + str(e) + "</error>"
