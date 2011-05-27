@@ -5,8 +5,6 @@ from datetime import datetime
 import cherrypy
 import sys
 
-
-
 def connect(thread_index):
     cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
 
@@ -21,15 +19,40 @@ def dictionaryToXML(name, toDescribe):
         result += "<" + key +">"+ str(value) + "</" + key + ">"
     return wrapXML(name, result)
 
+def getAllDomains():
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("SELECT DISTINCT domain FROM topics");
+    result = ""
+    while True:
+        row = cursor.fetchone()
+        if row == None:
+            break
+        result += wrapXML("domain", row[0])
+    cursor.close()
+    return wrapXML("alldomains", result)
+
+def getUserDomains(user):
+    if user == None: 
+        return "";
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("SELECT domains FROM users WHERE name=%s", (user,))
+    row = cursor.fetchone()
+    cursor.close()
+    result = ""
+    for domain in row[0].split(" "):
+        result += wrapXML("domain", domain)
+    cursor.close()
+    return wrapXML("userdomains", result)
 
 def getTopic(topicID):
     cursor = cherrypy.thread_data.db.cursor()
-    cursor.execute("SELECT owner, description, age, resolved, bounty, maxstake, currentbet, lastmodified, lastmodifiedby, definition, closes FROM topics " + 
+    cursor.execute("SELECT owner, description, age, resolved, bounty, maxstake, currentbet, lastbettime, lastbetter, definition, closes, promoted FROM topics " + 
                     "WHERE id = %s", (topicID,))
     row = cursor.fetchone()
     return dictionaryToXML('topic', {'id':topicID, 'owner':row[0],'description':row[1],
         'age':row[2], 'resolved':row[3], 'bounty':row[4], 'maxstake':row[5], 'currentbet':row[6], 
-        'lastbettime':row[7], 'lastbetter':row[8], 'definition':row[9], 'closes':row[10]})
+        'lastbettime':row[7], 'lastbetter':row[8], 'definition':row[9], 'closes':row[10], 
+        'promoted':row[11]})
 
 def getUser(username):
     cursor = cherrypy.thread_data.db.cursor()
@@ -50,19 +73,63 @@ def rowToTopic(row):
 def topicXML(row):
     return dictionaryToXML('topic', rowToTopic(row))
 
-def executeSearch(search):
-    cursor = cherrypy.thread_data.db.cursor()
-    cursor.execute(" SELECT * FROM topics"
-                   " WHERE domain=%s and resolved=0 "
-                   " ORDER BY age DESC", (search,))
+def executeSearch(search, user=None):
     result = "<query>%s</query>" % (search,)
+    if search=='user_default':
+        if user == None:
+            result += executeSearches(["promoted"]);
+        else:
+            cursor = cherrypy.thread_data.db.cursor()
+            cursor.execute("SELECT domains FROM users WHERE name=%s", (user,))
+            row = cursor.fetchone()
+            cursor.close()
+            result += executeSearches(row[0].split(" "))
+    else:
+        result += executeSearches([search])
+    return wrapXML("search", result)
+
+def executeSearches(searches):
+    cursor = cherrypy.thread_data.db.cursor()
+    sql = "SELECT owner, description, age, id, resolved, bounty,  maxstake, currentbet,"
+    sql += "lastbettime, lastbetter, definition, domain, closes FROM topics WHERE "
+    domains = []
+    first = True
+    for search in searches:
+        if not first:
+            sql += "or " 
+        else:
+            first = False
+        if search == 'promoted':
+            sql += "promoted=1 "
+        else:
+            sql += "domain=%s "
+            domains.append(search)
+    domains = tuple(domains)
+    sql += "ORDER BY age DESC"
+    cursor.execute(sql, domains)
+    result = ""
     while True:
         row = cursor.fetchone()
         if row == None:
             break
         result += topicXML(row)
     cursor.close()
-    return wrapXML("search", result)
+    return result
+
+def promoteClaim(topic, promoted):
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("UPDATE topics "
+                "SET promoted=%s,promotedat=CURRENT_TIMESTAMP "
+                "WHERE id=%s", (promoted,topic))
+    cursor.close()
+
+def editClaim(topic, user, bounty, maxstake, description, definition, domain, closes):
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("UPDATE topics SET bounty=%s,"+
+                   "maxstake=%s, description=%s, definition=%s,"+
+                   "domain=%s, closes=%s WHERE id=%s",
+                   (bounty, maxstake, description, definition, domain, closes, topic))
+    cursor.close()
 
 def submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes):
     cursor = cherrypy.thread_data.db.cursor()
@@ -77,7 +144,7 @@ def insertBet(user, probability, topicID):
     cursor.execute(" INSERT INTO all_bets (user, probability, topicID)"
                  + " VALUES (%s, %s, %s)", (user, probability, topicID));
     cursor.execute(" UPDATE topics "+
-                   " SET currentbet=%s, lastmodified=CURRENT_TIMESTAMP,lastmodifiedby=%s "+
+                   " SET currentbet=%s, lastbettime=CURRENT_TIMESTAMP,lastbetter=%s "+
                    " WHERE id=%s", (probability, user, topicID))
     cursor.close()
 
@@ -89,7 +156,7 @@ def makeBet(user, probability, topicID,lastbettime):
     cursor.execute("SELECT reputation FROM users WHERE name = %s", (user,))
     row = cursor.fetchone()
     reputation = row[0]
-    cursor.execute("SELECT bounty, maxstake, lastmodified FROM topics WHERE id = %s", (topicID,))
+    cursor.execute("SELECT bounty, maxstake, lastbettime FROM topics WHERE id = %s", (topicID,))
     row = cursor.fetchone()
     if row[2] != parseDate(lastbettime):
         return "<makebet><response>interveningbet</response> <usertime>%s</usertime> <servertime>%s</servertime> </makebet>" % (lastbettime, row[2]);
@@ -104,6 +171,11 @@ def makeBet(user, probability, topicID,lastbettime):
     insertBet(user, probability, topicID)
     cursor.close()
     return "<makebet><response>success</response></makebet>"
+
+def deleteBet(topicID):
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("DELETE FROM topics WHERE id=%s", (topicID,))
+    cursor.close()
 
 def resolveBet(topicID, outcome):
     cursor = cherrypy.thread_data.db.cursor()
@@ -183,6 +255,19 @@ def executeLogin(username, password):
     else:
         return "<login>success</login>";
 
+def changeUserDomains(username, newdomains, time):
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("SELECT lastmodified FROM users WHERE name=%s", (username,))
+    t1 = parseDate(time)
+    row = cursor.fetchone()
+    t2 = row[0]
+    if (t2 != None) and (t1 < t2):
+            return "<result>Outdated query</result>"
+    cursor.execute("UPDATE users SET domains=%s, lastmodified=%s WHERE name=%s", 
+                    (newdomains, time, username))
+    cursor.close()
+    return "<result>Success</result>"
+
 def executeSignup(username, password):
     cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT name FROM users " + 
@@ -228,10 +313,8 @@ class HelloWorld:
     <div>
         <ul id="navbar">
             <li><a href="#" id="recentclaimsnavbar" >Recent Claims</a></li> 
-            <!-- <li> <a onClick="loadRecentBets()" href="#" id="recentbets">Recent Bets</a> </li>
-            <li> <a onClick="loadAccount()" href="#" id="account">Account</a> </li> 
-            <li> <a onClick="searchFor('asdf')" href="#" id="search">Search</a> </li>-->
             <li> <a href="#submitclaim" id="submitclaimnavbar">Submit Claim</a> </li>
+            <li> <a href="#filters" id="filtersnavbar">Change Domains</a> </li>
         </ul>
     </div>
     <div id="sidebar">
@@ -249,33 +332,56 @@ class HelloWorld:
     def query(self, topic=None, user=None, search=None, submitclaim=None, 
             probability=None, maxstake=None, description=None, definition=None, domain=None,
             closes=None, bounty=None, lastbettime=None, resolvebet=None, outcome=None,
-            makebet=None,password=None, login=None, signup=None):
+            makebet=None,password=None, login=None, signup=None, deletebet=None,
+            editclaim=None, promoteclaim=None, alldomains=None, userdomains=None,
+            newdomains=None, time=None):
         #result = "Content-type:xml\n"
         result = ""
         result += "<body>"
         #TODO everything should catch its own errors and report status
-        try:
-            if submitclaim!=None:
-                submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes)
-            if (makebet != None):
-                result += makeBet(user, probability, topic, lastbettime)
-            if (resolvebet != None):
-                resolveBet(topic, outcome == 'true')
-            if (topic != None):
-                result += getTopic(topic)
-                result += getHistory(topic)
-            if (user != None):
-                result += getUser(user)
-            if (search != None):
-                result += executeSearch(search)
-            if (login != None):
-                result += executeLogin(user, password)
-            if (signup != None):
-                result += executeSignup(username, password)
-        except MySQLdb.Error, e:
-            result += "<error>" + str(e) + "</error>"
-            cherrypy.thread_data.db.close()
-            cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
+        finished=False
+        iterations=0
+        while not finished:
+            try:
+                if submitclaim!=None:
+                    submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes)
+                if (editclaim!=None):
+                    editClaim(topic=topic, user=user, bounty=bounty, maxstake=maxstake, description=description, definition=definition, domain=domain, closes=closes)
+                if (promoteclaim !=None):
+                    promoteClaim(topic=topic, promoted=promoteclaim)
+                if (makebet != None):
+                    result += makeBet(user, probability, topic, lastbettime)
+                if (resolvebet != None):
+                    resolveBet(topic, outcome == 'true')
+                if (topic != None):
+                    result += getTopic(topic)
+                    result += getHistory(topic)
+                if (deletebet != None):
+                    deleteBet(topic)
+                if (user != None):
+                    result += getUser(user)
+                if (search != None):
+                    result += executeSearch(search, user)
+                if (login != None):
+                    result += executeLogin(user, password)
+                if (signup != None):
+                    result += executeSignup(username, password)
+                if (newdomains != None):
+                    result += changeUserDomains(user, newdomains,time)
+                if (alldomains != None):
+                    result += getAllDomains()
+                if (userdomains != None):
+                    result += getUserDomains(user)
+                finished = True
+            except MySQLdb.Error, e:
+                cherrypy.thread_data.db.close()
+                cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
+                if (iterations > 5):
+                    result += "<error>" + str(e) + "</error>"
+                    finished=True
+                else:
+                    iterations+=1
+                    finished=False
         result += "<currenttime>" + str(datetime.now())+ "</currenttime>"
         result += "</body>"
         return result

@@ -152,6 +152,14 @@ tr.even {
     font-size: 1.5em;
 }
 
+.domainheader h1 {
+    margin-bottom:0px;
+}
+
+.domainheader {
+    margin-bottom: 35px;
+}
+
 .clear {
     clear:both;
     float:left;
@@ -216,6 +224,23 @@ h2 a:hover, h2 a:active {
     padding:10px;
     margin:10px;
     background-color:rgb(255, 200, 200);
+}
+
+.activedomain{
+    font-size: 2.5em;
+}
+
+.inactivedomain{
+    font-size: 1.5em;
+    color:gray;
+}
+
+.inactivedomain{
+}
+
+.domainholder{
+    text-align: center;
+    width: 200px;
 }
 
 .loading {
@@ -311,19 +336,15 @@ div.betdescription {
     margin:0px 5px 0px 2px;
 }
 
-#longdescription {
+#definition {
     width:500px;
 }
 
-input {
+input, textarea {
     -moz-border-radius: 4px 4px 4px 4px;
     border: 1px solid #8A8A8B;
     font: 1em Helvetica,sans-serif;
     padding: 2px;
-}
-
-textarea {
-    font:inherit;
 }
 
 table.nicebox input, table.nicebox textarea{
