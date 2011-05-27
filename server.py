@@ -60,6 +60,8 @@ def getUser(username):
                    "WHERE name = %s", (username,))
     row = cursor.fetchone()
     cursor.close()
+    if (row == None):
+        return "<user>No such user.</user>"
     return dictionaryToXML('user', {'name':username, 'reputation':row[0]});
 
 def rowToTopic(row):
