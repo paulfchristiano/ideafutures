@@ -5,8 +5,6 @@ from datetime import datetime
 import cherrypy
 import sys
 
-
-
 def connect(thread_index):
     cherrypy.thread_data.db = MySQLdb.connect("sql.mit.edu", "paulfc", "guk38qaq", "paulfc+bets")
 
@@ -33,7 +31,9 @@ def getAllDomains():
     cursor.close()
     return wrapXML("alldomains", result)
 
-def userDomains(user):
+def getUserDomains(user):
+    if user == None: 
+        return "";
     cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT domains FROM users WHERE name=%s", (user,))
     row = cursor.fetchone()
@@ -97,6 +97,8 @@ def executeSearches(searches):
     for search in searches:
         if not first:
             sql += "or " 
+        else:
+            first = False
         if search == 'promoted':
             sql += "promoted=1 "
         else:
@@ -253,6 +255,19 @@ def executeLogin(username, password):
     else:
         return "<login>success</login>";
 
+def changeUserDomains(username, newdomains, time):
+    cursor = cherrypy.thread_data.db.cursor()
+    cursor.execute("SELECT lastmodified FROM users WHERE name=%s", (username,))
+    t1 = parseDate(time)
+    row = cursor.fetchone()
+    t2 = row[0]
+    if (t2 != None) and (t1 < t2):
+            return "<result>Outdated query</result>"
+    cursor.execute("UPDATE users SET domains=%s, lastmodified=%s WHERE name=%s", 
+                    (newdomains, time, username))
+    cursor.close()
+    return "<result>Success</result>"
+
 def executeSignup(username, password):
     cursor = cherrypy.thread_data.db.cursor()
     cursor.execute("SELECT name FROM users " + 
@@ -298,10 +313,8 @@ class HelloWorld:
     <div>
         <ul id="navbar">
             <li><a href="#" id="recentclaimsnavbar" >Recent Claims</a></li> 
-            <!-- <li> <a onClick="loadRecentBets()" href="#" id="recentbets">Recent Bets</a> </li>
-            <li> <a onClick="loadAccount()" href="#" id="account">Account</a> </li> 
-            <li> <a onClick="searchFor('asdf')" href="#" id="search">Search</a> </li>-->
             <li> <a href="#submitclaim" id="submitclaimnavbar">Submit Claim</a> </li>
+            <li> <a href="#filters" id="filtersnavbar">Change Domains</a> </li>
         </ul>
     </div>
     <div id="sidebar">
@@ -320,7 +333,8 @@ class HelloWorld:
             probability=None, maxstake=None, description=None, definition=None, domain=None,
             closes=None, bounty=None, lastbettime=None, resolvebet=None, outcome=None,
             makebet=None,password=None, login=None, signup=None, deletebet=None,
-            editclaim=None, promoteclaim=None, alldomains=None, userdomains=None):
+            editclaim=None, promoteclaim=None, alldomains=None, userdomains=None,
+            newdomains=None, time=None):
         #result = "Content-type:xml\n"
         result = ""
         result += "<body>"
@@ -352,6 +366,8 @@ class HelloWorld:
                     result += executeLogin(user, password)
                 if (signup != None):
                     result += executeSignup(username, password)
+                if (newdomains != None):
+                    result += changeUserDomains(user, newdomains,time)
                 if (alldomains != None):
                     result += getAllDomains()
                 if (userdomains != None):

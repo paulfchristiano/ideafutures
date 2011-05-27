@@ -17,7 +17,7 @@ var display;
 var queuedAlert = "";
 var activeLink = "";
 var defaultDisplay = { 'type':'search', 'search':'user_default' }
-var activeDomains = {};
+var isActiveDomain = {};
 
 function fragmentDisplay(){
     return parseDisplay($.param.fragment());
@@ -29,14 +29,14 @@ function parseDisplay(x){
         return defaultDisplay;
     } else{
         parts  = (x).split("+");
-        result['type'] == parts[0];
+        result['type'] = parts[0];
         if (parts[0] == 'search'){
             result['search'] = parts[1];
         } else if (parts[0] == 'displayclaim'){
             result['claim'] = parseInt(parts[1]);
         } 
+        return result;
     } 
-    return result;
 }
 
 function getData(display){
@@ -56,7 +56,13 @@ function getData(display){
             attemptUpdateDisplay(display);
         });
     } else if (display['type'] == 'filters'){
-        serverQuery({'alldomains':1, 'userdomains':1});
+        serverQuery({'alldomains':1, 'userdomains':1}, function(){
+            attemptUpdateDisplay(display);
+        });
+    } else if(display['type'] == 'submitclaim') {
+        serverQuery({'alldomains':1}, function(){
+            attemptUpdateDisplay(display);
+        });
     } else {
         serverQuery({'search':'user_default'}, function(){
             attemptUpdateDisplay(display);
@@ -104,7 +110,9 @@ function readyToDisplay(newDisplay){
     } else if (newDisplay['type']=='search'){
         return (cacheContainsSearch(newDisplay['search']));
     }  else if (newDisplay['type']=='filters'){
-        return (cacheContains('alldomains') && cacheContains('userdomains'))
+        return (cacheContains('alldomains') && cacheContains('userdomains'));
+    } else if (newDisplay['type']=='submitclaim'){
+        return (cacheContains('alldomains'));
     }
     return true;
 }
@@ -126,7 +134,6 @@ function updateDisplay(newDisplay){
     if (newDisplay['type'] == 'displayclaim'){
         newSidebar += betSidebarBlock(id);
     }
-    newSidebar += domainSidebarBlock();
     if (newDisplay['type'] == 'displayclaim' && owner(id)){
         newSidebar += ownerSidebarBlock();
     }
@@ -219,6 +226,7 @@ function submitClaimBox(id){
     result += "<div class='row'> Market closes (optional):";
     result += "<input type='text' id='closedate'></input>";
     result += "<input type='text' id='closetime'></input> </div>";
+    result += "<div class='row'> <select id='domain'> </select> </div>"
     result += "<div class='row'> <a class='orange' id='submitclaimbutton'> Submit Claim </a> </div>";
     result += "<div class='error row' id='submitclaimerror'> </div>";
     result += "</div>";
@@ -240,13 +248,13 @@ function serverQuery(query, f){
         });
         alldomains = []
         $(xml).find('alldomains').find('domain').each(function(){
-            alldomains.push(this.text());
+            alldomains.push($(this).text());
         });
         if (alldomains.length > 0)
             cache['alldomains'] = alldomains;
         userdomains = []
         $(xml).find('userdomains').find('domain').each(function(){
-            userdomains.push(this.text());
+            userdomains.push($(this).text());
         });
         if (userdomains.length > 0)
             cache['userdomains'] = userdomains;
@@ -295,6 +303,10 @@ function initializeSubmitClaim(id){
     $('#closetime').timepicker({});
     $('#closedate').val(closedate);
     $('#closedate').datepicker({});
+    for (i = 0; i < cache['alldomains'].length; i++){
+        domain = cache['alldomains'][i];
+        $('#domain').append("<option value='"+domain+"'>"+domain+"</option>");
+    }
 }
 
 function parseDate(strDate){
@@ -316,6 +328,7 @@ function submitClaim(id){
     maxstake = $('#maxstake').val();
     description = $('#description').val();
     definition = $('#definition').val();
+    domain = $('#domain').val();
     closes = parseDateTime($('#closedate').val(), $('#closetime').val());
     falseRisk = bounty*Math.log(proposedEstimate);
     trueRisk = bounty*Math.log(1 - proposedEstimate);
@@ -333,8 +346,9 @@ function submitClaim(id){
         }else{
             claimError("");
             submitted = true;
-            serverQuery({   submitclaim:1, user:user, probability:proposedEstimate,maxstake:maxstake, description:description, bounty:bounty, 
-                            definition:definition, domain:domain, closes:serverDate(closes) },
+            serverQuery({   submitclaim:1, user:user, probability:proposedEstimate,
+                maxstake:maxstake, description:description, bounty:bounty, domain:domain,
+                definition:definition, domain:domain, closes:serverDate(closes) },
             function(xml){
                 setDisplay(defaultDisplay);
             });
@@ -343,7 +357,7 @@ function submitClaim(id){
         submitted = true;
         serverQuery({ editclaim:1, user:user, maxstake:maxstake, description:description, 
           bounty:bounty, definition:definition, domain:domain, closes:serverDate(closes), 
-          topic:id  },
+          topic:id, domain:domain  },
             function(xml){
                 setDisplay(defaultDisplay);
             });
@@ -439,17 +453,22 @@ function topicBox(id){
 }
 
 function displayFilters(){
-    alldomains = cache['alldomains'];
+    alldomains = cache['alldomains'].slice();
+    alldomains.unshift("promoted");
     for (i = 0; i < alldomains.length; i++){
         isActiveDomain[alldomains[i]] = 0;
     }
     for (i = 0; i < cache['userdomains'].length; i++){
         isActiveDomain[cache['userdomains'][i]] = 1;
     }
-    newMainFrame = "";
+    newMainFrame = "<div class='domainheader'> <h1> Change Domains. </h1>";
+    newMainFrame += "<div class='row'> Choose which domains to display by default, ";
+    newMainFrame += "or view recent claims within a domain.</div> </div>";
+    newMainFrame += "<div>";
     for (i = 0; i < alldomains.length; i++){
         newMainFrame += domainPicker(alldomains[i]);
     }
+    newMainFrame += "</div>";
     $('#mainframe').html(newMainFrame);
     for (i = 0; i < alldomains.length; i++){
         $('#domain' + alldomains[i]).click(prepareDomainToggler(alldomains[i]));
@@ -457,18 +476,44 @@ function displayFilters(){
 }
 
 function prepareDomainToggler(domain){
-    oldstate = isActiveDomain[domain];
-    newstate = 1 - oldstate;
-    isActiveDomain[domain] = newstate;
-    if (newstate){
-        $('#domain' + domain).addClass("activedomain");
-    } else {
-        $('#domain' + domain).removeClass("activedomain");
+    return function(){
+        oldstate = isActiveDomain[domain];
+        newstate = 1 - oldstate;
+        isActiveDomain[domain] = newstate;
+            serverQuery({'newdomains':userDomains(isActiveDomain), 
+                         'time':serverDate(new Date())});
+        if (newstate){
+            $('#domain' + domain).css("color","rgb(235,143,0)");
+            $('#domain' + domain).animate({"font-size":"2.5em", "paddingTop":"0em",
+                                           "paddingTop":"0em"},200);
+        } else {
+            $('#domain' + domain).css("color","gray");
+            $('#domain' + domain).animate({"font-size":"1.5em", "paddingBottom":"0.5em",
+                                           "paddingTop":"0.5em"}, 200);
+            //$('#domain' + domain).removeClass("activedomain");
+        }
     }
 }
 
+function userDomains(map){
+    result = "";
+    first = true;
+    for (x in map){
+        if (map[x] == 1){
+            if (!first) result += " ";
+            first = false;
+            result += x;
+        }
+    }
+    return result;
+}
+
 function domainPicker(domain){
-    return "<div class='row'><a>" + domain + "</a></div>";
+    c = (isActiveDomain[domain] == 1)?"activedomain":'inactivedomain';
+    result = "<div class='row'> <div class='left domainholder'><a id='domain"+domain+"' class='"+c+"'>";
+    result += domain + "</a></div> <div class='right'> <a href='#search+"+domain+"'>";
+    result += "(view " +domain+")</a></div> </div>";
+    return result;
 }
 
 function displayClaims(results){
@@ -804,7 +849,7 @@ function login(username, password){
                 userstate['password'] = password;
                 saveState();
                 loggedIn = true;
-                attemptUpdateDisplay(fragmentDisplay());
+                changeDisplay(fragmentDisplay());
             } else if (result == 'nosuchuser'){
                 loginError('No such user.');
             } else if (result == 'wrongpassword'){
@@ -825,7 +870,7 @@ function signup(username, password){
                 clearAlert();
                 user = $(xml).find('user').find('name').text();
                 loggedIn=true;
-                updateDisplay(currentDisplay);
+                changeDisplay(fragmentDisplay());
             } else if (result == 'usernametaken'){
                 loginError('That username is taken.');
             } else if (result == 'shortusername'){
@@ -880,15 +925,6 @@ function loginSidebarBlock(){
     return result;
 }
 
-function domainSidebarBlock(){
-    result = "<div class='sidebarblock'> ";
-    result += "<div class='row'> Choose a domain: </div>";
-    // xxx make this just a little more elegant, unless domains get scrapped really soon
-    result += "<div class='row'> <select id='selectdomain'> <option>Public</opion><option>Test</option><option>Taskforce</option> <option>promoted</option> </select> </div>";
-    result += "</div>";
-    return result;
-}
-
 function betSidebarBlock(id){
     claim = cachedClaims[id];
     result = "<div class='sidebarblock'>";
@@ -899,42 +935,6 @@ function betSidebarBlock(id){
     }
     result += "</div>";
     return result;
-}
-
-function loadSidebar(){
-    newSidebar = "";
-    if  (loggedIn){
-        newSidebar += "<div class='sidebarblock'> ";
-        newSidebar += "<div class='row'> You are logged in as " + user + "</div> ";
-        newSidebar += "<div class='row'> You reputation is " + displayReputation(reputation) + "</div> ";
-        newSidebar += "<div class='row'> <input type='submit' class='left' value='Log Out' id='logoutbutton'></input></div> ";
-        newSidebar += "</div>";
-    } else{
-        newSidebar += "<div class='sidebarblock'> ";
-        newSidebar += "<div class='row'>Username:</div> ";
-        newSidebar += "<div class='row'> <input type='text' id='usernameinput'></input> </div>";
-        newSidebar += "<div class='row'>Password:</div> ";
-        newSidebar += "<div class='row'> <input type='password' id='passwordinput'></input> </div>";
-        newSidebar += "<div class='row'> <input type='submit' class='left' value='Log In' id='loginbutton'></intput>";
-        newSidebar += "<input type='submit' class='right' value='Sign Up' id='signupbutton'></intput> </div>";
-        newSidebar += "<div class='row'> <span class='error' id='loginerror'></span></div>";
-        newSidebar += "</div>";
-    }
-    if (display=='topic'){
-        newSidebar += "<div class='sidebarblock'>";
-        newSidebar += "<div class='row'> Multiplier is " + currentClaim['bounty'] + "</div>";
-        if (loggedIn){
-            newSidebar += "<div class='row'> Max risk is " + displayReputation(currentClaim['maxstake']) + " * ";
-            newSidebar += displayReputation(reputation) + " = " + displayReputation(currentClaim['maxstake']* reputation) + "</div>";
-        }
-        newSidebar += "</div>";
-    }
-    if (loggedIn){
-        newSidebar += "<div class='sidebarblock'> ";
-        newSidebar += "<div class='row'> Choose a domain: </div>";
-        newSidebar += "<div class='row'> <select id='selectdomain'> <option>Public</opion><option>Test</option><option>Taskforce</option> </select> </div>";
-        newSidebar += "</div>";
-    }
 }
 
 function initializeSidebar(display){
@@ -973,15 +973,6 @@ function initializeSidebar(display){
             promoteClaim(id, false);
         });
     }
-    $('#selectdomain').val(domain);
-    $('#selectdomain').change(function(){
-        domain = $('#selectdomain').val();
-        userstate['domain'] = domain;
-        saveState();
-        if (currentDisplay['type'] == 'search'){
-            changeDisplay(currentDisplay);
-        } 
-    });
 }
 
 function setDisplay(display){
@@ -1019,7 +1010,6 @@ function restoreState(){
         if ($.cookie('userstate') != null)
             userstate = eval($.cookie('userstate'));
         if ('password' in userstate) login(userstate['username'], userstate['password']);
-        if ('domain' in userstate) domain=userstate['domain'];
 }
 
 function setActiveLink(name){
