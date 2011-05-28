@@ -114,6 +114,7 @@ function readyToDisplay(newDisplay){
     }  else if (newDisplay['type']=='filters'){
         return (cacheContains('alldomains') && cacheContains('userdomains'));
     } else if (newDisplay['type']=='submitclaim'){
+        if ('claim' in newDisplay && !cacheContainsClaim(newDisplay['claim']));
         return (cacheContains('alldomains'));
     }
     return true;
@@ -284,7 +285,7 @@ function serverQuery(query, f){
 
 function initializeSubmitClaim(id){
     submitted = false;
-    claim = (typeof(id)=='undefined') ? 
+    claim = (typeof(id)=='undefined' || isNaN(id)) ? 
         { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
           'bounty':1.0, 'closes':null, 'domain':'general'} : cachedClaims[id];
     closedate = humanDate(claim['closes']);
