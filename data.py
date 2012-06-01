@@ -1,14 +1,9 @@
-#!/usr/bin/python
-import cherrypy
-from datetime import datetime
-from math import log
 import pymongo
 from pymongo.objectid import ObjectId
 
 db = pymongo.Connection("localhost").test
 
-# Class required to define class-level properties. (I heard you liked
-# properties, so I subclassed your property to create a class property class).
+# Class required to define class-level properties.
 #
 # Usage: before a class property, add both the @classproperty and @classmethod
 # decorators, in that order. This method overrides @classmethod's __get__.
@@ -19,7 +14,7 @@ class classproperty(property):
 # Returns a field:value mapping given a tuple of fields and values data. The
 # values may be pased in as a dictionary, list, or tuple. If 'values' is a
 # dictionary it should have 'fields' as a subset of its keys; if it is a list or
-# tuple, it should be the same length as 'fields'. Throws an error if these 
+# tuple, it should be the same length as 'fields'. Throws an error if these
 # conditions are not satisfied.
 def convert_to_dict(fields, values):
   if type(values) == dict:
@@ -47,13 +42,13 @@ class Data(object):
   num_key_fields = int()
   has_key_properties = False
 
-  # Returns a generator expression for just the key fields of this object.
+  # Returns a tuple containing the key fields of this object.
   @classproperty
   @classmethod
   def keys(cls):
     return cls.fields[:cls.num_key_fields]
 
-  # Returns the tuple of attributes corresponding to each field of this class.
+  # Returns a tuple of attributes corresponding to each field of this class.
   # Key fields are appended with '_', while value fields are not. The result
   # is cached for all Data objects of the same type.
   @classproperty
@@ -65,7 +60,7 @@ class Data(object):
           tuple(field for field in cls.fields[cls.num_key_fields:])
     return cls.internal_fields_
 
-  # Returns a generator expression for the internal key fields of this object. 
+  # Returns a tuple for the internal key fields of this object.
   @classproperty
   @classmethod
   def internal_keys(cls):
