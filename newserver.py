@@ -1,20 +1,40 @@
 #!/usr/bin/python
 import cherrypy
+from data import Data
 from datetime import datetime
 from math import log
 
+class User(Data):
+  collection = 'users'
+  fields = ('name', 'passwordhash')
+  num_key_fields = 1
+
+# Wraps a dictionary in HTML-style tags to return it to the user.
+def wrap(result):
+  return '<body>%s</body>' % (''.join('<%s>%s</%s>' % (key, value, key) \
+      for key, value in result.items()),)
+
+def get_user(name):
+  return {'name':name}
+
 class IdeaFuturesServer:
   @cherrypy.expose 
-  def query(self, topic=None, user=None, search=None, submitclaim=None, 
-      probability=None, maxstake=None, description=None, definition=None,
-      domain=None, closes=None, bounty=None, lastbettime=None, resolvebet=None,
-      outcome=None, makebet=None, password=None, login=None, signup=None,
-      deletebet=None, editclaim=None, promoteclaim=None, alldomains=None,
-      userdomains=None, newdomains=None, time=None):
-    result = ""
-    result += "<body>"
-
+  def query(self, user=None):
+    result = {}
     try:
+      if user is not None:
+        result = get_user(user)
+    except Exception, e:
+      result = {'error': str(e)}
+    result['currenttime'] = str(datetime.now())
+    return wrap(result)
+
+cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
+
+#      if (deletebet != None):
+#        deleteBet(topic)
+#      if (search != None):
+#        result += executeSearch(search, user)
 #      if submitclaim!=None:
 #        submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes)
 #      if (editclaim!=None):
@@ -25,30 +45,10 @@ class IdeaFuturesServer:
 #        result += makeBet(user, probability, topic, lastbettime)
 #      if (resolvebet != None):
 #        resolveBet(topic, outcome == 'true')
-#      if (topic != None):
-#        result += getTopic(topic)
-#        result += getHistory(topic)
-#      if (deletebet != None):
-#        deleteBet(topic)
-#      if (search != None):
-#        result += executeSearch(search, user)
 #      if (login != None):
 #        result += executeLogin(user, password)
 #      if (signup != None):
 #        result += executeSignup(user, password)
-#      if (user != None):
-#        result += getUser(user)
 #      if (newdomains != None):
 #        result += changeUserDomains(user, newdomains,time)
-#      if (alldomains != None):
-#        result += getAllDomains()
-#      if (userdomains != None):
-#        result += getUserDomains(user)
-    except Exception, e:
-      result += "<error>%s</error>" % (e,)
 
-    result += "<currenttime>" + str(datetime.now())+ "</currenttime>"
-    result += "</body>"
-    return result
-
-cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")

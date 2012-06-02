@@ -1,7 +1,7 @@
 import pymongo
 from pymongo.objectid import ObjectId
 
-db = pymongo.Connection("localhost").test
+db = pymongo.Connection('localhost').test
 
 # Class required to define class-level properties.
 #
@@ -120,12 +120,8 @@ class Data(object):
       assert(db[self.collection].find_one(keys_dict) is None)
       self.id_ = db[self.collection].insert(values_dict)
 
+# Examples of usage.
 class TestData(Data):
   collection = 'testdata'
   fields = ('key1', 'value1')
   num_key_fields = 1
-
-class User(Data):
-  collection = 'testdata'
-  fields = ('name', 'sex', 'age')
-  num_key_fields = 2
