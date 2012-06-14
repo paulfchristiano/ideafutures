@@ -6,28 +6,74 @@ from math import log
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'passwordhash')
+  fields = ('name', 'password', 'reputation')
   num_key_fields = 1
 
 # Wraps a dictionary in HTML-style tags to return it to the user.
-def wrap(result):
+def wrap(results):
   return '<body>%s</body>' % (''.join('<%s>%s</%s>' % (key, value, key) \
-      for key, value in result.items()),)
+      for key, value in results),)
 
-def get_user(name):
-  return {'name':name}
+# An invalid query error returned by the server if queried incorrectly.
+invalid_query_error = ('error', \
+    'One or more fields of the query were missing or incorrectly formatted.')
+
+# Methods for answering server queries.
+# Each of these methods should return a list of (key, value) result pairs.
+# The elements of these pairs should be strings.
+def login_query(name, password):
+  if name is None or password is None:
+    return [invalid_query_error]
+  user = User.get(name)
+  if user is None:
+    return [('login', 'nosuchuser')]
+  elif user.password != password:
+    return [('login', 'wrongpassword')]
+  else:
+    return [('login', 'success'), ('reputation', user.reputation)]
+
+def signup_post(name, password):
+  if name is None or password is None:
+    return [invalid_query_error]
+  elif len(name) < 3:
+    return [('signup', 'shortusername')]
+  elif len(password) < 3:
+    return [('signup', 'shortpassword')]
+  user = User.get(name)
+  if user is not None:
+    return [('signup', 'usernametaken')]
+  else:
+    # Create a new user with a reputation of 1.0.
+    user = User((name, password, 1.0))
+    user.save()
+    return [('signup', 'success'), ('reputation', 1.0)]
 
 class IdeaFuturesServer:
-  @cherrypy.expose 
-  def query(self, user=None):
-    result = {}
+  # These calls only request data from the server; they never change its state.
+  # Multiple queries may be requested in a single message.
+  @cherrypy.expose
+  def query(self, login=None, name=None, password=None):
+    results = []
     try:
-      if user is not None:
-        result = get_user(user)
+      if login is not None:
+        results.extend(login_query(name, password))
     except Exception, e:
-      result = {'error': str(e)}
-    result['currenttime'] = str(datetime.now())
-    return wrap(result)
+      results.append(('error', str(e)))
+    results.append(('currenttime', str(datetime.now())))
+    return wrap(results)
+
+  # These calls may change state at the server.
+  # Only one update is allowed per message.
+  @cherrypy.expose
+  def update(self, signup=None, name=None, password=None):
+    results = []
+    try:
+      if signup is not None:
+        results.extend(signup_post(name, password))
+    except Exception, e:
+      results.append(('error', str(e)))
+    results.append(('currenttime', str(datetime.now())))
+    return wrap(results)
 
 cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
 
@@ -51,4 +97,3 @@ cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
 #        result += executeSignup(user, password)
 #      if (newdomains != None):
 #        result += changeUserDomains(user, newdomains,time)
-

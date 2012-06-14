@@ -91,6 +91,8 @@ class Data(object):
   def get(cls, keys=None, id=None):
     assert((id is not None) + (keys is not None)) == 1
     if keys is not None:
+      if type(keys) not in (list, tuple):
+        keys = (keys,)
       keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
       values = db[cls.collection].find_one(keys_dict)
     else:

@@ -1,17 +1,22 @@
 // A display state is a dict mapping 'type' to one of 'listclaims',
-// 'displayclaim', 'submitclaim' or 'listfilters'.
+// 'displayclaim', 'submitclaim' or 'listdomains'.
 // It can also contain additional information about the current state.
-var DEFAULT_DISPLAY = {'type':'listclaims', 'filter':'user_default'}
+var DEFAULT_DISPLAY = {'type':'listclaims', 'search':'user_default'};
 
-// The user is a dict which maps 'name' the the username and which maps
-// 'password' to the user's password. These values are not null if and
-// only if the user is logged in.
+// The user is a dict which stores a 'name', 'password', and 'reputation'.
+// These values are not null if and only if the user is logged in.
 // TODO: Replace user passwords with MD5 hashes or the equivalent.
-var user = {'name':null, 'password':null};
-function loggedIn() {return user.name != null};
+function newUser() {
+  return {'name':null, 'password':null, 'reputation':null};
+}
+var user = newUser();
+function loggedIn() {
+  return user.name != null
+}
 
-var cachedSearches = {};
+var currentTime = Date();
 var cachedClaims = {};
+var cachedSearches = {};
 var cache = {};
 
 /* -------------------------------------------------------------------------- *
@@ -22,11 +27,13 @@ var cache = {};
 function saveUserState() {
   $.cookie('name', user.name);
   $.cookie('password', user.password);
+  $.cookie('reputation', user.reputation);
 }
 
 function restoreUserState() {
   user.name = $.cookie('name');
   user.password = $.cookie('password');
+  user.reputation = parseFloat($.cookie('reputation'));
   if (user.name != null) {
     login(user.name, user.password);
   }
@@ -58,10 +65,10 @@ function getDisplayState() {
     params  = paramFragment.split("+");
     state.type = params[0];
     if (state.type == 'listclaims') {
-      state.filter = params[1];
+      state.search = params[1];
     } else if (state.type  == 'displayclaim' || state.type == 'submitclaim') {
       state.id = parseInt(params[1]);
-    } else if (state.type != 'listfilters') {
+    } else if (state.type != 'listdomains') {
       // Unknown state type. Show the home page.
       state = DEFAULT_DISPLAY;
     }
@@ -82,12 +89,16 @@ function updateDisplay(displayState) {
   if (displayState.type == 'submitclaim' && !loggedIn()) {
     setAlert("You must be logged in to submit a claim.");
     displayState = DEFAULT_DISPLAY;
-  } else if (displayState.type == 'listfilters' && !loggedIn()) {
-    setAlert("You must be logged in to adjust filters.");
+  } else if (displayState.type == 'listdomains' && !loggedIn()) {
+    setAlert("You must be logged in to adjust domains.");
     displayState = DEFAULT_DISPLAY;
   }
 
   updateActiveLink(displayState.type);
+
+  newSidebar = loginSidebarBlock();
+  $('#sidebar').html(newSidebar);
+  setSidebarInputHandlers(displayState);
 
   if (isCached(displayState)) {
     // Draw the sidebar.
@@ -104,7 +115,7 @@ function updateDisplay(displayState) {
 
     // Draw the main frame.
     if (displayState.type == 'listclaims') {
-      drawClaims(cachedSearches[displayState.filter]);
+      drawClaims(cachedSearches[displayState.search]);
     } else if (displayState.type == 'displayclaim') {
       drawClaim(cachedClaims[displayState.id]);
     } else if (displayState.type == 'submitclaim') {
@@ -113,7 +124,7 @@ function updateDisplay(displayState) {
       } else {
         drawSubmitClaim();
       }
-    } else if (displayState.type == 'listfilters') {
+    } else if (displayState.type == 'listdomains') {
       drawFilters();
     }
 
@@ -152,23 +163,23 @@ function updateActiveLink(displayType) {
   }
 
   $('#filtersnavbar').removeClass('activeLink');
-  if (displayType == 'listfilters') {
+  if (displayType == 'listdomains') {
     $('#filtersnavbar').addClass('activeLink');
   }
 }
 
 function isCached(displayState) {
   if (displayState.type == 'listclaims') {
-    return displayState.filter in cachedSearches;
+    return displayState.search in cachedSearches;
   } else if (displayState.type == 'displayclaim') {
     return displayState.id in cachedClaims;
-  } else if (displayState.type == 'listfilters') {
+  } else if (displayState.type == 'listdomains') {
     return 'alldomains' in cache && 'userdomains' in cache;
   }
   return true;
 }
 
-function drawReputation(reputation){
+function drawReputation(reputation) {
   return reputation.toFixed(2);
 }
 
@@ -248,13 +259,13 @@ function setSidebarInputHandlers(displayState) {
 function drawClaims(results) {
   mainFrame = "";
   for (i = 0; i < results.length; i++){
-    mainFrame += topicBox(cachedClaims[results[i]]);
+    mainFrame += topicBox(results[i]);
   }
   $('#mainframe').html(mainFrame);
 
   for (i = 0; i < results.length; i++){
-    $('#displaybutton' + results[i]).click(prepareLoader(results[i]));
-    $('#displaytitle' + results[i]).click(prepareLoader(results[i]));
+    $('#displaybutton' + results[i].id).click(prepareLoader(results[i].id));
+    $('#displaytitle' + results[i].id).click(prepareLoader(results[i].id));
   }
 }
 
@@ -279,8 +290,8 @@ function topicBox(claim) {
   return result;
 }
 
-function drawBet(x) {
-  return (100*x).toFixed(0);
+function drawBet(p) {
+  return (100*p).toFixed(0);
 }
 
 function drawDate(d) {
@@ -309,9 +320,9 @@ function drawDate(d) {
   return "<span title='" + d + "'>"+result +"</span>";
 }
 
-function prepareLoader(x) {
+function prepareLoader(id) {
   return function(){
-    $('#betloader' + x).css("visibility", "visible"); 
+    $('#betloader' + id).css("visibility", "visible");
    }
 }
 
@@ -349,7 +360,7 @@ function betBox(claim) {
   result += "<table>";
   result += "<tr><td colspan='2'>Current Consensus:</td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
-  result += "<td><div id='oldbettext'>" + drawBet(claim['currentbet']) +  "%</div></td></tr>";
+  result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "%</div></td></tr>";
   result += "<tr><td colspan='2'>Your Update:</td></tr>"
   result += "<tr><td><div id='newbet' class='betslider'></div></td>";
   result += "<td><div class='betvalue'> <input type='text' id='betinput'></input>%</div></td></tr>";
@@ -396,9 +407,9 @@ function historyBox(claim) {
   history = claim.history;
   for (i = history.length - 1; i >= history.length - 10 && i >= 0; i--) {
     result += (i % 2) ? "<tr class='odd'>" : "<tr class='even'>";
-    result += "<td>" + drawBet(history[i]['probability']) +" %</td>";
-    result += "<td>"  + history[i]['user'] + "</td>";
-    result += "<td>"  + drawDate(history[i]['time']) + "</td></tr>"
+    result += "<td>" + drawBet(history[i].probability) +" %</td>";
+    result += "<td>"  + history[i].user + "</td>";
+    result += "<td>"  + drawDate(history[i].time) + "</td></tr>"
   }
 
   result += "</table>";
@@ -460,55 +471,193 @@ function setClaimInputHandlers(claim) {
 }
 
 /* -------------------------------------------------------------------------- *
- * Unused code begins here!                                                   *
+ * Code for communicating with the server begins here!                        *
  * -------------------------------------------------------------------------- */
 
-function getDisplayData(display){
-  if (display['type'] == 'displayclaim'){
-    id = display.id;
-    serverQuery({'topic':id,}, function(){
-      updateDisplay(display);
-      // TODO: Figure out what the hell this does.
-      return false;
+// TODO: Make the return calls to updateDisplay run through another function
+// that checks that the user has not moved to a new page by the time the AJAX
+// call returns. Without this check, the user could make a request, then make
+// another request, and he would be "bounced back" to an old page when the first
+// request returns.
+function getDisplayData(displayState) {
+  returnCall = function() {
+    updateDisplay(displayState);
+  };
 
-      proposedHistory = new Array();
-      h = cachedClaims[parseInt(id)]['history'];
-      for (i = 0; i < h.length; i++){
-        proposedHistory.push(h[i]);
+  if (displayState.type == 'listclaims') {
+    queryServer({'search':displayState.search}, returnCall);
+  } else if (displayState.type == 'displayclaim'){
+    queryServer({'topic':id,}, returnCall);
+  } else if (displayState.type == 'submitclaim') {
+    queryServer({'alldomains':1}, returnCall);
+  } else if (displayState.type == 'listdomains') {
+    queryServer({'alldomains':1, 'userdomains':1}, returnCall);
+  }
+}
+
+function queryServer(query, returnCall) {
+  pingServer(query, 'query', returnCall);
+}
+
+function updateServer(update, returnCall) {
+  pingServer(update, 'update', returnCall);
+}
+
+function pingServer(query, queryType, returnCall) {
+  // Sanitize the query by setting the return call and then automatically
+  // supplying the user's name and password if these values are not null.
+  if (typeof(f) == 'undefined') {
+    f = function() {};
+  }
+  if (!('name' in query) && user.name != null) {
+    query['name'] = user.name;
+    query['password'] = user.password;
+  }
+
+  console.debug(query);
+  if (!('login' in query) && !('signup' in query))
+    return;
+
+  // Use a GET to do 'query' requests and a POST to do 'update's.
+  request = $.get;
+  if (queryType == 'update') {
+    request = $.post;
+  }
+
+  request(queryType, query, function(xml) {
+    console.debug(xml);
+    autoParseXML(xml);
+    returnCall(xml);
+  }, "xml");
+}
+
+// Take in XML information returned by the server and cache any time,
+// reputation, claim, search, or domain information.
+function autoParseXML(xml) {
+  // All server return calls should contain a 'currenttime' field.
+  // TODO: It might be better not to update the cache if this packet has an
+  // earlier date than the last processed packet. I'm not sure if this scenario
+  // actually happens often, though.
+  currentTime = parseDate($(xml).find('currenttime').text());
+
+  // Read the user's reputation, if it is in the XML. Set it if it is.
+  newReputation = parseFloat($(xml).find('reputation').text());
+  if (!isNaN(newReputation)) {
+    user.reputation = newReputation;
+  }
+
+  // Cache any claims, searches, and lists of domains found in the XML.
+  $(xml).find('claim').each(function() {
+    claim = parseClaimFromXML(this);
+    cachedClaims[claim.id] = claim;
+  });
+
+  $(xml).find('search').each(function() {
+    result = [];
+    $(this).find('id').each(function() {
+      id = parseInt($(this).text());
+      if (id in cachedClaims) {
+        result.push(cachedClaims[id]);
       }
-      proposedHistory.push({'user':user, 'time':currentTime});
     });
-  } else if (display['type']=='search'){
-    serverQuery({'search':display['search']}, function(){
-      updateDisplay(display);
+    // Only cache the search if all of the relevant claims have been cached.
+    if (result.length == $(this).find('id').length) {
+      cachedSearch[$(this).find('query').text()] = result;
+    }
+  });
+
+  if ($(xml).find('alldomains').length > 0) {
+    alldomains = [];
+    $(xml).find('alldomains').find('domain').each(function() {
+      alldomains.push($(this).text());
     });
-  } else if (display['type'] == 'filters'){
-    serverQuery({'alldomains':1, 'userdomains':1}, function(){
-      updateDisplay(display);
+    cache.alldomains = alldomains;
+  }
+
+  if ($(xml).find('userdomains').length > 0) {
+    userdomains = [];
+    $(xml).find('userdomains').find('domain').each(function() {
+      userdomains.push($(this).text());
     });
-  } else if(display['type'] == 'submitclaim') {
-    serverQuery({'alldomains':1}, function(){
-      updateDisplay(display);
-    });
-  } else {
-    serverQuery({'search':'user_default'}, function(){
-      updateDisplay(display);
-    });
+    cache.userdomains = userdomains;
   }
 }
 
-function attemptUpdateDisplay(newDisplay){
-  if (newDisplay['type'] == 'submitclaim' && !loggedIn){
-    setAlert("You must be logged in to submit a claim.");
-    changeDisplay(defaultDisplay);
-  } else if (newDisplay['type'] == 'filters' && !loggedIn){
-    setAlert("You must be logged in to adjust filters.");
-    changeDisplay(defaultDisplay);
-  } else if (readyToDisplay(newDisplay)){
-    currentDisplay = newDisplay;
-    updateDisplay(newDisplay);
-  }
+// Returns a claim object, with all the relevant fields (listed below) set.
+function parseClaimFromXML(xml) {
+  result = {};
+
+  result.id = parseInt($(xml).find('id').text());
+  result.age = parseDate($(xml).find('age').text());
+  result.bounty = parseFloat($(xml).find('bounty').text());
+  result.closes = parseDate($(xml).find('closes').text());
+  result.currentbet = parseFloat($(xml).find('currentbet').text());
+  result.description = $(xml).find('description').text();
+  result.domain = $(xml).find('domain').text();
+  result.lastbetter = $(xml).find('lastbetter').text();
+  result.lastbettime = parseDate($(xml).find('lastbettime').text());
+  result.owner = $(xml).find('owner').text();
+  result.maxstake = parseFloat($(xml).find('maxstake').text());
+  result.promoted = ($(xml).find('promoted').text() == '1');
+
+  definition = $(xml).find('definition').text();
+  result.definition = (definition == 'none' || definition == '0') ? null : definition;
+
+  return result;
 }
+
+/* -------------------------------------------------------------------------- *
+ * Logic code begins here!                                                    *
+ * -------------------------------------------------------------------------- */
+
+function login(name, password){
+  queryServer({'login':1, 'name':name, 'password':password},
+    function(xml) {
+      result = $(xml).find('login').text();
+      if (result == 'success') {
+        user.name = name;
+        user.password = password;
+        saveUserState();
+        $(window).trigger('hashchange');
+      } else if (result == 'nosuchuser') {
+        setLoginError('No such user.');
+      } else if (result == 'wrongpassword') {
+        setLoginError('Incorrect password.');
+      }
+    }
+  );
+}
+
+function signup(name, password){
+  updateServer({'signup':1, 'name':name, 'password':password},
+    function(xml){
+      result = $(xml).find('signup').text();
+      if (result == 'success') {
+        user.name = name;
+        user.password = password;
+        saveUserState();
+        $(window).trigger('hashchange');
+      } else if (result == 'usernametaken') {
+        setLoginError('That username is taken.');
+      } else if (result == 'shortusername') {
+        setLoginError('Enter a username and password above.\nYour username must be at least 3 characters.');
+      } else if (result == 'shortpassword') {
+        setLoginError('Your password must be at least 3 characters.');
+      }
+    }
+  );
+}
+
+function logout() {
+  user = newUser();
+  delete cache.userdomains;
+  saveUserState();
+  $(window).trigger('hashchange');
+}
+
+/* -------------------------------------------------------------------------- *
+ * Unedited code begins here!                                                 *
+ * -------------------------------------------------------------------------- */
 
 function cacheSearch(search, result){
   dirty = false;
@@ -528,12 +677,6 @@ function cacheSearch(search, result){
   }
   cachedSearches[search] = result;
   return dirty;
-}
-
-function cacheClaim(claim){
-  id = claim['id'];
-  cachedClaims[id] = claim;
-  dirtyClaim(id);
 }
 
 function changed(display1, display2){
@@ -571,54 +714,9 @@ function submitClaimBox(id){
   return result;
 }
 
-function serverQuery(query, f){
-  if (typeof(f) == 'undefined') {
-    f = function() {};
-  }
-  if (!('user' in query)) {
-    query['user']=user.name;
-    query['password']=user.password;
-  }
-
-  $.post('query', query, function(xml){
-    console.debug(xml);
-    setCurrentTime(xml);
-    $(xml).find('topic').each(function(){
-      cacheClaim(claimFromXML(this));
-    });
-    alldomains = []
-    $(xml).find('alldomains').find('domain').each(function(){
-      alldomains.push($(this).text());
-    });
-    $(xml).find('alldomains').each(function(){
-      cache['alldomains'] = alldomains;
-    });
-    userdomains = []
-    $(xml).find('userdomains').find('domain').each(function(){
-      userdomains.push($(this).text());
-    });
-    if (userdomains.length > 0)
-      cache['userdomains'] = userdomains;
-    $(xml).find('search').each(function(){
-      result = new Array();
-      $(this).find('topic').each(function(){
-        result.push(parseInt($(this).find('id').text()));
-      });
-      cacheSearch($(this).find('query').text(), result);
-    });
-    $(xml).find('history').each(function(){
-      id = parseInt($(this).find('id').text());
-      updateHistory(id, this);
-    });
-    newReputation = parseFloat($(xml).find('user').find('reputation').text());
-    if (! isNaN(newReputation) ) user.reputation = newReputation;
-    f(xml);
-  }, "xml");
-}
-
 function initializeSubmitClaim(id){
   submitted = false;
-  claim = (typeof(id)=='undefined' || isNaN(id)) ? 
+  claim = (typeof(id)=='undefined' || isNaN(id)) ?
     { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
       'bounty':1.0, 'closes':null, 'domain':'general'} : cachedClaims[id];
   closedate = humanDate(claim['closes']);
@@ -689,7 +787,7 @@ function submitClaim(id){
     }else{
       claimError("");
       submitted = true;
-      serverQuery({   submitclaim:1, user:user, probability:proposedEstimate,
+      queryServer({   submitclaim:1, user:user, probability:proposedEstimate,
         maxstake:maxstake, description:description, bounty:bounty, domain:domain,
         definition:definition, domain:domain, closes:serverDate(closes) },
       function(xml){
@@ -698,8 +796,8 @@ function submitClaim(id){
     }
   } else {
     submitted = true;
-    serverQuery({ editclaim:1, user:user, maxstake:maxstake, description:description, 
-      bounty:bounty, definition:definition, domain:domain, closes:serverDate(closes), 
+    queryServer({ editclaim:1, user:user, maxstake:maxstake, description:description,
+      bounty:bounty, definition:definition, domain:domain, closes:serverDate(closes),
       topic:id, domain:domain  },
       function(xml){
         setDisplay(defaultDisplay);
@@ -708,7 +806,7 @@ function submitClaim(id){
 }
 
 function promoteClaim(id, p){
-  serverQuery({ promoteclaim: (p?1:0), topic:id }, 
+  queryServer({ promoteclaim: (p?1:0), topic:id },
     function(xml){
       setDisplay(defaultDisplay);
     });
@@ -757,25 +855,6 @@ function getCommitment(id,h, outcome){
   return result;
 }
 
-function claimFromXML(xml){
-  result = {};
-  result['id'] = parseInt($(xml).find('id').text());
-  result['currentbet'] = parseFloat($(xml).find('currentbet').text());
-  result['description'] = $(xml).find('description').text();
-  result['lastbetter'] = $(xml).find('lastbetter').text();
-  result['closes'] = parseDate($(xml).find('closes').text());
-  result['owner'] = $(xml).find('owner').text();
-  result['promoted'] = ($(xml).find('promoted').text() == '1');
-  result['age'] = parseDate($(xml).find('age').text());
-  result['lastbettime'] = parseDate($(xml).find('lastbettime').text());
-  result['bounty'] = parseFloat($(xml).find('bounty').text());
-  result['maxstake'] = parseFloat($(xml).find('maxstake').text());
-  result['domain'] = $(xml).find('domain').text();
-  definition = $(xml).find('definition').text();
-  result['definition'] = (definition == 'none' || definition == '0') ? null : definition;
-  return result;
-}       
-
 function displayFilters(){
   alldomains = cache['alldomains'].slice();
   alldomains.unshift("promoted");
@@ -804,7 +883,7 @@ function prepareDomainToggler(domain){
     oldstate = isActiveDomain[domain];
     newstate = 1 - oldstate;
     isActiveDomain[domain] = newstate;
-      serverQuery({'newdomains':userDomains(isActiveDomain), 
+      queryServer({'newdomains':userDomains(isActiveDomain),
              'time':serverDate(new Date())});
     if (newstate){
       $('#domain' + domain).css("color","rgb(235,143,0)");
@@ -918,12 +997,12 @@ function recalculateView(id){
   $('#thisfalsestake').html(drawReputation(totalFalseStake - currentFalseStake));
   $('#totaltruestake').html(drawReputation(totalTrueStake));
   $('#totalfalsestake').html(drawReputation(totalFalseStake));
-  if (totalTrueStake < -1 * claim['bounty'] * user.reputation) { 
+  if (totalTrueStake < -1 * claim['bounty'] * user.reputation) {
     $('#totaltruestake').addClass('error');
   } else{
     $('#totaltruestake').removeClass('error');
   }
-  if (totalFalseStake < -1 * claim['bounty'] * user.reputation) { 
+  if (totalFalseStake < -1 * claim['bounty'] * user.reputation) {
     $('#totalfalsestake').addClass('error');
   } else{
     $('#totalfalsestake').removeClass('error');
@@ -941,7 +1020,7 @@ function tooCommitted(claim){
 function submitBet(id, bet){
       $('#betloader').css("visibility", "visible");
       claim = cachedClaims[id];
-      serverQuery({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
+      queryServer({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
       function(xml){
         $('#betloader').css("visibility", "hidden");
         claim = cachedClaims[id];
@@ -959,65 +1038,15 @@ function submitBet(id, bet){
       });
 }
 
-function login(name, password){
-  serverQuery({'login':1, 'user':name, 'password':password},
-    function(xml) {
-      result = $(xml).find('login').text();
-      if (result == 'success') {
-        user.name = name;
-        user.password = password;
-        saveUserState();
-        $(window).trigger('hashchange');
-      } else if (result == 'nosuchuser') {
-        setLoginError('No such user.');
-      } else if (result == 'wrongpassword') {
-        setLoginError('Incorrect password.');
-      }
-    }
-  );
-}
-
-function signup(username, password){
-  serverQuery({'signup':1, 'user':username, 'password':password},
-    function(xml){
-      result = $(xml).find('signup').text();
-      if (result == 'success') {
-        user.name = name;
-        user.password = password;
-        saveUserState();
-        $(window).trigger('hashchange');
-      } else if (result == 'usernametaken') {
-        setLoginError('That username is taken.');
-      } else if (result == 'shortusername') {
-        setLoginError('Enter a username and password above.\nYour username must be at least 3 characters.');
-      } else if (result == 'shortpassword') {
-        setLoginError('Your password must be at least 3 characters.');
-      }
-    }
-  );
-}
-
-function logout() {
-  user = {'name':null, 'password':null};
-  saveUserState();
-  $(window).trigger('hashchange');
-}
-
-
-
-function setCurrentTime(xml){
-  currentTime = parseDate($(xml).find('currenttime').text());
-}
-
 function deleteBet(id){
-  serverQuery({'topic':id, 'deletebet':1, 'search':'user_default'},
+  queryServer({'topic':id, 'deletebet':1, 'search':'user_default'},
     function(xml){
       setDisplay(defaultDisplay);
     });
 }
 
 function resolveBet(id, outcome){
-  serverQuery({'topic':id, 'resolvebet':1, 'outcome':outcome, 'search':'user_deault'},
+  queryServer({'topic':id, 'resolvebet':1, 'outcome':outcome, 'search':'user_default'},
     function(xml){
       setDisplay(defaultDisplay);
     });
