@@ -14,12 +14,12 @@ class Claim(Data):
   collection = 'claims'
   fields = ('uid', 'age', 'bounty', 'closes', 'currentbet', 'description', \
             'domain', 'lastbetter', 'lastbettime', 'maxstake', 'owner', \
-            'promoted', 'resolved', 'definition')
+            'promoted', 'resolved', 'definition', 'history')
   num_key_fields = 1
 
 def getAllUsers():
-  cursor.execute("SELECT name, password, reputation, domains FROM users")
   users = []
+  cursor.execute("SELECT name, password, reputation, domains FROM users")
   for row in cursor.fetchall():
     result = {}
     result['name'] = row[0]
@@ -33,9 +33,23 @@ def getAllUsers():
   return users
 
 def getAllClaims():
-  cursor.execute("SELECT id, age, bounty, closes, currentbet, description, domain, lastbetter, lastbettime, maxstake, owner, promoted, resolved, definition FROM topics")
+  all_bets = {}
+  cursor.execute("SELECT topicID, user, probability, time FROM all_bets ORDER BY time ASC")
+  for row in cursor.fetchall():
+    result = {}
+    result['user'] = row[1]
+    result['probability'] = float(row[2])
+    assert(type(row[3]) == datetime)
+    result['time'] = row[3]
+    uid = int(row[0])
+    if uid in all_bets:
+      all_bets[uid].append(result)
+    else:
+      all_bets[uid] = [result]
+
   claims = []
   id = 0
+  cursor.execute("SELECT id, age, bounty, closes, currentbet, description, domain, lastbetter, lastbettime, maxstake, owner, promoted, resolved, definition FROM topics")
   for row in cursor.fetchall():
     result = {}
     # check id type but assign new uid
@@ -59,6 +73,7 @@ def getAllClaims():
     assert(int(row[12]) in (0, 1))
     result['resolved'] = int(row[12])
     result['definition'] = row[13]
+    result['history'] = all_bets.get(int(row[0]), [])
     claims.append(Claim(result))
     print result
     id += 1
