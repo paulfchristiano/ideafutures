@@ -2,7 +2,6 @@
 import cherrypy
 from data import Data
 from datetime import datetime
-from math import log
 
 class User(Data):
   collection = 'users'

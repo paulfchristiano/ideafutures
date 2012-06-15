@@ -596,14 +596,29 @@ function parseClaimFromXML(xml) {
   result.domain = $(xml).find('domain').text();
   result.lastbetter = $(xml).find('lastbetter').text();
   result.lastbettime = parseDate($(xml).find('lastbettime').text());
-  result.owner = $(xml).find('owner').text();
   result.maxstake = parseFloat($(xml).find('maxstake').text());
+  result.owner = $(xml).find('owner').text();
   result.promoted = ($(xml).find('promoted').text() == '1');
+  result.resolved = ($(xml).find('resolved').text() == '1');
 
   definition = $(xml).find('definition').text();
   result.definition = (definition == 'none' || definition == '0') ? null : definition;
 
   return result;
+}
+
+function parseDate(strDate) {
+  if (strDate == 'None') {
+    return null;
+  }
+  parts = strDate.split(/[\.\s\/:-T]/);
+  return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
+}
+
+function parseDateTime(strDate, strTime) {
+  dateParts = strDate.split(/[\.\s\/:-T]/);
+  timeParts = strTime.split(/[\.\s\/:-T]/);
+  return new Date(dateParts[2], dateParts[0] - 1, dateParts[1], timeParts[0], timeParts[1]);
 }
 
 /* -------------------------------------------------------------------------- *
@@ -747,18 +762,6 @@ function initializeSubmitClaim(id){
     $('#domain').append("<option value='"+domain+"'>"+domain+"</option>");
   }
   $('#domain').val(claim['domain']);
-}
-
-function parseDate(strDate){
-  if (strDate == 'None') return null;
-  parts = strDate.split(/[\.\s\/:-]/);
-  return new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]);
-}
-
-function parseDateTime(strDate, strTime){
-  dateParts = strDate.split(/[\.\s\/:-]/);
-  timeParts = strTime.split(/[\.\s\/:-]/);
-  return new Date(dateParts[2], dateParts[0]-1, dateParts[1], timeParts[0], timeParts[1]);
 }
 
 function submitClaim(id){
