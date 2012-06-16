@@ -3,19 +3,35 @@ import cherrypy
 from data import Data
 from datetime import datetime
 
+# TODO: There are concurrency issues with signup. Later, there will be worse
+# issues for other updates.
+
 class User(Data):
   collection = 'users'
-  fields = ('name', 'password', 'reputation')
+  fields = ('name', 'password', 'reputation', 'domains')
   num_key_fields = 1
 
-# Wraps a dictionary in HTML-style tags to return it to the user.
-def wrap(results):
-  return '<body>%s</body>' % (''.join('<%s>%s</%s>' % (key, value, key) \
-      for key, value in results),)
+class Claim(Data):
+  collection = 'claims'
+  fields = ('uid', 'age', 'bounty', 'closes', 'currentbet', 'description', \
+            'domain', 'lastbetter', 'lastbettime', 'maxstake', 'owner', \
+            'promoted', 'resolved', 'definition', 'history')
+  num_key_fields = 1
 
-# An invalid query error returned by the server if queried incorrectly.
+# Wraps a list, dictionary, or Data object in XML tags to return it to the user.
+def wrap(results):
+  if type(results) in (list, tuple):
+    return ''.join('<%s>%s</%s>' % (key, value, key) for key, value in results)
+  elif type(results) == dict:
+    return wrap(results.items())
+  # TODO: Need to recursively wrap histories for claims.
+  return wrap(results.to_dict())
+
+# Errors returned by the server if queried incorrectly.
 invalid_query_error = ('error', \
     'One or more fields of the query were missing or incorrectly formatted.')
+permission_denied_error = ('error', \
+    'Permission denied. Username or password incorrect.')
 
 # Methods for answering server queries.
 # Each of these methods should return a list of (key, value) result pairs.
@@ -26,10 +42,40 @@ def login_query(name, password):
   user = User.get(name)
   if user is None:
     return [('login', 'nosuchuser')]
-  elif user.password != password:
+  elif password != user.password:
     return [('login', 'wrongpassword')]
   else:
     return [('login', 'success'), ('reputation', user.reputation)]
+
+def search_query(search, name, password):
+  if search == 'user_default':
+    if name is None:
+      vals = execute_searches(['promoted'])
+    else:
+      user = User.get(name)
+      if user is None or password is None or password != user.password:
+        return [permission_denied_error]
+      if len(user.domains) == 0:
+        vals = execute_searches(['promoted'])
+      else:
+        vals = execute_searches(user.domains)
+  else:
+    vals = execute_searches([search])
+  result = [('claim', wrap(claim)) for claim in vals]
+  return result + [('search', \
+      wrap([('uid', claim.uid) for claim in vals] + [('query', search)]))]
+
+def execute_searches(searches):
+  if 'promoted' in searches:
+    if len(searches) > 1:
+      searches = tuple(search for search in searches if search != 'promoted')
+      vals = Claim.find({'$or':[{'promoted':1}, {'domain':{'$in':searches}}]}, \
+            uses_key_fields=False)
+    else:
+      vals = Claim.find({'promoted':1}, uses_key_fields=False)
+  else:
+    vals = Claim.find({'domain':{'$in':searches}}, uses_key_fields=False)
+  return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
 def signup_post(name, password):
   if name is None or password is None:
@@ -51,15 +97,17 @@ class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
-  def query(self, login=None, name=None, password=None):
+  def query(self, login=None, search=None, name=None, password=None):
     results = []
     try:
       if login is not None:
         results.extend(login_query(name, password))
+      if search is not None:
+        results.extend(search_query(search, name, password))
     except Exception, e:
       results.append(('error', str(e)))
     results.append(('currenttime', str(datetime.now())))
-    return wrap(results)
+    return '<body>%s</body>' % (wrap(results),)
 
   # These calls may change state at the server.
   # Only one update is allowed per message.
@@ -72,7 +120,7 @@ class IdeaFuturesServer:
     except Exception, e:
       results.append(('error', str(e)))
     results.append(('currenttime', str(datetime.now())))
-    return wrap(results)
+    return '<body>%s</body>' % (wrap(results),)
 
 cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
 

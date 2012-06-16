@@ -183,6 +183,8 @@ function drawReputation(reputation) {
   return reputation.toFixed(2);
 }
 
+// TODO: Move this code (and similar functions) to a new file. Use string
+// formatting to build the HTML instead of string concatenations.
 function loginSidebarBlock(){
   result = "<div class='sidebarblock'>";
   if  (loggedIn()){
@@ -338,7 +340,7 @@ function drawClaim(claim) {
   if (loggedIn() && !isOpen(claim)) {
     mainFrame += stakeBox();
   }
-  mainFrame += historyBox(id);
+  mainFrame += historyBox(claim);
   mainFrame += "</div>";
 
   mainFrame += definitionBox(claim);
@@ -403,12 +405,11 @@ function historyBox(claim) {
   result += "<tr><th colspan='3'><h3>History</h3></th></tr>";
   result += "<tr class='underline'><td>Estimate</td><td>User</td><td>Time</td></tr>";
 
-  history = claim.history;
-  for (i = history.length - 1; i >= history.length - 10 && i >= 0; i--) {
+  for (i = claim.history.length - 1; i >= claim.history.length - 10 && i >= 0; i--) {
     result += (i % 2) ? "<tr class='odd'>" : "<tr class='even'>";
-    result += "<td>" + drawBet(history[i].probability) +" %</td>";
-    result += "<td>"  + history[i].user + "</td>";
-    result += "<td>"  + drawDate(history[i].time) + "</td></tr>"
+    result += "<td>" + drawBet(claim.history[i].probability) +" %</td>";
+    result += "<td>"  + claim.history[i].user + "</td>";
+    result += "<td>"  + drawDate(claim.history[i].time) + "</td></tr>"
   }
 
   result += "</table>";
@@ -514,7 +515,7 @@ function pingServer(query, queryType, returnCall) {
   }
 
   console.debug(query);
-  if (!('login' in query) && !('signup' in query))
+  if (!('login' in query) && !('signup' in query) && !('search' in query))
     return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.
@@ -533,6 +534,10 @@ function pingServer(query, queryType, returnCall) {
 // Take in XML information returned by the server and cache any time,
 // reputation, claim, search, or domain information.
 function autoParseXML(xml) {
+  // TODO: If the return XML contains an error, return the user to the default
+  // display and alert him with the error. Check for this condition first; do
+  // perform other updates if it occurs.
+
   // All server return calls should contain a 'currenttime' field.
   // TODO: It might be better not to update the cache if this packet has an
   // earlier date than the last processed packet. I'm not sure if this scenario
@@ -553,15 +558,15 @@ function autoParseXML(xml) {
 
   $(xml).find('search').each(function() {
     result = [];
-    $(this).find('id').each(function() {
+    $(this).find('uid').each(function() {
       id = parseInt($(this).text());
       if (id in cachedClaims) {
         result.push(cachedClaims[id]);
       }
     });
     // Only cache the search if all of the relevant claims have been cached.
-    if (result.length == $(this).find('id').length) {
-      cachedSearch[$(this).find('query').text()] = result;
+    if (result.length == $(this).find('uid').length) {
+      cachedSearches[$(this).find('query').text()] = result;
     }
   });
 
@@ -586,7 +591,7 @@ function autoParseXML(xml) {
 function parseClaimFromXML(xml) {
   result = {};
 
-  result.id = parseInt($(xml).find('id').text());
+  result.id = parseInt($(xml).find('uid').text());
   result.age = parseDate($(xml).find('age').text());
   result.bounty = parseFloat($(xml).find('bounty').text());
   result.closes = parseDate($(xml).find('closes').text());
@@ -614,6 +619,7 @@ function parseClaimFromXML(xml) {
   return result;
 }
 
+// TODO: This function doesn't work.
 function parseDate(strDate) {
   if (strDate == 'None') {
     return null;

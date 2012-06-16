@@ -91,7 +91,7 @@ class Data(object):
   def get(cls, keys=None, id=None):
     assert((id is not None) + (keys is not None)) == 1
     if keys is not None:
-      if type(keys) not in (list, tuple):
+      if type(keys) not in (list, tuple, dict):
         keys = (keys,)
       keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
       values = db[cls.collection].find_one(keys_dict)
@@ -103,6 +103,30 @@ class Data(object):
     data = cls(values, internal=True)
     data.id_ = values['_id']
     return data
+
+  # Performs a MongoDB search on the database, then returns the documents found
+  # as Data objects.
+  # This method automatically changes key fields in the search to internal key
+  # fields. As an optimization, if the query contains no key fields, the user
+  # can skip this step by setting 'uses_key_fields' to False.
+  @classmethod
+  def find(cls, query, uses_key_fields=True):
+    if uses_key_fields:
+      def sanitize(query):
+        for (key, internal_key) in zip(cls.keys, cls.internal_keys):
+          if key in query:
+            query[internal_key] = query[key]
+            del query[key]
+        for val in query.values():
+          if type(val) == dict:
+            sanitize(val)
+      sanitize(query)
+    results = []
+    for values in db[cls.collection].find(query):
+      result = cls(values, internal=True)
+      result.id_ = values['_id']
+      results.append(result)
+    return results
 
   # Constructs a new object from its values. Does not save it to the database.
   def __init__(self, values, internal=False):
@@ -121,6 +145,17 @@ class Data(object):
       keys_dict = convert_to_dict(self.internal_keys, self.__dict__)
       assert(db[self.collection].find_one(keys_dict) is None)
       self.id_ = db[self.collection].insert(values_dict)
+
+  # Returns a dictionary representing this object, keyed by its fields.
+  def to_dict(self):
+    return {field:self.__dict__[internal_field] \
+        for (field, internal_field) in zip(self.fields, self.internal_fields)}
+
+  def __repr__(self):
+    return str(self)
+
+  def __str__(self):
+    return '%s(%s)' % (self.__class__.__name__, self.to_dict())
 
 # Examples of usage.
 class TestData(Data):
