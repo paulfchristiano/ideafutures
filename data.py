@@ -1,5 +1,8 @@
 import pymongo
 from pymongo.objectid import ObjectId
+from random import randint
+
+MAX_VERSION = (1 << 31) - 1
 
 db = pymongo.Connection('localhost').test
 
@@ -80,28 +83,23 @@ class Data(object):
   @classmethod
   def add_key_properties(cls):
     if not cls.has_key_properties:
-      setattr(cls, 'id', property(make_getter('id_')))
       for (key, internal_key) in zip(cls.keys, cls.internal_keys):
         setattr(cls, key, property(make_getter(internal_key)))
       cls.has_key_properties = True
 
-  # Retrieves a data object from the database. User can specify the record's id
-  # or its key fields, but not both. Returns None if the record is not found.
+  # Retrieves an object from the database given the values of its key fields.
+  # Returns None if the record is not found.
   @classmethod
-  def get(cls, keys=None, id=None):
-    assert((id is not None) + (keys is not None)) == 1
-    if keys is not None:
-      if type(keys) not in (list, tuple, dict):
-        keys = (keys,)
-      keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
-      values = db[cls.collection].find_one(keys_dict)
-    else:
-      id = ObjectId(id) if type(id) == str else id
-      values = db[cls.collection].find_one({'_id':id})
+  def get(cls, keys):
+    if type(keys) not in (list, tuple, dict):
+      keys = (keys,)
+    keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
+    values = db[cls.collection].find_one(keys_dict)
     if values is None:
       return None
     data = cls(values, internal=True)
     data.id_ = values['_id']
+    data.version_ = values['_version']
     return data
 
   # Performs a MongoDB search on the database, then returns the documents found
@@ -125,6 +123,7 @@ class Data(object):
     for values in db[cls.collection].find(query):
       result = cls(values, internal=True)
       result.id_ = values['_id']
+      result.version_ = values['_version']
       results.append(result)
     return results
 
@@ -135,16 +134,30 @@ class Data(object):
         self.internalize(convert_to_dict(self.fields, values))
     self.__dict__.update(values_dict)
 
-  # Saves this object to the database. Throws an error if this object does not
-  # have an id and an object with the same keys already exists in the database.
+  # Saves this object to the database. Returns False if the update fails, which
+  # can occur for two reasons:
+  #  1. This object does not have an id and an object with the same keys
+  #     already exists in the database.
+  #  2. The version of this object has changed in the database, which happens if
+  #     another user has concurrently modified it.
   def save(self):
     values_dict = convert_to_dict(self.internal_fields, self.__dict__)
+    values_dict['_version'] = randint(0, MAX_VERSION)
     if 'id_' in self.__dict__:
-      db[self.collection].update({'_id':self.id}, {'$set':values_dict})
+      db[self.collection].update( \
+          {'_id':self.id_, '_version':self.version_}, {'$set':values_dict})
+      if db[self.collection].find_one( \
+          {'_id':self.id_,  '_version':values_dict['_version']}) is None:
+        return False
+      self.version_ = values_dict['_version']
+      return True
     else:
       keys_dict = convert_to_dict(self.internal_keys, self.__dict__)
-      assert(db[self.collection].find_one(keys_dict) is None)
       self.id_ = db[self.collection].insert(values_dict)
+      if len(list(db[self.collection].find(keys_dict))) > 1:
+        db[self.collection].remove({'_id':self.id_})
+        return False
+      return True
 
   # Returns a dictionary representing this object, keyed by its fields.
   def to_dict(self):
