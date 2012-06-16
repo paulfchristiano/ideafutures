@@ -338,8 +338,7 @@ function drawClaim(claim) {
   if (loggedIn() && !isOpen(claim)) {
     mainFrame += stakeBox();
   }
-  // TODO: Get histories working.
-  //mainFrame += historyBox(id);
+  mainFrame += historyBox(id);
   mainFrame += "</div>";
 
   mainFrame += definitionBox(claim);
@@ -602,7 +601,15 @@ function parseClaimFromXML(xml) {
   result.resolved = ($(xml).find('resolved').text() == '1');
 
   definition = $(xml).find('definition').text();
-  result.definition = (definition == 'none' || definition == '0') ? null : definition;
+  result.definition = (definition = '') ? null : definition;
+
+  result.history = []
+  $(xml).find('bet').each(function() {
+    better = $(this).find('user').text();
+    probability = parseFloat($(this).find('probability').text());
+    time = parseDate($(this).find('time').text());
+    result.history.push({'user':better, 'probability':probability, 'time':time});
+  });
 
   return result;
 }
@@ -951,21 +958,6 @@ function humanDate(d){
 function humanTime(d){
   if (d == null) return "";
   else return padInt(d.getHours()) + ":" + padInt(d.getMinutes());
-}
-
-
-function updateHistory(id, xml){
-  // TODO: Figure out what the hell this does.
-  return false;
-
-  claim = cachedClaims[id];
-  newHistory = new Array();
-  $(xml).find('bet').each(function(){
-    newHistory.push( { 'user':$(this).find('user').text(), 'time':parseDate($(this).find('time').text()), 'probability':parseFloat($(this).find('probability').text()) } );
-  });
-  claim['history'] = newHistory;
-  if (currentDisplay['type'] == 'displayclaim' && currentDisplay['claim'] == claim['id'])
-    $('#historybox').replaceWith(historyBox(id));
 }
 
 function setEstimate(id, newEstimate, source){
