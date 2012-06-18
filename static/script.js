@@ -19,6 +19,11 @@ var cachedClaims = {};
 var cachedSearches = {};
 var cache = {};
 
+function newDirty() {
+  return {'claims':{}, 'searches':{}, 'alldomains':false};
+}
+dirty = newDirty();
+
 /* -------------------------------------------------------------------------- *
  * Initialization code begins here!                                           *
  * -------------------------------------------------------------------------- */
@@ -43,9 +48,8 @@ function restoreUserState() {
 $(document).ready(function() {
   $(window).bind('hashchange', function(e) {
     displayState = getDisplayState();
-    if (!updateDisplay(displayState)) {
-      getDisplayData(displayState);
-    }
+    updateDisplay(displayState);
+    getDisplayData(displayState);
   });
 
   restoreUserState();
@@ -129,11 +133,7 @@ function updateDisplay(displayState) {
     } else if (displayState.type == 'listdomains') {
       drawFilters();
     }
-
-    return true;
   }
-
-  return false;
 }
 
 function setAlert(message){
@@ -489,7 +489,10 @@ function setClaimInputHandlers(claim) {
 // request returns.
 function getDisplayData(displayState) {
   returnCall = function() {
-    updateDisplay(displayState);
+    if (isDirty(displayState)) {
+      updateDisplay(displayState);
+    }
+    dirty = newDirty();
   };
 
   if (displayState.type == 'listclaims') {
@@ -501,6 +504,17 @@ function getDisplayData(displayState) {
   } else if (displayState.type == 'listdomains') {
     queryServer({'alldomains':1, 'userdomains':1}, returnCall);
   }
+}
+
+function isDirty(displayState) {
+  if (displayState.type == 'listclaims') {
+    return displayState.search in dirty.searches;
+  } else if (displayState.type == 'displayclaim') {
+    return displayState.id in dirty.claims;
+  } else if (displayState.type == 'listfilters') {
+    return dirty.alldomains;
+  }
+  return false;
 }
 
 function queryServer(query, returnCall) {
@@ -559,7 +573,7 @@ function autoParseXML(xml) {
   // Cache any claims, searches, and lists of domains found in the XML.
   $(xml).find('claim').each(function() {
     claim = parseClaimFromXML(this);
-    cachedClaims[claim.id] = claim;
+    cacheClaim(claim);
   });
 
   $(xml).find('search').each(function() {
@@ -572,10 +586,11 @@ function autoParseXML(xml) {
     });
     // Only cache the search if all of the relevant claims have been cached.
     if (result.length == $(this).find('uid').length) {
-      cachedSearches[$(this).find('query').text()] = result;
+      cacheSearch($(this).find('query').text(), result);
     }
   });
 
+  // TODO: Add dirty logic here.
   if ($(xml).find('alldomains').length > 0) {
     alldomains = [];
     $(xml).find('alldomains').find('domain').each(function() {
@@ -622,6 +637,8 @@ function parseClaimFromXML(xml) {
     result.history.push({'user':better, 'probability':probability, 'time':time});
   });
 
+  result.version = parseInt($(xml).find('version').text());
+
   return result;
 }
 
@@ -637,6 +654,28 @@ function parseDateTime(strDate, strTime) {
   dateParts = strDate.split(/[\.\s\/:\-T]/);
   timeParts = strTime.split(/[\.\s\/:\-T]/);
   return new Date(dateParts[2], dateParts[0] - 1, dateParts[1], timeParts[0], timeParts[1]);
+}
+
+function cacheClaim(claim) {
+  if (!(claim.id in cachedClaims) || claim.version != cachedClaims[id].version) {
+    console.debug('Dirtying claim');
+    dirty.claims[claim.id] = true;
+  }
+  cachedClaims[claim.id] = claim;
+}
+
+function cacheSearch(query, results) {
+  if (!(query in cachedSearches) ||
+      (results.length != cachedSearches[query].length)) {
+    dirty.searches[query] = true;
+  } else {
+    for (i = 0; i < results.length; i++) {
+      if (results[i].id != cachedSearches[i].id) {
+        dirty.searches[query] = true;
+      }
+    }
+  }
+  cachedSearches[query] = results;
 }
 
 /* -------------------------------------------------------------------------- *

@@ -18,6 +18,7 @@ class Claim(Data):
   def wrap(self):
     results = self.to_dict()
     results['history'] = wrap(('bet', wrap(bet)) for bet in results['history'])
+    results['version'] = self.version_
     return wrap(results.items())
 
 # Wraps a list, dictionary, or Data object in XML tags to return it to the user.
