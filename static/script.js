@@ -479,13 +479,15 @@ function setClaimInputHandlers(claim) {
  * Code for communicating with the server begins here!                        *
  * -------------------------------------------------------------------------- */
 
-// TODO: Make the return calls to updateDisplay run through another function
-// that checks that the user has not moved to a new page by the time the AJAX
-// call returns. Without this check, the user could make a request, then make
-// another request, and he would be "bounced back" to an old page when the first
-// request returns.
 function getDisplayData(displayState) {
   returnCall = function() {
+    newDisplayState = getDisplayState();
+    if (displayState.type != newDisplayState.type ||
+        displayState.search != newDisplayState.search ||
+        displayState.id != newDisplayState.id) {
+      return;
+    }
+
     if (isDirty(displayState)) {
       updateDisplay(displayState);
     }
