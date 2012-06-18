@@ -752,15 +752,9 @@ function getCommitment(claim, newHistory, outcome) {
   }
 
   result = 0;
-  p = newHistory[0].probability;
-  if (!outcome) {
-    p = 1 - p;
-  }
-  if (user.name == newHistory[0].user) {
-    result += claim.bounty * Math.log(p);
-  }
+  p = 1;
 
-  for (i = 1; i < newHistory.length; i++) {
+  for (i = 0; i < newHistory.length; i++) {
     nextP = newHistory[i].probability;
     if (!outcome) {
       nextP = 1 - nextP;
