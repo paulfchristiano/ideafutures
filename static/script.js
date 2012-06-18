@@ -391,7 +391,7 @@ function stakeBox() {
   result += "<td><span id='currenttruestake' class='payoff'></span></td>";
   result += "<td><span id='currentfalsestake' class='payoff'></span></td></tr>";
   result += "<tr><td>This Bet</td>";
-  result += "<td><span id='thistruestake' clas='payoff'></span></td>";
+  result += "<td><span id='thistruestake' class='payoff'></span></td>";
   result += "<td><span id='thisfalsestake' class='payoff'></span></td></tr>";
   result += "<tr><td> Total </td>";
   result += "<td><span id='totaltruestake' class='payoff'></span></td>";

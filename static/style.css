@@ -410,6 +410,11 @@ div.fillbox {
     text-align:center;
 }
 
+.payoff {
+    display:inline-block;
+    width:50px;
+}
+
 div.change a.delete {
     display:block;
     width:20px;
