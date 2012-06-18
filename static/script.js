@@ -487,7 +487,7 @@ function getDisplayData(displayState) {
   if (displayState.type == 'listclaims') {
     queryServer({'search':displayState.search}, returnCall);
   } else if (displayState.type == 'displayclaim'){
-    queryServer({'topic':id,}, returnCall);
+    queryServer({'claim':id,}, returnCall);
   } else if (displayState.type == 'submitclaim') {
     queryServer({'alldomains':1}, returnCall);
   } else if (displayState.type == 'listdomains') {
@@ -515,7 +515,8 @@ function pingServer(query, queryType, returnCall) {
   }
 
   console.debug(query);
-  if (!('login' in query) && !('signup' in query) && !('search' in query))
+  if (!('login' in query) && !('signup' in query) && !('search' in query) &&
+      !('claim' in query))
     return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.

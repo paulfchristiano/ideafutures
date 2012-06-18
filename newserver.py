@@ -68,6 +68,8 @@ def search_query(search, name, password):
   return result + [('search', \
       wrap([('uid', claim.uid) for claim in vals] + [('query', search)]))]
 
+# Executes searches for the domains in the list 'searches'. Returns a list of
+# claims in those domains, ordered from newest to oldest.
 def execute_searches(searches):
   if 'promoted' in searches:
     if len(searches) > 1:
@@ -79,6 +81,14 @@ def execute_searches(searches):
   else:
     vals = Claim.find({'domain':{'$in':searches}}, uses_key_fields=False)
   return sorted(vals, key=lambda claim: claim.age, reverse=True)
+
+def claim_query(uid):
+  if uid is None or not uid.isdecimal():
+    return [invalid_query_error]
+  claim = Claim.get(int(uid))
+  if claim is None:
+    return []
+  return [('claim', wrap(claim))]
 
 def signup_post(name, password):
   if name is None or password is None:
@@ -98,13 +108,16 @@ class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
-  def query(self, login=None, search=None, name=None, password=None):
+  def query(self, login=None, search=None, claim=None, \
+      name=None, password=None):
     results = []
     try:
       if login is not None:
         results.extend(login_query(name, password))
       if search is not None:
         results.extend(search_query(search, name, password))
+      if claim is not None:
+        results.extend(claim_query(claim))
     except Exception, e:
       results.append(('error', str(e)))
     results.append(('currenttime', str(datetime.now())))
