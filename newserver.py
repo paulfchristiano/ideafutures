@@ -3,9 +3,6 @@ import cherrypy
 from data import Data
 from datetime import datetime
 
-# TODO: There are concurrency issues with signup. Later, there will be worse
-# issues for other updates.
-
 class User(Data):
   collection = 'users'
   fields = ('name', 'password', 'reputation', 'domains')
@@ -84,14 +81,12 @@ def signup_post(name, password):
     return [('signup', 'shortusername')]
   elif len(password) < 3:
     return [('signup', 'shortpassword')]
-  user = User.get(name)
-  if user is not None:
-    return [('signup', 'usernametaken')]
-  else:
-    # Create a new user with a reputation of 1.0.
-    user = User((name, password, 1.0))
-    user.save()
+  # Create a new user with a reputation of 1.0.
+  user = User((name, password, 1.0, ['promoted']))
+  if user.save():
     return [('signup', 'success'), ('reputation', 1.0)]
+  else:
+    return [('signup', 'usernametaken')]
 
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
