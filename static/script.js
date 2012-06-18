@@ -620,18 +620,17 @@ function parseClaimFromXML(xml) {
   return result;
 }
 
-// TODO: This function doesn't work.
 function parseDate(strDate) {
   if (strDate == 'None') {
     return null;
   }
-  parts = strDate.split(/[\.\s\/:-T]/);
+  parts = strDate.split(/[\.\s\/:\-T]/);
   return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
 }
 
 function parseDateTime(strDate, strTime) {
-  dateParts = strDate.split(/[\.\s\/:-T]/);
-  timeParts = strTime.split(/[\.\s\/:-T]/);
+  dateParts = strDate.split(/[\.\s\/:\-T]/);
+  timeParts = strTime.split(/[\.\s\/:\-T]/);
   return new Date(dateParts[2], dateParts[0] - 1, dateParts[1], timeParts[0], timeParts[1]);
 }
 
