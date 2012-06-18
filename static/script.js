@@ -15,14 +15,11 @@ function loggedIn() {
 }
 
 var currentTime = Date();
-var cachedClaims = {};
-var cachedSearches = {};
-var cache = {};
-
-function newDirty() {
-  return {'claims':{}, 'searches':{}, 'alldomains':false};
+function newCache() {
+  return {'claims':{}, 'searches':{}};
 }
-dirty = newDirty();
+var cache = newCache();
+var dirty = newCache();
 
 /* -------------------------------------------------------------------------- *
  * Initialization code begins here!                                           *
@@ -108,7 +105,7 @@ function updateDisplay(displayState) {
     // Draw the sidebar.
     newSidebar = loginSidebarBlock();
     if (displayState.type == 'displayclaim') {
-      claim = cachedClaims[displayState.id];
+      claim = cache.claims[displayState.id];
       newSidebar += betSidebarBlock(claim);
       if (user.name == claim.owner) {
         newSidebar += ownerSidebarBlock();
@@ -121,9 +118,9 @@ function updateDisplay(displayState) {
 
     // Draw the main frame.
     if (displayState.type == 'listclaims') {
-      drawClaims(cachedSearches[displayState.search]);
+      drawClaims(cache.searches[displayState.search]);
     } else if (displayState.type == 'displayclaim') {
-      drawClaim(cachedClaims[displayState.id]);
+      drawClaim(cache.claims[displayState.id]);
     } else if (displayState.type == 'submitclaim') {
       if ('id' in displayState) {
         drawSubmitClaim(displayState.id);
@@ -172,9 +169,9 @@ function updateActiveLink(displayType) {
 
 function isCached(displayState) {
   if (displayState.type == 'listclaims') {
-    return displayState.search in cachedSearches;
+    return displayState.search in cache.searches;
   } else if (displayState.type == 'displayclaim') {
-    return displayState.id in cachedClaims;
+    return displayState.id in cache.claims;
   } else if (displayState.type == 'listdomains') {
     return 'alldomains' in cache && 'userdomains' in cache;
   }
@@ -492,7 +489,7 @@ function getDisplayData(displayState) {
     if (isDirty(displayState)) {
       updateDisplay(displayState);
     }
-    dirty = newDirty();
+    dirty = newCache();
   };
 
   if (displayState.type == 'listclaims') {
@@ -512,7 +509,7 @@ function isDirty(displayState) {
   } else if (displayState.type == 'displayclaim') {
     return displayState.id in dirty.claims;
   } else if (displayState.type == 'listfilters') {
-    return dirty.alldomains;
+    return 'alldomains' in dirty;
   }
   return false;
 }
@@ -580,8 +577,8 @@ function autoParseXML(xml) {
     result = [];
     $(this).find('uid').each(function() {
       id = parseInt($(this).text());
-      if (id in cachedClaims) {
-        result.push(cachedClaims[id]);
+      if (id in cache.claims) {
+        result.push(cache.claims[id]);
       }
     });
     // Only cache the search if all of the relevant claims have been cached.
@@ -657,25 +654,24 @@ function parseDateTime(strDate, strTime) {
 }
 
 function cacheClaim(claim) {
-  if (!(claim.id in cachedClaims) || claim.version != cachedClaims[id].version) {
-    console.debug('Dirtying claim');
+  if (!(claim.id in cache.claims) || claim.version != cache.claims[id].version) {
     dirty.claims[claim.id] = true;
   }
-  cachedClaims[claim.id] = claim;
+  cache.claims[claim.id] = claim;
 }
 
 function cacheSearch(query, results) {
-  if (!(query in cachedSearches) ||
-      (results.length != cachedSearches[query].length)) {
+  if (!(query in cache.searches) ||
+      (results.length != cache.searches[query].length)) {
     dirty.searches[query] = true;
   } else {
     for (i = 0; i < results.length; i++) {
-      if (results[i].id != cachedSearches[i].id) {
+      if (results[i].id != cache.searches[query][i].id) {
         dirty.searches[query] = true;
       }
     }
   }
-  cachedSearches[query] = results;
+  cache.searches[query] = results;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -837,7 +833,7 @@ function initializeSubmitClaim(id){
   submitted = false;
   claim = (typeof(id)=='undefined' || isNaN(id)) ?
     { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
-      'bounty':1.0, 'closes':null, 'domain':'general'} : cachedClaims[id];
+      'bounty':1.0, 'closes':null, 'domain':'general'} : cache.claims[id];
   closedate = humanDate(claim['closes']);
   closetime = humanTime(claim['closes']);
   $('#description').val(claim['description']);
@@ -1044,11 +1040,11 @@ function tooCommitted(claim){
 
 function submitBet(id, bet){
       $('#betloader').css("visibility", "visible");
-      claim = cachedClaims[id];
+      claim = cache.claims[id];
       queryServer({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
       function(xml){
         $('#betloader').css("visibility", "hidden");
-        claim = cachedClaims[id];
+        claim = cache.claims[id];
         response = $(xml).find('makebet').find('response').text();
         if (response=='success') {
           $('#oldbet').slider({
