@@ -1,3 +1,7 @@
+html {
+  overflow-y: scroll;
+}
+
 #wrapper {
     margin:auto;
     width:950px;
