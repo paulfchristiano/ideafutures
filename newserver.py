@@ -2,6 +2,7 @@
 import cherrypy
 from data import Data
 from datetime import datetime
+import sys
 
 class User(Data):
   collection = 'users'
@@ -137,7 +138,8 @@ class IdeaFuturesServer:
     results.append(('currenttime', str(datetime.now())))
     return '<body>%s</body>' % (wrap(results),)
 
-cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
+if not sys.flags.interactive:
+  cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
 
 #      if (deletebet != None):
 #        deleteBet(topic)
