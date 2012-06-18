@@ -337,7 +337,7 @@ function drawClaim(claim) {
   }
 
   mainFrame += "<div id='implicitrightsidebar'>";
-  if (loggedIn() && !isOpen(claim)) {
+  if (loggedIn() && isOpen(claim)) {
     mainFrame += stakeBox();
   }
   mainFrame += historyBox(claim);
@@ -424,48 +424,54 @@ function definitionBox(claim) {
 }
 
 function setClaimInputHandlers(claim) {
+  // Set slider ranges.
   $('#oldbet').slider({
     range: "min",
-    disabled: true,
+    disabled: true
   });
   $('.betslider').slider({
     min: 0,
     max: 1,
     step: 0.01,
-    value: [ claim.currentbet ],
+    value: [claim.currentbet],
     orientation: "horizontal",
     animate: "normal",
-    range: "min",
+    range: "min"
   });
-  setEstimate(claim.id, claim.currentbet, "");
+
+  // Recalculate the user's bet now and whenever he moves the slider.
+  setEstimate(claim, claim.currentbet, "");
+
   $('#newbet').slider({
     slide:function(event, ui) {
-      setEstimate(claim.id, ui.value, "slider");
+      setEstimate(claim, ui.value, "slider");
     },
   });
   $('#betinput').blur(function() {
     if (isNaN($('#betinput').val())) {
-      setEstimate(claim.id, claim.currentbet, "");
+      setEstimate(claim, claim.currentbet, "");
     } else {
-      setEstimate(claim.id, ($('#betinput').val())/100, "");
+      setEstimate(claim, ($('#betinput').val())/100, "");
     }
   });
   $('#betinput').focus(function() {
     this.select();
   });
   $('#betinput').keyup(function() {
-    setEstimate(claim.id, ($('#betinput').val())/100, "field");
+    setEstimate(claim, ($('#betinput').val())/100, "field");
   });
-  $('#submitbet').click(function(){
+
+  $('#submitbet').click(function() {
+    bet = $('#betinput').val()/100;
     if (!loggedIn){
-      betError("You must be logged in to bet.");
-    } else if (tooCommitted(claim)){
-      betError("You cannot risk that much.");
-    } else if (isNaN(proposedEstimate) || proposedEstimate < 0 || proposedEstimate > 1){
-      betError("Your new estimate must be a number between 0 and 1.");
-    }else{
-      betError("");
-      submitBet(claim.id, proposedEstimate);
+      setBetError("You must be logged in to bet.");
+    } else if (tooCommitted(claim)) {
+      setBetError("You cannot risk that much.");
+    } else if (isNaN(bet) || bet < 0 || bet > 1){
+      setBetError("Your new estimate must be a number between 0 and 1.");
+    } else {
+      setBetError("");
+      submitBet(claim.id, bet);
     }
   });
 }
@@ -635,7 +641,7 @@ function parseDateTime(strDate, strTime) {
 }
 
 /* -------------------------------------------------------------------------- *
- * Logic code begins here!                                                    *
+ * User commands code begins here!                                            *
  * -------------------------------------------------------------------------- */
 
 function login(name, password){
@@ -684,40 +690,93 @@ function logout() {
 }
 
 /* -------------------------------------------------------------------------- *
- * Unedited code begins here!                                                 *
+ * Betting logic begins here!                                                 *
  * -------------------------------------------------------------------------- */
 
-function cacheSearch(search, result){
-  dirty = false;
-  if (search in cachedSearches){
-    oldresult = cachedSearches[search];
-    if (oldresult.length != result.length) dirty = true;
-    else {
-      for (i = 0; i < oldresult.length; i++){
-        if (oldresult[i] != result[i]) dirty = true;
-      }
+function setEstimate(claim, bet, source) {
+  if (bet < 0 || bet > 1) {
+    return;
+  }
+
+  if (source != 'slider') {
+    $('#newbet').slider({value: [bet]});
+  }
+  if (source != 'field') {
+    $('#betinput').val(drawBet(bet));
+  }
+
+  recalculateView(claim, bet);
+}
+
+function recalculateView(claim, bet) {
+  if (user.name == null) {
+    return;
+  }
+
+  // Create a new history in which the user bet 'bet' on this claim.
+  newHistory = jQuery.extend([], claim.history);
+  newHistory.push({'user':user.name, 'probability':bet, 'time':new Date()});
+
+  // Calculate the amount the user is betting on this claim.
+  currentTrueStake = getCommitment(claim, claim.history, true);
+  currentFalseStake = getCommitment(claim, claim.history, false);
+  totalTrueStake = getCommitment(claim, newHistory, true);
+  totalFalseStake = getCommitment(claim, newHistory, false);
+
+  // Refresh the old bet slider.
+  $('#oldbet').slider({value: [claim.currentbet]});
+  $('#oldbettext').html(drawBet(claim.currentbet) + "%");
+
+  // Refresh the stake box.
+  $('#currenttruestake').html(drawReputation(currentTrueStake));
+  $('#currentfalsestake').html(drawReputation(currentFalseStake));
+  $('#thistruestake').html(drawReputation(totalTrueStake - currentTrueStake));
+  $('#thisfalsestake').html(drawReputation(totalFalseStake - currentFalseStake));
+  $('#totaltruestake').html(drawReputation(totalTrueStake));
+  $('#totalfalsestake').html(drawReputation(totalFalseStake));
+  if (totalTrueStake < -1 * claim['bounty'] * user.reputation) {
+    $('#totaltruestake').addClass('error');
+  } else{
+    $('#totaltruestake').removeClass('error');
+  }
+  if (totalFalseStake < -1 * claim['bounty'] * user.reputation) {
+    $('#totalfalsestake').addClass('error');
+  } else{
+    $('#totalfalsestake').removeClass('error');
+  }
+}
+
+function getCommitment(claim, newHistory, outcome) {
+  if (newHistory.length == 0) {
+    return 0;
+  }
+
+  result = 0;
+  p = newHistory[0].probability;
+  if (!outcome) {
+    p = 1 - p;
+  }
+  if (user.name == newHistory[0].user) {
+    result += claim.bounty * Math.log(p);
+  }
+
+  for (i = 1; i < newHistory.length; i++) {
+    nextP = newHistory[i].probability;
+    if (!outcome) {
+      nextP = 1 - nextP;
     }
-  } else {
-    dirty = true;
+    if (user.name == newHistory[i].user) {
+      result += claim.bounty * (Math.log(nextP) - Math.log(p));
+    }
+    p = nextP;
   }
-  if (dirty){
-    dirtySearch(search);
-  }
-  cachedSearches[search] = result;
-  return dirty;
+
+  return result;
 }
 
-function changed(display1, display2){
-  if (display1['type'] != display2['type']) return true;
-  else if (display1['type'] == 'displayclaim') return (display1['claim'] != display2['claim']);
-  else if (display1['type'] == 'search') return (display1['search'] != display2['search']);
-}
-
-function dirtyClaim(id){
-}
-
-function dirtySearch(search){
-}
+/* -------------------------------------------------------------------------- *
+ * Unedited code begins here!                                                 *
+ * -------------------------------------------------------------------------- */
 
 function submitClaimBox(id){
   result = "<div class='submitbetbox'>";
@@ -848,29 +907,6 @@ function getPayoff(outcome){
   return currentClaim['bounty'] * (Math.log(np) - Math.log(p));
 }
 
-
-function getCommitment(id,h, outcome){
-  // TODO: Figure out what the hell this does.
-  return false;
-
-  if (h.length == 0) return 0;
-  claim = cachedClaims[id];
-  result = 0;
-  p = h[0]['probability'];
-  if (!outcome) p = 1 - p;
-  if (user == h[0]['user'])
-    result += claim['bounty'] * Math.log(p);
-  for (i=1; i<h.length; i++){
-    np = h[i]['probability'];
-    if (!outcome) np = 1 - np;
-    if (user == h[i]['user']){
-      result += claim['bounty'] * (Math.log(np) - Math.log(p));
-    }
-    p = np;
-  }
-  return result;
-}
-
 function displayFilters(){
   alldomains = cache['alldomains'].slice();
   alldomains.unshift("promoted");
@@ -964,50 +1000,6 @@ function humanDate(d){
 function humanTime(d){
   if (d == null) return "";
   else return padInt(d.getHours()) + ":" + padInt(d.getMinutes());
-}
-
-function setEstimate(id, newEstimate, source){
-  claim = cachedClaims[id];
-  proposedEstimate = newEstimate;
-  // TODO: Figure out what the hell this does.
-  //proposedHistory[proposedHistory.length-1]['probability'] = newEstimate;
-  if (source != "slider"){
-    $('#newbet').slider({
-      value: [ newEstimate ],
-    });
-  }
-  if (source != "field"){
-    $('#betinput').val( drawBet(newEstimate) );
-  }
-  recalculateView(id);
-}
-
-function recalculateView(id){
-  // TODO: Figure out what the hell this does.
-  return false;
-
-  claim = cachedClaims[id];
-  currentTrueStake = getCommitment(id, claim['history'], true);
-  currentFalseStake = getCommitment(id, claim['history'], false);
-  totalTrueStake = getCommitment(id, proposedHistory, true);
-  totalFalseStake = getCommitment(id, proposedHistory, false);
-  $('#oldbettext').html(drawBet(claim['currentbet']) + "%");
-  $('#currenttruestake').html(drawReputation(currentTrueStake));
-  $('#currentfalsestake').html(drawReputation(currentFalseStake));
-  $('#thistruestake').html(drawReputation(totalTrueStake - currentTrueStake));
-  $('#thisfalsestake').html(drawReputation(totalFalseStake - currentFalseStake));
-  $('#totaltruestake').html(drawReputation(totalTrueStake));
-  $('#totalfalsestake').html(drawReputation(totalFalseStake));
-  if (totalTrueStake < -1 * claim['bounty'] * user.reputation) {
-    $('#totaltruestake').addClass('error');
-  } else{
-    $('#totaltruestake').removeClass('error');
-  }
-  if (totalFalseStake < -1 * claim['bounty'] * user.reputation) {
-    $('#totalfalsestake').addClass('error');
-  } else{
-    $('#totalfalsestake').removeClass('error');
-  }
 }
 
 function tooCommitted(claim){
