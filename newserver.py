@@ -15,13 +15,19 @@ class Claim(Data):
             'promoted', 'resolved', 'definition', 'history')
   num_key_fields = 1
 
+  def wrap(self):
+    results = self.to_dict()
+    results['history'] = wrap(('bet', wrap(bet)) for bet in results['history'])
+    return wrap(results.items())
+
 # Wraps a list, dictionary, or Data object in XML tags to return it to the user.
 def wrap(results):
-  if type(results) in (list, tuple):
-    return ''.join('<%s>%s</%s>' % (key, value, key) for key, value in results)
-  elif type(results) == dict:
+  if type(results) == dict:
     return wrap(results.items())
-  # TODO: Need to recursively wrap histories for claims.
+  elif hasattr(results, 'wrap'):
+    return results.wrap()
+  elif hasattr(results, '__iter__'):
+    return ''.join('<%s>%s</%s>' % (key, value, key) for key, value in results)
   return wrap(results.to_dict())
 
 # Errors returned by the server if queried incorrectly.

@@ -609,7 +609,7 @@ function parseClaimFromXML(xml) {
   result.definition = (definition = '') ? null : definition;
 
   result.history = []
-  $(xml).find('bet').each(function() {
+  $(xml).find('history').find('bet').each(function() {
     better = $(this).find('user').text();
     probability = parseFloat($(this).find('probability').text());
     time = parseDate($(this).find('time').text());
