@@ -109,6 +109,8 @@ function updateDisplay(displayState) {
       if (user.name == claim.owner) {
         newSidebar += ownerSidebarBlock();
       }
+      // TODO: Restore the adminSidebarBlock, which allows the administrator
+      // to promote or unpromote claims.
     }
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
@@ -546,9 +548,6 @@ function autoParseXML(xml) {
   // perform other updates if it occurs.
 
   // All server return calls should contain a 'currenttime' field.
-  // TODO: It might be better not to update the cache if this packet has an
-  // earlier date than the last processed packet. I'm not sure if this scenario
-  // actually happens often, though.
   currentTime = parseDate($(xml).find('currenttime').text());
 
   // Read the user's reputation, if it is in the XML. Set it if it is.
@@ -1047,26 +1046,4 @@ function setDisplay(display){
     result += "+" + display['search'];
   }
   window.location.hash = result;
-}
-
-
-function owner(id){
-  claim = cachedClaims[id];
-  return (user == claim['owner']);
-}
-
-function loadAccount(){
-  $('#mainframe').html("This is the account page.");
-}
-
-
-function drawReputationChange(d){
-  result = (d).toFixed(2);
-  if (d > 0)  result = "+" + result;
-  return result;
-}
-
-function changeDisplay(newDisplay){
-  attemptUpdateDisplay(newDisplay);
-  getData(newDisplay);
 }
