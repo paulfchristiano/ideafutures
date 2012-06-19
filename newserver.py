@@ -6,8 +6,8 @@ from math import log
 from random import randint
 import sys
 
-def default_domains():
-  return ['general', 'promoted']
+DEFAULT_DOMAINS = ['general', 'promoted']
+RESTRICTED_DOMAINS = ['all', 'promoted']
 
 class User(Data):
   collection = 'users'
@@ -120,7 +120,9 @@ def search_query(user, search):
 # Executes searches for the domains in the list 'searches'. Returns a list of
 # claims in those domains, ordered from newest to oldest.
 def execute_searches(searches):
-  if 'promoted' in searches:
+  if 'all' in searches:
+    vals = Claim.find(uses_key_fields=False)
+  elif 'promoted' in searches:
     if len(searches) > 1:
       searches = tuple(search for search in searches if search != 'promoted')
       vals = Claim.find({'$or':[{'promoted':1}, {'domain':{'$in':searches}}]}, \
@@ -140,9 +142,10 @@ def claim_query(uid):
   return [('claim', wrap(claim))]
 
 def alldomains_query():
-  domains = set(Claim.distinct('domain') + default_domains())
+  domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS \
+      ).difference(RESTRICTED_DOMAINS)
   return [('alldomains', wrap(('domain', domain) \
-      for domain in sorted(domains)))]
+      for domain in RESTRICTED_DOMAINS + sorted(domains)))]
 
 def userdomains_query(user):
   if user is None:
@@ -159,7 +162,7 @@ def signup_post(name, password):
     return [('signup', 'shortpassword')]
   # Create a new user with a reputation of 10.0.
   user = User({'name':name, 'password':password, 'reputation':10.0, \
-      'committed':{}, 'domains':default_domains()})
+      'committed':{}, 'domains':DEFAULT_DOMAINS})
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
   else:
@@ -259,7 +262,9 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
 
   age = now()
-  if (closes != '' and closes < age) or domain is None or domain == 'promoted':
+  if (closes != '' and closes < age) or domain is None:
+    return [('submitclaim', 'baddata')]
+  elif domain in RESTRICTED_DOMAINS:
     return [('submitclaim', 'baddata')]
 
   MAX_UID = (1 << 31) - 1
@@ -281,7 +286,7 @@ def newdomains_post(user, newdomains):
   if newdomains is None:
     return [invalid_query_error]
   newdomains = newdomains.split(' ') if len(newdomains) else []
-  domains = set(Claim.distinct('domain') + default_domains())
+  domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS + RESTRICTED_DOMAINS)
   if all(domain in domains for domain in newdomains):
     User.atomic_update(user.name, {'$set':{'domains':newdomains}})
     return [('userdomains', wrap(('domain', domain) \

@@ -109,7 +109,7 @@ class Data(object):
   # fields. As an optimization, if the query contains no key fields, the user
   # can skip this step by setting 'uses_key_fields' to False.
   @classmethod
-  def find(cls, query, uses_key_fields=True):
+  def find(cls, query={}, uses_key_fields=True):
     if uses_key_fields:
       def sanitize(query):
         for (key, internal_key) in zip(cls.keys, cls.internal_keys):

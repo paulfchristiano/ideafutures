@@ -14,6 +14,8 @@ function loggedIn() {
   return user.name != null
 }
 
+var RESTRICTED_DOMAINS = ['all', 'promoted'];
+
 var currentTime = new Date();
 function newCache() {
   return {'claims':{}, 'searches':{}};
@@ -235,6 +237,7 @@ function loginSidebarBlock(){
 
 function betSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
+  result += "<div class='row'>Domain: " + claim.domain + ".</div>";
   result += "<div class='row'>Multiplier on this claim: " + claim.bounty + ".</div>";
   if (loggedIn()) {
     var stakes = getStakes(claim, 0.5);
@@ -539,8 +542,8 @@ function setSubmitClaimInputHandlers() {
   $('#closedate').datepicker({});
 
   for (var i = 0; i < cache.alldomains.length; i++) {
-    if (cache.alldomains[i] != 'promoted') {
-      domain = cache.alldomains[i];
+    domain = cache.alldomains[i];
+    if (RESTRICTED_DOMAINS.indexOf(domain) == -1) {
       $('#domain').append("<option value='" + domain + "'>" + domain + "</option>");
     }
   }
@@ -916,8 +919,8 @@ function submitClaim() {
   if (domain == '') {
     setClaimError('You must enter a domain for this claim.');
     return;
-  } else if (domain == 'promoted') {
-    setClaimError("The 'promoted' domain is reserved.");
+  } else if (RESTRICTED_DOMAINS.indexOf(domain) > -1) {
+    setClaimError("The '" + domain + "' domain is reserved.");
     return;
   }
 
