@@ -130,11 +130,12 @@ function updateDisplay(displayState) {
     if (displayState.type == 'displayclaim') {
       var claim = cache.claims[displayState.id];
       newSidebar += betSidebarBlock(claim);
-      if (user.name == claim.owner && isOpen(claim)) {
+      if ((user.name == claim.owner || isAdmin(user)) && isOpen(claim)) {
         newSidebar += ownerSidebarBlock();
       }
-      // TODO: Restore the adminSidebarBlock, which allows the administrator
-      // to promote or unpromote claims.
+      if (isAdmin(user)) {
+        newSidebar += adminSidebarBlock(claim);
+      }
     }
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
@@ -243,6 +244,9 @@ function loginSidebarBlock(){
 function betSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
   result += "<div class='row'>Domain: " + claim.domain + ".</div>";
+  if (claim.promoted) {
+    result += "<div class='row'>(Claim is promoted.)</div>";
+  }
   result += "<div class='row'>Multiplier on this claim: " + claim.bounty + ".</div>";
   if (loggedIn()) {
     var stakes = getStakes(claim, 0.5);
@@ -258,6 +262,23 @@ function ownerSidebarBlock(){
   var result = "<div class='sidebarblock'>";
   result += "<div class='row'><a id='confirm'>Confirm this claim.</a></div>";
   result += "<div class='row'><a id='deny'>Deny this claim.</a></div>";
+  result += "</div>";
+  return result;
+}
+
+function isAdmin(user) {
+  return user.name == 'paulfc' || user.name == 'skishore';
+}
+
+function adminSidebarBlock(claim) {
+  var result = "<div class='sidebarblock'>";
+  //result += "<div class='row'> <a id='modify' href='#submitclaim+" + claim.id + "'> Modify this claim.</a> </div>";
+  if (claim.promoted) {
+    result += "<div class='row'> <a id='unpromote'> Un-promote this claim.</a> </div>";
+  } else{
+    result += "<div class='row'> <a id='promote'> Promote this claim.</a> </div>";
+  }
+  result += "<div class='row'> <a id='delete'> Delete this claim.</a> </div>";
   result += "</div>";
   return result;
 }
@@ -280,11 +301,20 @@ function setSidebarInputHandlers(displayState) {
 
   if (displayState.type == 'displayclaim'){
     id = displayState.id;
-    $('#confirm').click(function(){
-      resolveBet(id, true);
+    $('#confirm').click(function() {
+      resolveClaim(id, true);
     });
-    $('#deny').click(function(){
-      resolveBet(id, false);
+    $('#deny').click(function() {
+      resolveClaim(id, false);
+    });
+    $('#promote').click(function() {
+      promoteClaim(id, true);
+    });
+    $('#unpromote').click(function() {
+      promoteClaim(id, false);
+    });
+    $('#delete').click(function() {
+      deleteClaim(id);
     });
   }
 }
@@ -863,15 +893,47 @@ function submitBet(claim, bet) {
   );
 }
 
-function resolveBet(id, outcome) {
-  updateServer({'resolvebet':1, 'id':id, 'outcome':outcome},
+function resolveClaim(id, outcome) {
+  updateServer({'resolveclaim':1, 'id':id, 'outcome':outcome},
     function(id) {return function(xml) {
       var displayState = {'type':'displayclaim', 'id':id};
       if (isCurrentDisplay(displayState)) {
         updateDisplay(displayState);
       }
-      if ($(xml).find('resolvebet').text() == 'conflict') {
+      if ($(xml).find('resolveclaim').text() == 'conflict') {
         setBetError('Unable to resolve bet.');
+      }
+    };} (id)
+  );
+}
+
+function promoteClaim(id, outcome) {
+  updateServer({'promoteclaim':1, 'id':id, 'outcome':outcome},
+    function(id) {return function(xml) {
+      var displayState = {'type':'displayclaim', 'id':id};
+      if (isCurrentDisplay(displayState)) {
+        updateDisplay(displayState);
+      }
+      if ($(xml).find('resolveclaim').text() == 'conflict') {
+        setBetError('Unable to promote bet.');
+      }
+    };} (id)
+  );
+}
+
+function deleteClaim(id) {
+  updateServer({'deleteclaim':1, 'id':id},
+    function(id) {return function(xml) {
+      var result = $(xml).find('deleteclaim').text();
+      if (result == 'success') {
+        setDisplayState(DEFAULT_DISPLAY);
+        setAlert('Successfully deleted claim.');
+      } else if (result == 'conflict') {
+        var displayState = {'type':'displayclaim', 'id':id};
+        if (isCurrentDisplay(displayState)) {
+          updateDisplay(displayState);
+        }
+        setBetError('Unable to delete bet.');
       }
     };} (id)
   );

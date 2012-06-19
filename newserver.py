@@ -10,6 +10,9 @@ DEFAULT_DOMAINS = ['general', 'promoted']
 RESTRICTED_DOMAINS = ['all', 'promoted']
 DEFAULT_REPUTATION = 100.0
 
+def is_admin(user):
+  return user is not None and user.name in ('paulfc', 'skishore')
+
 class User(Data):
   collection = 'users'
   fields = ('name', 'password', 'reputation', 'committed', 'domains')
@@ -211,7 +214,7 @@ def makebet_post(user, uid, bet, version):
     return [('makebet', 'success'), ('claim', wrap(claim))]
   return [('makebet', 'conflict')]
 
-def resolvebet_post(user, uid, outcome):
+def resolveclaim_post(user, uid, outcome):
   # Encode outcomes in the database with 1 for True and 2 for False.
   try:
     uid = int(uid)
@@ -222,11 +225,11 @@ def resolvebet_post(user, uid, outcome):
   # Check that the claim is valid and unresolved and that the user owns it.
   claim = Claim.get(uid)
   if claim is None or claim.resolved:
-    return [('resolvebet', 'conflict')]
-  if claim.owner != user.name:
+    return [('resolveclaim', 'conflict')]
+  if claim.owner != user.name and not is_admin(user):
     return [authentication_failed_error]
 
-  # Atomically resolve this claim and update user's reputations.
+  # Atomically resolve this claim and update users' reputations.
   Claim.atomic_update(uid, {'$set':{'resolved':outcome, 'closes':now()}})
   claim = Claim.get(uid)
   affected_names = set(bet['user'] for bet in claim.history)
@@ -234,7 +237,45 @@ def resolvebet_post(user, uid, outcome):
     stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
     User.atomic_update(name, \
         {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
-  return [('resolvebet', 'success'), ('claim', wrap(claim))]
+  return [('resolveclaim', 'success'), ('claim', wrap(claim))]
+
+def promoteclaim_post(user, uid, outcome):
+  try:
+    uid = int(uid)
+    outcome = {'true':1, 'false':0}[outcome]
+  except Exception, e:
+    return [invalid_query_error]
+  if not is_admin(user):
+    return [authentication_failed_error]
+  Claim.atomic_update(uid, {'$set':{'promoted':outcome}})
+  claim = Claim.get(uid)
+  if claim is not None:
+    return [('promoteclaim', 'success'), ('claim', wrap(claim))]
+  return [('promoteclaim', 'conflict')]
+
+def deleteclaim_post(user, uid):
+  try:
+    uid = int(uid)
+  except Exception, e:
+    return [invalid_query_error]
+
+  # Check that the claim is valid and unresolved and that the user is an admin.
+  if not is_admin(user):
+    return [authentication_failed_error]
+  claim = Claim.get(uid)
+  if claim is None:
+    return [('deleteclaim', 'conflict')]
+
+  # Resolve this claim, without changing users' reputations, then delete it.
+  Claim.atomic_update(uid, {'$set':{'resolved':1, 'closes':now()}})
+  claim = Claim.get(uid)
+  if claim is not None:
+    affected_names = set(bet['user'] for bet in claim.history)
+    for name in affected_names:
+      User.atomic_update(name, {'$unset':{'committed.%s' % uid:1}})
+    Claim.remove(uid)
+    return [('deleteclaim', 'success'), ('claim', wrap(claim))]
+  return [('deleteclaim', 'conflict')]
 
 def submitclaim_post(user, description, definition, bet, bounty, \
     maxstake, closes, domain):
@@ -324,10 +365,11 @@ class IdeaFuturesServer:
   # These calls may change state at the server.
   # Only one update is allowed per message.
   @cherrypy.expose
-  def update(self, signup=None, makebet=None, resolvebet=None, \
-      submitclaim=None, name=None, password=None, id=None, bet=None, \
-      version=None, outcome=None, description=None, definition=None, \
-      bounty=None, maxstake=None, closes=None, domain=None, newdomains=None):
+  def update(self, signup=None, makebet=None, resolveclaim=None, \
+      deleteclaim = None, promoteclaim=None, submitclaim = None, \
+      name=None, password=None, id=None, bet=None, version=None, \
+      outcome=None, description=None, definition=None, bounty=None, \
+      maxstake=None, closes=None, domain=None, newdomains=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -336,8 +378,12 @@ class IdeaFuturesServer:
       elif user is not None:
         if makebet is not None:
           results.extend(makebet_post(user, id, bet, version))
-        elif resolvebet is not None:
-          results.extend(resolvebet_post(user, id, outcome))
+        elif resolveclaim is not None:
+          results.extend(resolveclaim_post(user, id, outcome))
+        elif promoteclaim is not None:
+          results.extend(promoteclaim_post(user, id, outcome))
+        elif deleteclaim is not None:
+          results.extend(deleteclaim_post(user, id))
         elif submitclaim is not None:
           results.extend(submitclaim_post(user, description, definition, \
               bet, bounty, maxstake, closes, domain))

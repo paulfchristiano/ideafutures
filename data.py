@@ -145,6 +145,14 @@ class Data(object):
     update['$set']['_version'] = randint(0, MAX_VERSION)
     db[cls.collection].update(keys_dict, update)
 
+  # Removes an object with the given keys from the database.
+  @classmethod
+  def remove(cls, keys):
+    if type(keys) not in (list, tuple, dict):
+      keys = (keys,)
+    keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
+    db[cls.collection].remove(keys_dict)
+
   # Constructs a new object from its values. Does not save it to the database.
   def __init__(self, values, internal=False):
     self.__class__.add_key_properties()
