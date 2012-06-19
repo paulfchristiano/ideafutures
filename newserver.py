@@ -201,7 +201,7 @@ def makebet_post(user, uid, bet, version):
     claim.history.append({'user':user.name, 'probability':bet, 'time':bettime})
   if claim.save():
     User.atomic_update(user.name, \
-        {'$inc':{'committed.%s' % uid:cur_stake - old_stake}})
+        {'$set':{'committed.%s' % uid:cur_stake}})
     return [('makebet', 'success'), ('claim', wrap(claim))]
   return [('makebet', 'conflict')]
 
