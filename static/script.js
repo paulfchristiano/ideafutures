@@ -737,18 +737,18 @@ function logout() {
  * -------------------------------------------------------------------------- */
 
 function setEstimate(claim, bet, source) {
-  if (!loggedIn() || isNaN(bet) || bet < 0 || bet > 1) {
+  if (isNaN(bet) || bet < 0 || bet > 1) {
     return;
   }
-
   if (source != 'slider') {
     $('#newbet').slider({value: [bet]});
   }
   if (source != 'field') {
     $('#betinput').val(drawBet(bet));
   }
-
-  recalculateView(claim, bet);
+  if (loggedIn()) {
+    recalculateView(claim, bet);
+  }
 }
 
 function recalculateView(claim, bet) {
