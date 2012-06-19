@@ -14,7 +14,7 @@ function loggedIn() {
   return user.name != null
 }
 
-var currentTime = Date();
+var currentTime = new Date();
 function newCache() {
   return {'claims':{}, 'searches':{}};
 }
@@ -69,9 +69,9 @@ function getDisplayState() {
     state.type = params[0];
     if (state.type == 'listclaims') {
       state.search = params[1];
-    } else if (state.type  == 'displayclaim' || state.type == 'submitclaim') {
+    } else if (state.type  == 'displayclaim') {
       state.id = parseInt(params[1]);
-    } else if (state.type != 'listdomains') {
+    } else if (state.type != 'submitclaim' && state.type != 'listdomains') {
       // Unknown state type. Show the home page.
       state = DEFAULT_DISPLAY;
     }
@@ -80,8 +80,8 @@ function getDisplayState() {
 }
 
 // Sets the display hash tags by display state.
-function setDisplayState(displayState) {
-  result = displayState.type;
+function setDisplayState(displayState, message) {
+  var result = displayState.type;
   if (result == 'listclaims') {
     result += '+' + displayState.search;
   } else if (result == 'displayclaim') {
@@ -104,7 +104,7 @@ function isCurrentDisplay(displayState) {
 
 // Update the user interface. Revert to the default display if the user attempts
 // to take an action which requires him to be logged in without doing so.
-// Returns false if the required data has not been cached and true otherwise.
+// Returns the final display state.
 function updateDisplay(displayState) {
   clearAlert();
 
@@ -142,36 +142,40 @@ function updateDisplay(displayState) {
     } else if (displayState.type == 'displayclaim') {
       drawClaim(cache.claims[displayState.id]);
     } else if (displayState.type == 'submitclaim') {
-      if ('id' in displayState) {
-        drawSubmitClaim(displayState.id);
-      } else {
-        drawSubmitClaim();
-      }
+      drawSubmitClaim();
     } else if (displayState.type == 'listdomains') {
       drawFilters();
     }
   }
 }
 
-function setAlert(message){
+function setAlert(message) {
   $('#alertbox').html(message);
   $('#alertbox').show();
 }
 
-function clearAlert(){
+function clearAlert() {
   $('#alertbox').hide();
 }
 
-function setLoginError(message){
+function setLoginError(message) {
   $('#loginerror').html(message);
 }
 
-function setBetError(message){
+function setBetError(message) {
   $('#beterror').html(message);
 }
 
-function clearBetError(message){
+function clearBetError() {
   $('#beterror').html('');
+}
+
+function setClaimError(message) {
+  $('#submitclaimerror').html(message);
+}
+
+function clearClaimError(str) {
+  $('#submitclaimerror').html('');
 }
 
 function updateActiveLink(displayType) {
@@ -180,9 +184,9 @@ function updateActiveLink(displayType) {
     $('#recentclaimsnavbar').addClass('activeLink');
   }
 
-  $('#submitclaimsnavbar').removeClass('activeLink');
-  if (displayType == 'submitclaims') {
-    $('#submitclaimsnavbar').addClass('activeLink');
+  $('#submitclaimnavbar').removeClass('activeLink');
+  if (displayType == 'submitclaim') {
+    $('#submitclaimnavbar').addClass('activeLink');
   }
 
   $('#filtersnavbar').removeClass('activeLink');
@@ -196,10 +200,12 @@ function isCached(displayState) {
     return displayState.search in cache.searches;
   } else if (displayState.type == 'displayclaim') {
     return displayState.id in cache.claims;
+  } else if (displayState.type == 'submitclaim') {
+    return 'alldomains' in cache;
   } else if (displayState.type == 'listdomains') {
     return 'alldomains' in cache && 'userdomains' in cache;
   }
-  return true;
+  return false;
 }
 
 function drawReputation(reputation) {
@@ -271,15 +277,6 @@ function setSidebarInputHandlers(displayState) {
     });
     $('#deny').click(function(){
       resolveBet(id, false);
-    });
-    $('#delete').click(function(){
-      deleteBet(id);
-    });
-    $('#promote').click(function(){
-      promoteClaim(id, true);
-    });
-    $('#unpromote').click(function(){
-      promoteClaim(id, false);
     });
   }
 }
@@ -500,6 +497,62 @@ function setClaimInputHandlers(claim) {
   });
 }
 
+function drawSubmitClaim() {
+  $('#mainframe').html(submitClaimBox());
+  setSubmitClaimInputHandlers();
+}
+
+function submitClaimBox() {
+  var result = "<div class='submitbetbox'>";
+  result += "<div class='row'>Short description:";
+  result += "<input type='text' id='description' size='50' maxlength='200' </input></div>";
+  result += "<div class='row'><div class='left'>Precise definition:</div>";
+  result += "<textarea id='definition'></textarea> </div>";
+  result += "<div class='row'>Bounty:";
+  result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
+  result += "Initial Estimate:"
+  result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input>";
+  result += "Maximum Risk (as fraction of reputation): 0.1</div>";
+  result += "<div class='row'>Market closes (optional):";
+  result += "<input type='text' id='closedate'></input>";
+  result += "<input type='text' id='closetime'></input> </div>";
+  result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
+  result += " or create a new one: <input type='text' id='domaintext'></input></div>"
+  result += "<div class='row'><a class='orange' id='submitclaimbutton'>Submit Claim</a></div>";
+  result += "<div class='error row' id='submitclaimerror'></div>";
+  result += "</div>";
+  return result;
+}
+
+function setSubmitClaimInputHandlers() {
+  $('#bounty').val(1.0);
+  $('#bounty').focus(function() {
+    this.select();
+  });
+  $('#initialestimate').val(0.5);
+  $('#initialestimate').focus(function() {
+    this.select();
+  });
+  $('#closetime').timepicker({});
+  $('#closedate').datepicker({});
+
+  for (i = 0; i < cache.alldomains.length; i++) {
+    domain = cache.alldomains[i];
+    $('#domain').append("<option value='" + domain + "'>" + domain + "</option>");
+  }
+  $('#domain').append("<option value=''></option>");
+  if (cache.alldomains.indexOf('general') > -1) {
+    $('#domain').val('general');
+  } else {
+    $('#domain').val('');
+    $('#domaintext').val('general');
+  }
+
+  $('#submitclaimbutton').click(function(){
+    submitClaim();
+  });
+}
+
 /* -------------------------------------------------------------------------- *
  * Code for communicating with the server begins here!                        *
  * -------------------------------------------------------------------------- */
@@ -528,8 +581,11 @@ function isDirty(displayState) {
     return displayState.search in dirty.searches;
   } else if (displayState.type == 'displayclaim') {
     return displayState.id in dirty.claims;
-  } else if (displayState.type == 'listfilters') {
-    return 'alldomains' in dirty;
+  } else if (displayState.type == 'submitclaim' ||
+      displayState.type == 'listfilters') {
+    // TODO: Need to implement dirty logic for alldomains.
+    //return 'alldomains' in dirty;
+    return true;
   }
   return false;
 }
@@ -554,7 +610,8 @@ function pingServer(query, queryType, returnCall) {
   }
 
   if (!('login' in query) && !('signup' in query) && !('search' in query) &&
-      !('claim' in query) && !('makebet' in query) && !('resolvebet' in query))
+      !('claim' in query) && !('makebet' in query) && !('resolvebet' in query) &&
+      !('alldomains' in query) && !('userdomains' in query) && !('submitclaim' in query))
     return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.
@@ -602,7 +659,6 @@ function autoParseXML(xml) {
     }
   });
 
-  // TODO: Add dirty logic here.
   if ($(xml).find('alldomains').length > 0) {
     var alldomains = [];
     $(xml).find('alldomains').find('domain').each(function() {
@@ -677,13 +733,17 @@ function parseDate(strDate) {
 }
 
 function parseDateTime(strDate, strTime) {
+  if (strTime == '') {
+    strTime = '23:59';
+  }
   var dateParts = strDate.split(/[\.\s\/:\-T]/);
   var timeParts = strTime.split(/[\.\s\/:\-T]/);
   return new Date(dateParts[2], dateParts[0] - 1, dateParts[1], timeParts[0], timeParts[1]);
 }
 
 function cacheClaim(claim) {
-  if (!(claim.id in cache.claims) || claim.version != cache.claims[id].version) {
+  if (!(claim.id in cache.claims) ||
+      claim.version != cache.claims[claim.id].version) {
     dirty.claims[claim.id] = true;
   }
   cache.claims[claim.id] = claim;
@@ -767,12 +827,12 @@ function submitBet(claim, bet) {
         updateDisplay(displayState);
       }
 
-      var response = $(xml).find('makebet').text();
-      if (response == 'toocommitted') {
+      var result = $(xml).find('makebet').text();
+      if (result == 'toocommitted') {
         setBetError("You cannot risk that much on one bet.");
-      } else if (response == 'samebet') {
+      } else if (result == 'samebet') {
         setBetError('You must change the estimate to bet.');
-      } else if (response == 'conflict') {
+      } else if (result == 'conflict') {
         setBetError('This view is no longer up-to-date, because someone else bet on this claim.');
       }
     };} (claim)
@@ -795,12 +855,103 @@ function resolveBet(id, outcome) {
   );
 }
 
+function submitClaim() {
+  if (!loggedIn()) {
+    setClaimError("You must be logged in to submit a claim.");
+    return;
+  }
+
+  var description = $('#description').val();
+  if (description.length < 5) {
+    setClaimError("Your claim's description must be longer.");
+    return;
+  }
+  var definition = $('#definition').val();
+
+  var bet = $('#initialestimate').val();
+  if (isNaN(bet) || bet <= 0 || bet >= 1) {
+    setClaimError('Your initial estimate must be a number between 0 and 1.');
+    return;
+  }
+  var bounty = $('#bounty').val();
+  if (isNaN(bounty) || bounty <= 0) {
+    setClaimError("Your claim's bounty must be a positive number.");
+    return;
+  }
+  var maxstake = 0.1;
+  if (-bounty * Math.log(bet) > maxstake * (user.reputation - user.committed) ||
+      -bounty * Math.log(1 - bet) > maxstake * (user.reputation - user.committed)) {
+    setClaimError("You cannot risk that much on this claim.");
+    return;
+  }
+
+  var closes = null;
+  if ($('#closedate').val() != '') {
+    var closes = parseDateTime($('#closedate').val(), $('#closetime').val());
+    if (closes < new Date()) {
+      setClaimError('Your claim must close at some time in the future.');
+      return;
+    }
+  }
+  var domain = $('#domaintext').val();
+  if (domain == '') {
+    domain = $('#domain').val();
+    if (domain == '') {
+      setClaimError('You must enter a domain for this claim.');
+      return;
+    }
+  }
+
+  clearClaimError();
+  $('#submitclaimbutton').click(function() {});
+  updateServer({'submitclaim':1, 'description':description, 'definition':definition,
+      'bet':bet, 'bounty':bounty, 'maxstake':maxstake, 'closes':serverDate(closes),
+      'domain':domain},
+    function(xml) {
+      var result = $(xml).find('submitclaim').text();
+      if (result == 'success') {
+        setDisplayState(DEFAULT_DISPLAY);
+        setAlert('Successfully submitted claim.');
+      } else {
+        if (result == 'baddata') {
+          setClaimError('One or more fields of your claim were incorrectly formatted.');
+        } else if (result == 'conflict') {
+          setClaimError('Unable to save claim. Another user may have submitted at the same time.');
+        }
+        $('#submitclaimbutton').click(function() {
+          submitClaim();
+        });
+      }
+    }
+  );
+}
+
+function serverDate(d){
+  if (d == null) {
+    return '';
+  }
+  var month = padInt(d.getMonth() + 1);
+  var hour = padInt(d.getHours());
+  var minute = padInt(d.getMinutes());
+  var second = padInt(d.getSeconds());
+  var day = padInt(d.getDate());
+  return "" + (d.getFullYear()) + "-" + month + "-" + day +
+      " " + hour + ":" + minute + ":" + second;
+}
+
+function padInt(x, len){
+  if (typeof(len) == 'undefined') len = 2;
+  x = "" + x;
+  while (x.length < len) x = "0" + x;
+  return x;
+}
+
 /* -------------------------------------------------------------------------- *
  * Betting logic begins here!                                                 *
  * -------------------------------------------------------------------------- */
 
 function setEstimate(claim, bet, source) {
-  if (isNaN(bet) || bet < 0 || bet > 1) {
+  if (isNaN(bet) || bet <= 0 || bet >= 1) {
     return;
   }
   if (source != 'slider') {
@@ -880,7 +1031,7 @@ function validateBet(claim, bet) {
   if (!loggedIn()) {
     setBetError('You must be logged in to bet.');
     return false;
-  } else if (isNaN(bet) || bet < 0 || bet > 1) {
+  } else if (isNaN(bet) || bet <= 0 || bet >= 1) {
     setBetError('Your new estimate must be a number between 0 and 1.');
     return false;
   } else if (bet == claim.currentbet) {
@@ -905,117 +1056,11 @@ function validateBet(claim, bet) {
  * Unedited code begins here!                                                 *
  * -------------------------------------------------------------------------- */
 
-function submitClaimBox(id){
-  var result = "<div class='submitbetbox'>";
-  result += "<div class='row'>Short description:";
-  result += "<input type='text' id='description' size='50' maxlength='200' </input> </div>";
-  result += "<div class='row'><div class='left'>Precise definition:</div>";
-  result += "<textarea id='definition'></textarea> </div>";
-  result += "<div class='row'>Bounty:";
-  result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
-  result += "Maximum Risk (as fraction of reputation):";
-  result += "<input type='text' id='maxstake' size='4' maxlength='5'></input>";
-  result += "Initial Estimate:"
-  result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input> </div>";
-  result += "<div class='row'> Market closes (optional):";
-  result += "<input type='text' id='closedate'></input>";
-  result += "<input type='text' id='closetime'></input> </div>";
-  result += "<div class='row'> Choose an existing domain: <select id='domain'> </select>";
-  result += " or create a new one: <input type='text' id='domaintext'></input></div>"
-  result += "<div class='row'> <a class='orange' id='submitclaimbutton'> Submit Claim </a> </div>";
-  result += "<div class='error row' id='submitclaimerror'> </div>";
-  result += "</div>";
-  return result;
-}
-
-function initializeSubmitClaim(id){
-  var submitted = false;
-  var claim = (typeof(id)=='undefined' || isNaN(id)) ?
-    { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
-      'bounty':1.0, 'closes':null, 'domain':'general'} : cache.claims[id];
-  var closedate = humanDate(claim['closes']);
-  closetime = humanTime(claim['closes']);
-  $('#description').val(claim['description']);
-  $('#definition').val(claim['definition']);
-  $('#submitclaimbutton').click(function(){
-    submitClaim(id);
-  });
-  $('#initialestimate').val(claim['currentbet']);
-  $('#initialestimate').focus(function(){
-    this.select();
-  });
-  $('#maxstake').val(claim['maxstake']);
-  $('#maxstake').focus(function(){
-    this.select();
-  });
-  $('#bounty').val(claim['bounty']);
-  $('#bounty').focus(function(){
-    this.select();
-  });
-  $('#closetime').val(closetime);
-  $('#closetime').timepicker({});
-  $('#closedate').val(closedate);
-  $('#closedate').datepicker({});
-  for (i = 0; i < cache['alldomains'].length; i++){
-    domain = cache['alldomains'][i];
-    $('#domain').append("<option value='"+domain+"'>"+domain+"</option>");
-  }
-  $('#domain').val(claim['domain']);
-}
-
-function submitClaim(id){
-  if (submitted) return;
-  var proposedEstimate = $('#initialestimate').val();
-  var bounty = $('#bounty').val();
-  var maxstake = $('#maxstake').val();
-  var description = $('#description').val();
-  var definition = $('#definition').val();
-  var domain = $('#domaintext').val();
-  if (domain=='') domain = $('#domain').val();
-  var closes = parseDateTime($('#closedate').val(), $('#closetime').val());
-  var falseRisk = bounty*Math.log(proposedEstimate);
-  var trueRisk = bounty*Math.log(1 - proposedEstimate);
-  if (typeof(id) == 'undefined'){
-    if (trueRisk < -1 * maxstake * user.reputation || falseRisk < -1 * maxstake * user.reputation){
-      claimError("You cannot risk that much.");
-    } else if (description.length < 5){
-      claimError("That description is too short.");
-    }else if (bounty <= 0 || isNaN(bounty)){
-      claimError("The bounty must be a positive number.");
-    } else if (isNaN(maxstake) || maxstake <= 0 || maxstake > 1){
-      claimError("The maximum stake must be a number between 0 and 1.");
-    } else if (isNaN(proposedEstimate) || proposedEstimate < 0 || proposedEstimate > 1){
-      claimError("The initial estimate must be a number between 0 and 1.");
-    }else{
-      claimError("");
-      submitted = true;
-      queryServer({   submitclaim:1, user:user, probability:proposedEstimate,
-        maxstake:maxstake, description:description, bounty:bounty, domain:domain,
-        definition:definition, domain:domain, closes:serverDate(closes) },
-      function(xml){
-        setDisplay(defaultDisplay);
-      });
-    }
-  } else {
-    submitted = true;
-    queryServer({ editclaim:1, user:user, maxstake:maxstake, description:description,
-      bounty:bounty, definition:definition, domain:domain, closes:serverDate(closes),
-      topic:id, domain:domain  },
-      function(xml){
-        setDisplay(defaultDisplay);
-      });
-  }
-}
-
 function promoteClaim(id, p){
   queryServer({ promoteclaim: (p?1:0), topic:id },
     function(xml){
       setDisplay(defaultDisplay);
     });
-}
-
-function claimError(str){
-  $('#submitclaimerror').html(str);
 }
 
 function displayFilters(){
@@ -1080,27 +1125,6 @@ function domainPicker(domain){
   result += domain + "</a></div> <div class='right'> <a href='#search+"+domain+"'>";
   result += "(view " +domain+")</a></div> </div>";
   return result;
-}
-
-function displaySubmitClaim(id){
-  $('#mainframe').html(submitClaimBox(id));
-  initializeSubmitClaim(id);
-}
-
-function serverDate(d){
-  var month = padInt(d.getMonth() + 1);
-  var hour = padInt(d.getHours());
-  var minute = padInt(d.getMinutes());
-  var second = padInt(d.getSeconds());
-  var day = padInt(d.getDate());
-  return "" + (d.getFullYear()) + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
-}
-
-function padInt(x, len){
-  if (typeof(len) == 'undefined') len = 2;
-  x = "" + x;
-  while (x.length < len) x = "0" + x;
-  return x;
 }
 
 function humanDate(d){

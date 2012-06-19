@@ -3,6 +3,7 @@ import cherrypy
 from data import Data
 from datetime import datetime
 from math import log
+from random import randint
 import sys
 
 class User(Data):
@@ -135,6 +136,15 @@ def claim_query(uid):
     return []
   return [('claim', wrap(claim))]
 
+def alldomains_query():
+  return [('alldomains', \
+      wrap(('domain', domain) for domain in Claim.distinct('domain')))]
+
+def userdomains_query(user):
+  if user is None:
+    return [authentication_failed_error]
+  return [('userdomains', wrap(('domain', domain) for domain in user.domains))]
+
 def signup_post(name, password):
   if name is None or password is None:
     return [invalid_query_error]
@@ -143,7 +153,8 @@ def signup_post(name, password):
   elif len(password) < 3:
     return [('signup', 'shortpassword')]
   # Create a new user with a reputation of 10.0.
-  user = User((name, password, 10.0, 0.0, ['promoted']))
+  user = User({'name':name, 'password':password, 'reputation':10.0, \
+      'committed':{}, 'domains':['promoted']})
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
   else:
@@ -158,7 +169,7 @@ def makebet_post(user, uid, bet, version):
     version = int(version)
   except Exception, e:
     return [invalid_query_error]
-  if bet < 0 or bet > 1:
+  if bet <= 0 or bet >= 1:
     return [('makebet', 'toocommitted')]
 
   # Check that the claim is valid, unresolved, and up-to-date, and check
@@ -219,12 +230,59 @@ def resolvebet_post(user, uid, outcome):
         {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
   return [('resolvebet', 'success'), ('claim', wrap(claim))]
 
+def submitclaim_post(user, description, definition, bet, bounty, \
+    maxstake, closes, domain):
+  if len(description) < 5:
+    return [('submitclaim', 'baddata')]
+  if definition is None:
+    definition = ''
+  try:
+    bet = float(bet)
+    bounty = float(bounty)
+    maxstake = float(maxstake)
+    print closes
+    if closes is None or closes == '':
+      closes = ''
+    else:
+      closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
+  except Exception, e:
+    return [('submitclaim', 'baddata')]
+  if bet <= 0 or bet >= 1 or bounty <= 0 or maxstake <= 0 or maxstake >= 0.5:
+    return [('submitclaim', 'baddata')]
+
+  # Check if the user can stake enough to make this claim. This check is NOT
+  # thread-safe, so we may allow the user to risk more than the max stake in
+  # pathological cases.
+  stake = -min(log(bet), log(1 - bet))
+  if stake > maxstake * (user.reputation - sum(user.committed.values())):
+    return [('submitclaim', 'baddata')]
+
+  age = now()
+  if (closes != '' and closes < age) or domain is None:
+    return [('submitclaim', 'baddata')]
+
+  MAX_UID = (1 << 31) - 1
+  claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
+      'closes':closes, 'currentbet':bet, 'description':description, \
+      'domain':domain, 'lastbetter':user.name, 'lastbettime':age, \
+      'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
+      'definition':definition, \
+      'history':[{'user':user.name, 'probability':bet, 'time':age}]})
+  # Try to insert this claim. After 10 conflicts, fail.
+  for i in range(10):
+    if claim.save():
+      User.atomic_update(user.name, \
+          {'$inc':{'committed.%s' % claim.uid:stake}})
+      return [('submitclaim', 'success')] + search_query(user, 'user_default')
+    claim.uid = randint(0, MAX_UID)
+  return [('submitclaim', 'conflict')]
+
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
   def query(self, login=None, search=None, claim=None, \
-      name=None, password=None):
+      alldomains=None,  userdomains=None, name=None, password=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -236,6 +294,10 @@ class IdeaFuturesServer:
         results.extend(search_query(user, search))
       if claim is not None:
         results.extend(claim_query(claim))
+      if alldomains is not None:
+        results.extend(alldomains_query())
+      elif userdomains is not None:
+        results.extend(userdomains_query(user))
     except Exception, e:
       results.append(('error', str(e)))
     results.append(('currenttime', now()))
@@ -245,7 +307,9 @@ class IdeaFuturesServer:
   # Only one update is allowed per message.
   @cherrypy.expose
   def update(self, signup=None, makebet=None, resolvebet=None, \
-      name=None, password=None, id=None, bet=None, version=None, outcome=None):
+      submitclaim=None, name=None, password=None, id=None, bet=None, \
+      version=None, outcome=None, description=None, definition=None, \
+      bounty=None, maxstake=None, closes=None, domain=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -256,6 +320,9 @@ class IdeaFuturesServer:
           results.extend(makebet_post(user, id, bet, version))
         elif resolvebet is not None:
           results.extend(resolvebet_post(user, id, outcome))
+        elif submitclaim is not None:
+          results.extend(submitclaim_post(user, description, definition, \
+              bet, bounty, maxstake, closes, domain))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))

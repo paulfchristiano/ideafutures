@@ -80,6 +80,7 @@ class Data(object):
 
   # Adds properties for this Data class's key fields if they do not already
   # exist. Called on __init__().
+  # TODO: When this method is invoked, ensure indices on the key fields.
   @classmethod
   def add_key_properties(cls):
     if not cls.has_key_properties:
@@ -126,6 +127,11 @@ class Data(object):
       result.version_ = values['_version']
       results.append(result)
     return results
+
+  # Returns the distinct values of a field. Should not be used for key fields.
+  @classmethod
+  def distinct(cls, field):
+    return db[cls.collection].distinct(field)
 
   # Atomically updates the value of an object in the database. The update should
   # not affect the key fields of the object.
