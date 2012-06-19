@@ -765,7 +765,7 @@ function recalculateView(claim, bet) {
   $('#totalfalsestake').html(drawReputation(stakes.cur[0]));
   $('#totaltruestake').html(drawReputation(stakes.cur[1]));
 
-  var otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+  var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
   if (-stakes.cur[0] > claim.maxstake * (user.reputation - otherStake)) {
     $('#totalfalsestake').addClass('error');
   } else{
@@ -846,7 +846,7 @@ function validateBet(claim, bet) {
   }
 
   var stakes = getStakes(claim, bet);
-  var otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+  var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
   var newStake = -Math.min(stakes.cur[0], stakes.cur[1]);
   if (isNaN(newStake) ||
       newStake > claim.maxstake * (user.reputation - otherStake)) {
