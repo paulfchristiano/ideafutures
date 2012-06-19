@@ -151,6 +151,7 @@ class Data(object):
     if type(keys) not in (list, tuple, dict):
       keys = (keys,)
     keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
+    db[cls.collection + '_old'].insert(db[cls.collection].find_one(keys_dict))
     db[cls.collection].remove(keys_dict)
 
   # Constructs a new object from its values. Does not save it to the database.
