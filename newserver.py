@@ -6,8 +6,12 @@ import sys
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'password', 'reputation', 'domains')
+  fields = ('name', 'password', 'reputation', 'committed', 'domains')
   num_key_fields = 1
+
+  def wrap(self):
+    return wrap((('reputation', self.reputation),
+        ('committed', sum(self.committed.values()))))
 
 class Claim(Data):
   collection = 'claims'
@@ -35,12 +39,20 @@ def wrap(results):
 # Errors returned by the server if queried incorrectly.
 invalid_query_error = ('error', \
     'One or more fields of the query were missing or incorrectly formatted.')
-permission_denied_error = ('error', \
-    'Permission denied. Username or password incorrect.')
+authentication_failed_error = ('error', \
+    'Authentication failed. Username or password incorrect.')
 
 # Methods for answering server queries.
 # Each of these methods should return a list of (key, value) result pairs.
 # The elements of these pairs should be strings.
+def default_query(name, password):
+  if name is None or password is None:
+    return [invalid_query_error]
+  user = User.get(name)
+  if user is None or password != user.password:
+    return [authentication_failed_error]
+  return [('user', wrap(user))]
+
 def login_query(name, password):
   if name is None or password is None:
     return [invalid_query_error]
@@ -50,7 +62,7 @@ def login_query(name, password):
   elif password != user.password:
     return [('login', 'wrongpassword')]
   else:
-    return [('login', 'success'), ('reputation', user.reputation)]
+    return [('login', 'success')]
 
 def search_query(search, name, password):
   if search == 'user_default':
@@ -59,7 +71,7 @@ def search_query(search, name, password):
     else:
       user = User.get(name)
       if user is None or password is None or password != user.password:
-        return [permission_denied_error]
+        return [authentication_failed_error]
       if len(user.domains) == 0:
         vals = execute_searches(['promoted'])
       else:
@@ -114,6 +126,10 @@ class IdeaFuturesServer:
       name=None, password=None):
     results = []
     try:
+      # Append some data, such as reputation, to all user queries.
+      if name is not None and password is not None:
+        results.extend(default_query(name, password))
+      # Answer more complex queries.
       if login is not None:
         results.extend(login_query(name, password))
       if search is not None:

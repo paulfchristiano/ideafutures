@@ -7,7 +7,7 @@ var DEFAULT_DISPLAY = {'type':'listclaims', 'search':'user_default'};
 // These values are not null if and only if the user is logged in.
 // TODO: Replace user passwords with MD5 hashes or the equivalent.
 function newUser() {
-  return {'name':null, 'password':null, 'reputation':null};
+  return {'name':null, 'password':null, 'reputation':null, 'committed':null};
 }
 var user = newUser();
 function loggedIn() {
@@ -30,12 +30,14 @@ function saveUserState() {
   $.cookie('name', user.name);
   $.cookie('password', user.password);
   $.cookie('reputation', user.reputation);
+  $.cookie('committed', user.committed);
 }
 
 function restoreUserState() {
   user.name = $.cookie('name');
   user.password = $.cookie('password');
   user.reputation = parseFloat($.cookie('reputation'));
+  user.committed = parseFloat($.cookie('committed'));
   if (user.name != null) {
     login(user.name, user.password);
   }
@@ -189,6 +191,7 @@ function loginSidebarBlock(){
   if  (loggedIn()){
     result += "<div class='row'>You are logged in as " + user.name + "</div>";
     result += "<div class='row'>You reputation is " + drawReputation(user.reputation) + "</div>";
+    result += "<div class='row'>You have committed " + drawReputation(user.committed) + " points</div>";
     result += "<div class='row'><input type='submit' class='left' value='Log Out' id='logoutbutton'></input></div>";
   } else{
     result += "<div class='row'>Username:</div>";
@@ -287,7 +290,7 @@ function topicBox(claim) {
   result += "<div class='clear'> Submitted by " + claim.owner + " " + drawDate(claim.age) +".</div>";
   result += "</div>";
   result += "</div>";
-  result += "<hr/>";
+  result += "<hr>";
   return result;
 }
 
@@ -563,11 +566,7 @@ function autoParseXML(xml) {
   // All server return calls should contain a 'currenttime' field.
   currentTime = parseDate($(xml).find('currenttime').text());
 
-  // Read the user's reputation, if it is in the XML. Set it if it is.
-  newReputation = parseFloat($(xml).find('reputation').text());
-  if (!isNaN(newReputation)) {
-    user.reputation = newReputation;
-  }
+  parseUserFromXML(xml);
 
   // Cache any claims, searches, and lists of domains found in the XML.
   $(xml).find('claim').each(function() {
@@ -605,6 +604,20 @@ function autoParseXML(xml) {
     });
     cache.userdomains = userdomains;
   }
+}
+
+// Sets the user's fields with data from the xml.
+function parseUserFromXML(xml) {
+  $(xml).find('user').each(function() {
+    newReputation = parseFloat($(this).find('reputation').text());
+    if (!isNaN(newReputation)) {
+      user.reputation = newReputation;
+    }
+    newCommitted = parseFloat($(this).find('committed').text());
+    if (!isNaN(newCommitted)) {
+      user.committed = newCommitted;
+    }
+  });
 }
 
 // Returns a claim object, with all the relevant fields (listed below) set.
