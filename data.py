@@ -140,6 +140,9 @@ class Data(object):
     if type(keys) not in (list, tuple, dict):
       keys = (keys,)
     keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
+    if '$set' not in update:
+      update['$set'] = {}
+    update['$set']['_version'] = randint(0, MAX_VERSION)
     db[cls.collection].update(keys_dict, update)
 
   # Constructs a new object from its values. Does not save it to the database.
