@@ -14,7 +14,7 @@ function loggedIn() {
   return user.name != null
 }
 
-var RESTRICTED_DOMAINS = ['all', 'active', 'personal', 'promoted'];
+var RESTRICTED_DOMAINS = ['all', 'active', 'promoted'];
 
 var alertSet = false;
 var currentTime = new Date();
@@ -849,10 +849,12 @@ function signup(name, password){
         $(window).trigger('hashchange');
       } else if (result == 'usernametaken') {
         setLoginError('That username is taken.');
-      } else if (result == 'shortusername') {
-        setLoginError('Enter a username and password above.\nYour username must be at least 3 characters.');
-      } else if (result == 'shortpassword') {
-        setLoginError('Your password must be at least 3 characters.');
+      } else if (result == 'usernamesize') {
+        setLoginError('Enter a username and password above.\nYour username must be between 4 and 16 characters.');
+      } else if (result == 'passwordsize') {
+        setLoginError('Your password must be between 4 and 16 characters.');
+      } else if (result == 'notalnum') {
+        setLoginError('Your username and password must be alphanumeric.');
       }
     };} (name, password)
   );
@@ -945,11 +947,18 @@ function submitClaim() {
   }
 
   var description = $('#description').val();
-  if (description.length < 5) {
+  if (description.length < 4) {
     setClaimError("Your claim's description must be longer.");
+    return;
+  } else if (description.length > 128) {
+    setClaimError("Your claim's description must be shorter.");
     return;
   }
   var definition = $('#definition').val();
+  if (definition.length > 512) {
+    setClaimError("Your claim's definition must be shorter.");
+    return;
+  }
 
   var bet = $('#initialestimate').val();
   if (isNaN(bet) || bet <= 0 || bet >= 1) {
@@ -964,7 +973,7 @@ function submitClaim() {
   var maxstake = 0.1;
   if (-bounty * Math.log(bet) > maxstake * (user.reputation - user.committed) ||
       -bounty * Math.log(1 - bet) > maxstake * (user.reputation - user.committed)) {
-    setClaimError("You cannot risk that much on this claim.");
+    setClaimError("You cannot set the bounty that high.");
     return;
   }
 
@@ -985,6 +994,15 @@ function submitClaim() {
     return;
   } else if (RESTRICTED_DOMAINS.indexOf(domain) > -1) {
     setClaimError("The '" + domain + "' domain is reserved.");
+    return;
+  } else if (domain.length < 4) {
+    setClaimError("Your claim's domain must be longer.");
+    return;
+  } else if (domain.length > 16) {
+    setClaimError("Your claim's domain must be shorter.");
+    return;
+  } else if (domain.match(/^[a-z]+$/) == null) {
+    setClaimError("Your claim's domain must only contain lowercase characters.");
     return;
   }
 

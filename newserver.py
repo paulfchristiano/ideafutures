@@ -162,10 +162,12 @@ def userdomains_query(user):
 def signup_post(name, password):
   if name is None or password is None:
     return [invalid_query_error]
-  elif len(name) < 3:
-    return [('signup', 'shortusername')]
-  elif len(password) < 3:
-    return [('signup', 'shortpassword')]
+  elif len(name) < 4 or len(name) > 16:
+    return [('signup', 'usernamesize')]
+  elif len(password) < 4 or len(password) > 16:
+    return [('signup', 'passwordsize')]
+  elif not name.isalnum() or not password.isalnum():
+    return [('signup', 'notalnum')]
   # Create a new user with a reputation of 10.0.
   user = User({'name':name, 'password':password, \
       'reputation':DEFAULT_REPUTATION, \
@@ -281,10 +283,12 @@ def deleteclaim_post(user, uid):
 
 def submitclaim_post(user, description, definition, bet, bounty, \
     maxstake, closes, domain):
-  if len(description) < 5:
+  if len(description) < 4 or len(description) > 128:
     return [('submitclaim', 'baddata')]
   if definition is None:
     definition = ''
+  if len(definition) > 512:
+    return [('submitclaim', 'baddata')]
   try:
     bet = float(bet)
     bounty = float(bounty)
@@ -309,7 +313,9 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   age = now()
   if (closes != '' and closes < age) or domain is None:
     return [('submitclaim', 'baddata')]
-  elif domain in RESTRICTED_DOMAINS:
+  elif domain in RESTRICTED_DOMAINS or len(domain) < 4 or len(domain) > 16:
+    return [('submitclaim', 'baddata')]
+  elif not domain.isalpha() or domain != domain.lower():
     return [('submitclaim', 'baddata')]
 
   MAX_UID = (1 << 31) - 1
