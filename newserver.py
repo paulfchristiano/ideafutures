@@ -40,9 +40,12 @@ def get_stakes(name, claim, bet):
           'cur':{0:get_stake(name, claim.bounty, new_history, False),
                  1:get_stake(name, claim.bounty, new_history, True)}}
 
-def get_stake(name, bounty, history, outcome):
-  if len(history) == 0:
+def get_stake(name, bounty, history, outcome, final=False):
+  if final and len(history) == 1:
     return 0
+  # To compute final stakes, play the last better against the first.
+  if final and name == history[0]['user']:
+    history = history[1:] + [history[0]]
   result = 0
   p = 1
   for bet in history:
@@ -50,7 +53,7 @@ def get_stake(name, bounty, history, outcome):
     if not outcome:
       next_p = 1 - next_p
     if name == bet['user']:
-      result += bounty * log(next_p) - log(p)
+      result += bounty * (log(next_p) - log(p))
     p = next_p
   return result;
 
@@ -225,7 +228,7 @@ def resolvebet_post(user, uid, outcome):
   claim = Claim.get(uid)
   affected_names = set(bet['user'] for bet in claim.history)
   for name in affected_names:
-    stake = get_stake(name, claim.bounty, claim.history, outcome == 1)
+    stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
     User.atomic_update(name, \
         {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
   return [('resolvebet', 'success'), ('claim', wrap(claim))]
