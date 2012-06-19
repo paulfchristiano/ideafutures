@@ -161,10 +161,13 @@ def makebet_post(user, uid, bet, version):
   if bet < 0 or bet > 1:
     return [('makebet', 'toocommitted')]
 
-  # Check that the claim is valid, unresolved, and up-to-date.
+  # Check that the claim is valid, unresolved, and up-to-date, and check
+  # that the bet is different from the old value.
   claim = Claim.get(uid)
   if claim is None or claim.resolved or claim.version_ != version:
     return [('makebet', 'conflict')]
+  if claim.currentbet == bet:
+    return [('makebet', 'samebet')]
 
   # Check that the user is not too committed to bet. This check is NOT
   # thread-safe, so we allow the user to commit more than the max stake in
@@ -177,11 +180,14 @@ def makebet_post(user, uid, bet, version):
     return [('makebet', 'toocommitted')]
 
   # This bet is legal. Update the claim. On success, atomically update the user.
+  bettime = now()
   claim.currentbet = bet
   claim.lastbetter = user.name
-  claim.lastbettime = now()
-  claim.history.append(
-      {'user':user.name, 'probability':bet, 'time':claim.lastbettime})
+  claim.lastbettime = bettime
+  if claim.history[-1]['user'] == user.name:
+    claim.history[-1] = {'user':user.name, 'probability':bet, 'time':bettime}
+  else:
+    claim.history.append({'user':user.name, 'probability':bet, 'time':bettime})
   if claim.save():
     User.atomic_update(user.name,
         {'$inc':{'committed.%s' % uid:cur_stake - old_stake}})

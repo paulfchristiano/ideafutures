@@ -820,7 +820,6 @@ function submitBet(claim, bet){
   $('#betloader').css("visibility", "visible");
   updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
     function(claim) {return function(xml) {
-      console.debug(claim);
       $('#betloader').css("visibility", "hidden");
       var displayState = {'type':'displayclaim', 'id':claim.id};
       var old_version = claim.version;
@@ -834,6 +833,8 @@ function submitBet(claim, bet){
         setBetError('This view is no longer up-to-date, because someone else bet on this claim.');
       } else if (response == 'toocommitted') {
         setBetError("You cannot risk that much on one bet.");
+      } else if (response == 'samebet') {
+        setBetError('You must change the estimate to bet.');
       }
     };} (claim)
   );
@@ -846,6 +847,9 @@ function validateBet(claim, bet) {
     return false;
   } else if (isNaN(bet) || bet < 0 || bet > 1) {
     setBetError('Your new estimate must be a number between 0 and 1.');
+    return false;
+  } else if (bet == claim.currentbet) {
+    setBetError('You must change the estimate to bet.');
     return false;
   }
 
