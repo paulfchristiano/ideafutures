@@ -725,7 +725,7 @@ function parseClaimFromXML(xml) {
 }
 
 function parseDate(strDate) {
-  if (strDate == 'None') {
+  if (strDate == '') {
     return null;
   }
   var parts = strDate.split(/[\.\s\/:\-T]/);
@@ -755,7 +755,8 @@ function cacheSearch(query, results) {
     dirty.searches[query] = true;
   } else {
     for (i = 0; i < results.length; i++) {
-      if (results[i].id != cache.searches[query][i].id) {
+      if (results[i].id != cache.searches[query][i].id ||
+          results[i].version != cache.searches[query][i].version) {
         dirty.searches[query] = true;
       }
     }

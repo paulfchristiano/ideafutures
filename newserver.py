@@ -265,7 +265,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
       'closes':closes, 'currentbet':bet, 'description':description, \
       'domain':domain, 'lastbetter':user.name, 'lastbettime':age, \
-      'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
+      'maxstake':maxstake, 'owner':user.name, 'promoted':1, 'resolved':0, \
       'definition':definition, \
       'history':[{'user':user.name, 'probability':bet, 'time':age}]})
   # Try to insert this claim. After 10 conflicts, fail.
