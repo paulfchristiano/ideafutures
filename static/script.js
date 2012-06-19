@@ -144,7 +144,7 @@ function updateDisplay(displayState) {
     } else if (displayState.type == 'submitclaim') {
       drawSubmitClaim();
     } else if (displayState.type == 'listdomains') {
-      drawFilters();
+      drawDomains(cache.alldomains, cache.userdomains);
     }
   }
 }
@@ -189,9 +189,9 @@ function updateActiveLink(displayType) {
     $('#submitclaimnavbar').addClass('activeLink');
   }
 
-  $('#filtersnavbar').removeClass('activeLink');
+  $('#domainsnavbar').removeClass('activeLink');
   if (displayType == 'listdomains') {
-    $('#filtersnavbar').addClass('activeLink');
+    $('#domainsnavbar').addClass('activeLink');
   }
 }
 
@@ -283,12 +283,12 @@ function setSidebarInputHandlers(displayState) {
 
 function drawClaims(results) {
   var mainFrame = "";
-  for (i = 0; i < results.length; i++){
+  for (var i = 0; i < results.length; i++){
     mainFrame += topicBox(results[i]);
   }
   $('#mainframe').html(mainFrame);
 
-  for (i = 0; i < results.length; i++){
+  for (var i = 0; i < results.length; i++){
     $('#displaybutton' + results[i].id).click(prepareLoader(results[i].id));
     $('#displaytitle' + results[i].id).click(prepareLoader(results[i].id));
   }
@@ -440,7 +440,7 @@ function historyBox(claim) {
   result += "<tr><th colspan='3'><h3>History</h3></th></tr>";
   result += "<tr class='underline'><td>Estimate</td><td>User</td><td>Time</td></tr>";
 
-  for (i = claim.history.length - 1; i >= claim.history.length - 10 && i >= 0; i--) {
+  for (var i = claim.history.length - 1; i >= claim.history.length - 10 && i >= 0; i--) {
     result += (i % 2) ? "<tr class='odd'>" : "<tr class='even'>";
     result += "<td>" + drawBet(claim.history[i].probability) +" %</td>";
     result += "<td>"  + claim.history[i].user + "</td>";
@@ -538,21 +538,41 @@ function setSubmitClaimInputHandlers() {
   $('#closetime').timepicker({});
   $('#closedate').datepicker({});
 
-  for (i = 0; i < cache.alldomains.length; i++) {
-    domain = cache.alldomains[i];
-    $('#domain').append("<option value='" + domain + "'>" + domain + "</option>");
+  for (var i = 0; i < cache.alldomains.length; i++) {
+    if (cache.alldomains[i] != 'promoted') {
+      domain = cache.alldomains[i];
+      $('#domain').append("<option value='" + domain + "'>" + domain + "</option>");
+    }
   }
   $('#domain').append("<option value=''></option>");
-  if (cache.alldomains.indexOf('general') > -1) {
-    $('#domain').val('general');
-  } else {
-    $('#domain').val('');
-    $('#domaintext').val('general');
-  }
+  $('#domain').val('general');
 
   $('#submitclaimbutton').click(function(){
     submitClaim();
   });
+}
+
+function drawDomains(alldomains, userdomains) {
+  var mainFrame = "<div class='domainheader'><h1>Change domains.</h1>";
+  mainFrame += "<div class='row'>Choose which domains to display by default, ";
+  mainFrame += "or view recent claims within a domain.</div></div>";
+  mainFrame += "<div>";
+  for (var i = 0; i < alldomains.length; i++) {
+    mainFrame += domainPicker(alldomains[i], userdomains);
+  }
+  mainFrame += "</div>";
+  $('#mainframe').html(mainFrame);
+  for (var i = 0; i < alldomains.length; i++) {
+    $('#domain' + alldomains[i]).click(domainToggler(alldomains[i]));
+  }
+}
+
+function domainPicker(domain, userdomains) {
+  var type = (userdomains.indexOf(domain) > -1) ? "activedomain" : 'inactivedomain';
+  result = "<div class='row'><div class='left domainholder'><a id='domain" + domain + "' class='" + type + "'>";
+  result += domain + "</a></div><div class='right'> <a href='#listclaims+" + domain + "'>";
+  result += "(view " + domain + ")</a></div> </div>";
+  return result;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -584,7 +604,7 @@ function isDirty(displayState) {
   } else if (displayState.type == 'displayclaim') {
     return displayState.id in dirty.claims;
   } else if (displayState.type == 'submitclaim' ||
-      displayState.type == 'listfilters') {
+      displayState.type == 'listdomains') {
     // TODO: Need to implement dirty logic for alldomains.
     //return 'alldomains' in dirty;
     return true;
@@ -610,11 +630,6 @@ function pingServer(query, queryType, returnCall) {
     query['name'] = user.name;
     query['password'] = user.password;
   }
-
-  if (!('login' in query) && !('signup' in query) && !('search' in query) &&
-      !('claim' in query) && !('makebet' in query) && !('resolvebet' in query) &&
-      !('alldomains' in query) && !('userdomains' in query) && !('submitclaim' in query))
-    return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.
   var request = $.get;
@@ -754,7 +769,7 @@ function cacheSearch(query, results) {
       (results.length != cache.searches[query].length)) {
     dirty.searches[query] = true;
   } else {
-    for (i = 0; i < results.length; i++) {
+    for (var i = 0; i < results.length; i++) {
       if (results[i].id != cache.searches[query][i].id ||
           results[i].version != cache.searches[query][i].version) {
         dirty.searches[query] = true;
@@ -897,10 +912,13 @@ function submitClaim() {
   var domain = $('#domaintext').val();
   if (domain == '') {
     domain = $('#domain').val();
-    if (domain == '') {
-      setClaimError('You must enter a domain for this claim.');
-      return;
-    }
+  }
+  if (domain == '') {
+    setClaimError('You must enter a domain for this claim.');
+    return;
+  } else if (domain == 'promoted') {
+    setClaimError("The 'promoted' domain is reserved.");
+    return;
   }
 
   clearClaimError();
@@ -945,6 +963,33 @@ function padInt(x, len){
   x = "" + x;
   while (x.length < len) x = "0" + x;
   return x;
+}
+
+function domainToggler(domain) {
+  return function() {
+    if (!('alldomains' in cache) || !('userdomains' in cache) ||
+        cache.alldomains.indexOf(domain) == -1) {
+      return;
+    }
+
+    var index = cache.userdomains.indexOf(domain);
+    if (index > -1) {
+      cache.userdomains.splice(index, 1);
+    } else {
+      cache.userdomains.push(domain);
+    }
+
+    updateServer({'newdomains':cache.userdomains.join(' ')});
+    if (index > -1) {
+      $('#domain' + domain).css("color","gray");
+      $('#domain' + domain).animate({"font-size":"1.5em",
+          "paddingBottom":"0.5em", "paddingTop":"0.5em"}, 200);
+    } else {
+      $('#domain' + domain).css("color","rgb(235,143,0)");
+      $('#domain' + domain).animate({"font-size":"2.5em", "paddingTop":"0em",
+          "paddingTop":"0em"} ,200);
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------- *
@@ -1013,7 +1058,7 @@ function getStake(claim, newHistory, outcome) {
   var result = 0;
   var p = 1;
 
-  for (i = 0; i < newHistory.length; i++) {
+  for (var i = 0; i < newHistory.length; i++) {
     var nextP = newHistory[i].probability;
     if (!outcome) {
       nextP = 1 - nextP;
@@ -1051,96 +1096,4 @@ function validateBet(claim, bet) {
 
   clearBetError();
   return true;
-}
-
-/* -------------------------------------------------------------------------- *
- * Unedited code begins here!                                                 *
- * -------------------------------------------------------------------------- */
-
-function promoteClaim(id, p){
-  queryServer({ promoteclaim: (p?1:0), topic:id },
-    function(xml){
-      setDisplay(defaultDisplay);
-    });
-}
-
-function displayFilters(){
-  alldomains = cache['alldomains'].slice();
-  alldomains.unshift("promoted");
-  for (i = 0; i < alldomains.length; i++){
-    isActiveDomain[alldomains[i]] = 0;
-  }
-  for (i = 0; i < cache['userdomains'].length; i++){
-    isActiveDomain[cache['userdomains'][i]] = 1;
-  }
-  var newMainFrame = "<div class='domainheader'> <h1> Change Domains. </h1>";
-  newMainFrame += "<div class='row'> Choose which domains to display by default, ";
-  newMainFrame += "or view recent claims within a domain.</div> </div>";
-  newMainFrame += "<div>";
-  for (i = 0; i < alldomains.length; i++){
-    newMainFrame += domainPicker(alldomains[i]);
-  }
-  newMainFrame += "</div>";
-  $('#mainframe').html(newMainFrame);
-  for (i = 0; i < alldomains.length; i++){
-    $('#domain' + alldomains[i]).click(prepareDomainToggler(alldomains[i]));
-  }
-}
-
-function prepareDomainToggler(domain){
-  return function(){
-    oldstate = isActiveDomain[domain];
-    newstate = 1 - oldstate;
-    isActiveDomain[domain] = newstate;
-      queryServer({'newdomains':userDomains(isActiveDomain),
-             'time':serverDate(new Date())});
-    if (newstate){
-      $('#domain' + domain).css("color","rgb(235,143,0)");
-      $('#domain' + domain).animate({"font-size":"2.5em", "paddingTop":"0em",
-                       "paddingTop":"0em"},200);
-    } else {
-      $('#domain' + domain).css("color","gray");
-      $('#domain' + domain).animate({"font-size":"1.5em", "paddingBottom":"0.5em",
-                       "paddingTop":"0.5em"}, 200);
-      //$('#domain' + domain).removeClass("activedomain");
-    }
-  }
-}
-
-function userDomains(map){
-  result = "";
-  first = true;
-  for (x in map){
-    if (map[x] == 1){
-      if (!first) result += " ";
-      first = false;
-      result += x;
-    }
-  }
-  return result;
-}
-
-function domainPicker(domain){
-  c = (isActiveDomain[domain] == 1)?"activedomain":'inactivedomain';
-  result = "<div class='row'> <div class='left domainholder'><a id='domain"+domain+"' class='"+c+"'>";
-  result += domain + "</a></div> <div class='right'> <a href='#search+"+domain+"'>";
-  result += "(view " +domain+")</a></div> </div>";
-  return result;
-}
-
-function humanDate(d){
-  if (d == null) return "";
-  else return (padInt(d.getMonth()+ 1)) + "/" + padInt(d.getDate()) + "/" + d.getFullYear();
-}
-
-function humanTime(d){
-  if (d == null) return "";
-  else return padInt(d.getHours()) + ":" + padInt(d.getMinutes());
-}
-
-function deleteBet(id){
-  queryServer({'topic':id, 'deletebet':1, 'search':'user_default'},
-    function(xml){
-      setDisplay(defaultDisplay);
-    });
 }

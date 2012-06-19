@@ -6,6 +6,9 @@ from math import log
 from random import randint
 import sys
 
+def default_domains():
+  return ['general', 'promoted']
+
 class User(Data):
   collection = 'users'
   fields = ('name', 'password', 'reputation', 'committed', 'domains')
@@ -104,9 +107,7 @@ def login_query(name, password):
 
 def search_query(user, search):
   if search == 'user_default':
-    if user is None:
-      vals = execute_searches(['promoted'])
-    elif len(user.domains) == 0:
+    if user is None or len(user.domains) == 0:
       vals = execute_searches(['promoted'])
     else:
       vals = execute_searches(user.domains)
@@ -139,13 +140,15 @@ def claim_query(uid):
   return [('claim', wrap(claim))]
 
 def alldomains_query():
-  return [('alldomains', \
-      wrap(('domain', domain) for domain in Claim.distinct('domain')))]
+  domains = set(Claim.distinct('domain') + default_domains())
+  return [('alldomains', wrap(('domain', domain) \
+      for domain in sorted(domains)))]
 
 def userdomains_query(user):
   if user is None:
     return [authentication_failed_error]
-  return [('userdomains', wrap(('domain', domain) for domain in user.domains))]
+  return [('userdomains', wrap(('domain', domain) \
+      for domain in sorted(user.domains)))]
 
 def signup_post(name, password):
   if name is None or password is None:
@@ -156,7 +159,7 @@ def signup_post(name, password):
     return [('signup', 'shortpassword')]
   # Create a new user with a reputation of 10.0.
   user = User({'name':name, 'password':password, 'reputation':10.0, \
-      'committed':{}, 'domains':['promoted']})
+      'committed':{}, 'domains':default_domains()})
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
   else:
@@ -256,13 +259,13 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
 
   age = now()
-  if (closes != '' and closes < age) or domain is None:
+  if (closes != '' and closes < age) or domain is None or domain == 'promoted':
     return [('submitclaim', 'baddata')]
 
   MAX_UID = (1 << 31) - 1
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
       'closes':closes, 'description':description, 'domain':domain, \
-      'maxstake':maxstake, 'owner':user.name, 'promoted':1, 'resolved':0, \
+      'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
       'definition':definition, \
       'history':[{'user':user.name, 'probability':bet, 'time':age}]})
   # Try to insert this claim. After 10 conflicts, fail.
@@ -273,6 +276,17 @@ def submitclaim_post(user, description, definition, bet, bounty, \
       return [('submitclaim', 'success')] + search_query(user, 'user_default')
     claim.uid = randint(0, MAX_UID)
   return [('submitclaim', 'conflict')]
+
+def newdomains_post(user, newdomains):
+  if newdomains is None:
+    return [invalid_query_error]
+  newdomains = newdomains.split(' ') if len(newdomains) else []
+  domains = set(Claim.distinct('domain') + default_domains())
+  if all(domain in domains for domain in newdomains):
+    User.atomic_update(user.name, {'$set':{'domains':newdomains}})
+    return [('userdomains', wrap(('domain', domain) \
+        for domain in sorted(newdomains)))]
+  return [invalid_query_error]
 
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
@@ -293,7 +307,7 @@ class IdeaFuturesServer:
         results.extend(claim_query(claim))
       if alldomains is not None:
         results.extend(alldomains_query())
-      elif userdomains is not None:
+      if userdomains is not None:
         results.extend(userdomains_query(user))
     except Exception, e:
       results.append(('error', str(e)))
@@ -306,7 +320,7 @@ class IdeaFuturesServer:
   def update(self, signup=None, makebet=None, resolvebet=None, \
       submitclaim=None, name=None, password=None, id=None, bet=None, \
       version=None, outcome=None, description=None, definition=None, \
-      bounty=None, maxstake=None, closes=None, domain=None):
+      bounty=None, maxstake=None, closes=None, domain=None, newdomains=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -320,6 +334,8 @@ class IdeaFuturesServer:
         elif submitclaim is not None:
           results.extend(submitclaim_post(user, description, definition, \
               bet, bounty, maxstake, closes, domain))
+        elif newdomains is not None:
+          results.extend(newdomains_post(user, newdomains))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))
@@ -332,24 +348,3 @@ class IdeaFuturesServer:
 
 if not sys.flags.interactive:
   cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
-
-#      if (deletebet != None):
-#        deleteBet(topic)
-#      if (search != None):
-#        result += executeSearch(search, user)
-#      if submitclaim!=None:
-#        submitTopic(user, probability, bounty, maxstake, description, definition, domain, closes)
-#      if (editclaim!=None):
-#        editClaim(topic=topic, user=user, bounty=bounty, maxstake=maxstake, description=description, definition=definition, domain=domain, closes=closes)
-#      if (promoteclaim !=None):
-#        promoteClaim(topic=topic, promoted=promoteclaim)
-#      if (makebet != None):
-#        result += makeBet(user, probability, topic, lastbettime)
-#      if (resolvebet != None):
-#        resolveBet(topic, outcome == 'true')
-#      if (login != None):
-#        result += executeLogin(user, password)
-#      if (signup != None):
-#        result += executeSignup(user, password)
-#      if (newdomains != None):
-#        result += changeUserDomains(user, newdomains,time)
