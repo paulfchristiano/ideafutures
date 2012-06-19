@@ -406,7 +406,7 @@ function closedBetBox(claim) {
   var result = "<div class='betbox'><table>";
   if (claim.resolved) {
     result += "<tr><td colspan='2'>This claim was marked <b>" + (claim.resolved == 1) + "</b>";
-    result += " on " + drawDate(claim.closes) + ". </td></tr>";
+    result += " " + drawDate(claim.closes) + ". </td></tr>";
   } else {
     result += "<tr><td colspan='2'>Betting was closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
   }
@@ -452,7 +452,8 @@ function historyBox(claim) {
 
 function definitionBox(claim) {
   if (claim.definition) {
-    return "<div class='farleft' id='definitionbox'> <h3> Precise definition </h3>" + definition + "</div>";
+    return "<div class='farleft' id='definitionbox'>" +
+        "<h3>Precise definition</h3>" + claim.definition + "</div>";
   }
   return "";
 }
@@ -709,7 +710,7 @@ function parseClaimFromXML(xml) {
   result.resolved = parseInt($(xml).find('resolved').text());
 
   definition = $(xml).find('definition').text();
-  result.definition = (definition = '') ? null : definition;
+  result.definition = (definition == '') ? null : definition;
 
   result.history = []
   $(xml).find('history').find('bet').each(function() {
