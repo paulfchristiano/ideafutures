@@ -319,6 +319,14 @@ function setSidebarInputHandlers(displayState) {
 }
 
 function drawClaims(results) {
+  if (results.length == 0) {
+    var mainFrame = "<div class='domainheader'><h1>No claims found.</h1>";
+    mainFrame += "<div class='row'>No claims match your current search.";
+    mainFrame += " Change your search on the <a href=\"#listdomains\">domains</a> page.</div></div>";
+    $('#mainframe').html(mainFrame);
+    return;
+  }
+
   var mainFrame = "";
   for (var i = 0; i < results.length; i++){
     mainFrame += topicBox(results[i]);
