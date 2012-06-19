@@ -31,15 +31,15 @@ class Claim(Data):
 # Betting logic begins here!                                                   #
 #------------------------------------------------------------------------------#
 
-def get_stakes(user, claim, bet):
+def get_stakes(name, claim, bet):
   new_history = list(claim.history)
-  new_history.append({'user':user.name, 'probability':bet, 'time':now()})
-  return {'old':{0:get_stake(user, claim, claim.history, False),
-                 1:get_stake(user, claim, claim.history, True)},
-          'cur':{0:get_stake(user, claim, new_history, False),
-                 1:get_stake(user, claim, new_history, True)}}
+  new_history.append({'user':name, 'probability':bet, 'time':now()})
+  return {'old':{0:get_stake(name, claim.bounty, claim.history, False),
+                 1:get_stake(name, claim.bounty, claim.history, True)},
+          'cur':{0:get_stake(name, claim.bounty, new_history, False),
+                 1:get_stake(name, claim.bounty, new_history, True)}}
 
-def get_stake(user, claim, history, outcome):
+def get_stake(name, bounty, history, outcome):
   if len(history) == 0:
     return 0
   result = 0
@@ -48,8 +48,8 @@ def get_stake(user, claim, history, outcome):
     next_p = bet['probability']
     if not outcome:
       next_p = 1 - next_p
-    if user.name == bet['user']:
-      result += claim.bounty * log(next_p) - log(p)
+    if name == bet['user']:
+      result += bounty * log(next_p) - log(p)
     p = next_p
   return result;
 
@@ -173,7 +173,7 @@ def makebet_post(user, uid, bet, version):
   # thread-safe, so we allow the user to commit more than the max stake in
   # some pathological cases.
   committed = sum(user.committed.values())
-  stakes = get_stakes(user, claim, bet)
+  stakes = get_stakes(user.name, claim, bet)
   old_stake = -min(stakes['old'][0], stakes['old'][1])
   cur_stake = -min(stakes['cur'][0], stakes['cur'][1])
   if cur_stake > claim.maxstake * (user.reputation - committed + old_stake):
@@ -189,10 +189,35 @@ def makebet_post(user, uid, bet, version):
   else:
     claim.history.append({'user':user.name, 'probability':bet, 'time':bettime})
   if claim.save():
-    User.atomic_update(user.name,
+    User.atomic_update(user.name, \
         {'$inc':{'committed.%s' % uid:cur_stake - old_stake}})
     return [('makebet', 'success'), ('claim', wrap(claim))]
   return [('makebet', 'conflict')]
+
+def resolvebet_post(user, uid, outcome):
+  # Encode outcomes in the database with 1 for True and 2 for False.
+  try:
+    uid = int(uid)
+    outcome = {'true':1, 'false':2}[outcome]
+  except Exception, e:
+    return [invalid_query_error]
+
+  # Check that the claim is valid and unresolved and that the user owns it.
+  claim = Claim.get(uid)
+  if claim is None or claim.resolved:
+    return [('resolvebet', 'conflict')]
+  if claim.owner != user.name:
+    return [authentication_failed_error]
+
+  # Atomically resolve this claim and update user's reputations.
+  Claim.atomic_update(uid, {'$set':{'resolved':outcome, 'closes':now()}})
+  claim = Claim.get(uid)
+  affected_names = set(bet['user'] for bet in claim.history)
+  for name in affected_names:
+    stake = get_stake(name, claim.bounty, claim.history, outcome == 1)
+    User.atomic_update(name, \
+        {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
+  return [('resolvebet', 'success'), ('claim', wrap(claim))]
 
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
@@ -219,8 +244,8 @@ class IdeaFuturesServer:
   # These calls may change state at the server.
   # Only one update is allowed per message.
   @cherrypy.expose
-  def update(self, signup=None, makebet=None, name=None, password=None, \
-      id=None, bet=None, version=None):
+  def update(self, signup=None, makebet=None, resolvebet=None, \
+      name=None, password=None, id=None, bet=None, version=None, outcome=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -229,6 +254,8 @@ class IdeaFuturesServer:
       elif user is not None:
         if makebet is not None:
           results.extend(makebet_post(user, id, bet, version))
+        elif resolvebet is not None:
+          results.extend(resolvebet_post(user, id, outcome))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))

@@ -79,6 +79,17 @@ function getDisplayState() {
   }
 }
 
+// Sets the display hash tags by display state.
+function setDisplayState(displayState) {
+  result = displayState.type;
+  if (result == 'listclaims') {
+    result += '+' + displayState.search;
+  } else if (result == 'displayclaim') {
+    result += '+' + displayState.id;
+  }
+  window.location.hash = result;
+}
+
 // Returns true if the given display state is the current state.
 function isCurrentDisplay(displayState) {
   var newDisplayState = getDisplayState();
@@ -116,7 +127,7 @@ function updateDisplay(displayState) {
     if (displayState.type == 'displayclaim') {
       var claim = cache.claims[displayState.id];
       newSidebar += betSidebarBlock(claim);
-      if (user.name == claim.owner) {
+      if (user.name == claim.owner && isOpen(claim)) {
         newSidebar += ownerSidebarBlock();
       }
       // TODO: Restore the adminSidebarBlock, which allows the administrator
@@ -298,7 +309,11 @@ function topicBox(claim) {
   result += "<div class='clear'> Last bet by " + claim.lastbetter;
   result += " " + drawDate(claim.lastbettime) + ".</div>";
   if (claim.closes) {
-    result += "<div class='clear'> Bet closes " + drawDate(claim.closes) + ".</div>";
+    if (isOpen(claim)) {
+      result += "<div class='clear'> Betting closes " + drawDate(claim.closes) + ".</div>";
+    } else {
+      result += "<div class='clear'> Betting closed " + drawDate(claim.closes) + ".</div>";
+    }
   }
   result += "<div class='clear'> Submitted by " + claim.owner + " " + drawDate(claim.age) +".</div>";
   result += "</div>";
@@ -366,7 +381,7 @@ function drawClaim(claim) {
 }
 
 function isOpen(claim) {
-  return !(claim.closes && claim.closes < new Date());
+  return !(claim.resolved || (claim.closes && claim.closes < currentTime));
 }
 
 function descriptionBox(claim) {
@@ -392,8 +407,13 @@ function betBox(claim) {
 
 function closedBetBox(claim) {
   var result = "<div class='betbox'><table>";
-  result += "<tr><td colspan='2'> Betting was closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
-  result += "<tr><td colspan='2'> The market consensus at that time: </td></tr>";
+  if (claim.resolved) {
+    result += "<tr><td colspan='2'>This claim was marked <b>" + (claim.resolved == 1) + "</b>";
+    result += " on " + drawDate(claim.closes) + ". </td></tr>";
+  } else {
+    result += "<tr><td colspan='2'>Betting was closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
+  }
+  result += "<tr><td colspan='2'>The market consensus at that time: </td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "% </div></td></tr>";
   result += "</table></div>";
@@ -534,7 +554,7 @@ function pingServer(query, queryType, returnCall) {
   }
 
   if (!('login' in query) && !('signup' in query) && !('search' in query) &&
-      !('claim' in query) && !('makebet' in query))
+      !('claim' in query) && !('makebet' in query) && !('resolvebet' in query))
     return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.
@@ -630,7 +650,7 @@ function parseClaimFromXML(xml) {
   result.maxstake = parseFloat($(xml).find('maxstake').text());
   result.owner = $(xml).find('owner').text();
   result.promoted = ($(xml).find('promoted').text() == '1');
-  result.resolved = ($(xml).find('resolved').text() == '1');
+  result.resolved = parseInt($(xml).find('resolved').text());
 
   definition = $(xml).find('definition').text();
   result.definition = (definition = '') ? null : definition;
@@ -732,6 +752,49 @@ function logout() {
   $(window).trigger('hashchange');
 }
 
+function submitBet(claim, bet) {
+  if (!validateBet(claim, bet)) {
+    return;
+  }
+
+  $('#betloader').css("visibility", "visible");
+  updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
+    function(claim) {return function(xml) {
+      $('#betloader').css("visibility", "hidden");
+      var displayState = {'type':'displayclaim', 'id':claim.id};
+      if (isCurrentDisplay(displayState) &&
+          cache.claims[claim.id] != claim.version) {
+        updateDisplay(displayState);
+      }
+
+      var response = $(xml).find('makebet').text();
+      if (response == 'toocommitted') {
+        setBetError("You cannot risk that much on one bet.");
+      } else if (response == 'samebet') {
+        setBetError('You must change the estimate to bet.');
+      } else if (response == 'conflict') {
+        setBetError('This view is no longer up-to-date, because someone else bet on this claim.');
+      }
+    };} (claim)
+  );
+}
+
+function resolveBet(id, outcome) {
+  updateServer({'resolvebet':1, 'id':id, 'outcome':outcome},
+    function(id) {return function(xml) {
+      var response = $(xml).find('resolvebet').text();
+      if (response == 'success') {
+        setDisplayState(DEFAULT_DISPLAY);
+      } else if (response == 'conflict') {
+        var displayState = {'type':'displayclaim', 'id':id};
+        if (isCurrentDisplay(displayState)) {
+          updateDisplay(displayState);
+        }
+      }
+    };} (id)
+  );
+}
+
 /* -------------------------------------------------------------------------- *
  * Betting logic begins here!                                                 *
  * -------------------------------------------------------------------------- */
@@ -810,34 +873,6 @@ function getStake(claim, newHistory, outcome) {
   }
 
   return result;
-}
-
-function submitBet(claim, bet){
-  if (!validateBet(claim, bet)) {
-    return;
-  }
-
-  $('#betloader').css("visibility", "visible");
-  updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
-    function(claim) {return function(xml) {
-      $('#betloader').css("visibility", "hidden");
-      var displayState = {'type':'displayclaim', 'id':claim.id};
-      var old_version = claim.version;
-      claim = cache.claims[claim.id];
-      if (isCurrentDisplay(displayState) && claim.version != old_version) {
-        updateDisplay(displayState);
-      }
-
-      var response = $(xml).find('makebet').text();
-      if (response == 'conflict'){
-        setBetError('This view is no longer up-to-date, because someone else bet on this claim.');
-      } else if (response == 'toocommitted') {
-        setBetError("You cannot risk that much on one bet.");
-      } else if (response == 'samebet') {
-        setBetError('You must change the estimate to bet.');
-      }
-    };} (claim)
-  );
 }
 
 // Returns true if the user can place this bet, and false otherwise.
@@ -1083,21 +1118,4 @@ function deleteBet(id){
     function(xml){
       setDisplay(defaultDisplay);
     });
-}
-
-function resolveBet(id, outcome){
-  queryServer({'topic':id, 'resolvebet':1, 'outcome':outcome, 'search':'user_default'},
-    function(xml){
-      setDisplay(defaultDisplay);
-    });
-}
-
-function setDisplay(display){
-  result = display['type'];
-  if (result == "displayclaim"){
-    result += "+" + display['claim'];
-  } else if (result == 'search'){
-    result += "+" + display['search'];
-  }
-  window.location.hash = result;
 }
