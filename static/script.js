@@ -295,16 +295,17 @@ function drawClaims(results) {
 }
 
 function topicBox(claim) {
-  var result = "<div class='topicbox'>";
+  var lastBet = claim.history[claim.history.length - 1];
   var href = "#displayclaim+" + claim.id;
+  var result = "<div class='topicbox'>";
   result += "<h2> <a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
   result += claim.description + "</a> </h2>";
   result += "<div class='currentbet orange'>" + drawBet(claim.currentbet) + "%</div>";
   result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
   result += '<img id="betloader' + claim.id + '" class="loading right" src="ajax-loader.gif"></img>';
   result += "<div class='betdata'>";
-  result += "<div class='clear'> Last bet by " + claim.lastbetter;
-  result += " " + drawDate(claim.lastbettime) + ".</div>";
+  result += "<div class='clear'> Last bet by " + lastBet.user;
+  result += " " + drawDate(lastBet.time) + ".</div>";
   if (claim.closes) {
     if (isOpen(claim)) {
       result += "<div class='clear'> Betting closes " + drawDate(claim.closes) + ".</div>";
@@ -699,11 +700,8 @@ function parseClaimFromXML(xml) {
   result.age = parseDate($(xml).find('age').text());
   result.bounty = parseFloat($(xml).find('bounty').text());
   result.closes = parseDate($(xml).find('closes').text());
-  result.currentbet = parseFloat($(xml).find('currentbet').text());
   result.description = $(xml).find('description').text();
   result.domain = $(xml).find('domain').text();
-  result.lastbetter = $(xml).find('lastbetter').text();
-  result.lastbettime = parseDate($(xml).find('lastbettime').text());
   result.maxstake = parseFloat($(xml).find('maxstake').text());
   result.owner = $(xml).find('owner').text();
   result.promoted = ($(xml).find('promoted').text() == '1');
@@ -719,6 +717,7 @@ function parseClaimFromXML(xml) {
     time = parseDate($(this).find('time').text());
     result.history.push({'user':better, 'probability':probability, 'time':time});
   });
+  result.currentbet = result.history[result.history.length - 1].probability;
 
   result.version = parseInt($(xml).find('version').text());
 

@@ -17,9 +17,8 @@ class User(Data):
 
 class Claim(Data):
   collection = 'claims'
-  fields = ('uid', 'age', 'bounty', 'closes', 'currentbet', 'description', \
-            'domain', 'lastbetter', 'lastbettime', 'maxstake', 'owner', \
-            'promoted', 'resolved', 'definition', 'history')
+  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'domain', \
+      'maxstake', 'owner', 'promoted', 'resolved', 'definition', 'history')
   num_key_fields = 1
 
   def wrap(self):
@@ -180,7 +179,7 @@ def makebet_post(user, uid, bet, version):
   claim = Claim.get(uid)
   if claim is None or claim.resolved or claim.version_ != version:
     return [('makebet', 'conflict')]
-  if claim.currentbet == bet:
+  if claim.history[-1]['probability'] == bet:
     return [('makebet', 'samebet')]
 
   # Check that the user is not too committed to bet. This check is NOT
@@ -194,14 +193,10 @@ def makebet_post(user, uid, bet, version):
     return [('makebet', 'toocommitted')]
 
   # This bet is legal. Update the claim. On success, atomically update the user.
-  bettime = now()
-  claim.currentbet = bet
-  claim.lastbetter = user.name
-  claim.lastbettime = bettime
   if claim.history[-1]['user'] == user.name:
-    claim.history[-1] = {'user':user.name, 'probability':bet, 'time':bettime}
+    claim.history[-1] = {'user':user.name, 'probability':bet, 'time':now()}
   else:
-    claim.history.append({'user':user.name, 'probability':bet, 'time':bettime})
+    claim.history.append({'user':user.name, 'probability':bet, 'time':now()})
   if claim.save():
     User.atomic_update(user.name, \
         {'$set':{'committed.%s' % uid:cur_stake}})
@@ -266,8 +261,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
 
   MAX_UID = (1 << 31) - 1
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
-      'closes':closes, 'currentbet':bet, 'description':description, \
-      'domain':domain, 'lastbetter':user.name, 'lastbettime':age, \
+      'closes':closes, 'description':description, 'domain':domain, \
       'maxstake':maxstake, 'owner':user.name, 'promoted':1, 'resolved':0, \
       'definition':definition, \
       'history':[{'user':user.name, 'probability':bet, 'time':age}]})
