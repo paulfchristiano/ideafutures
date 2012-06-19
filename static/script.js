@@ -46,7 +46,7 @@ function restoreUserState() {
 // Make the document change when the hash parameters do.
 $(document).ready(function() {
   $(window).bind('hashchange', function(e) {
-    displayState = getDisplayState();
+    var displayState = getDisplayState();
     updateDisplay(displayState);
     getDisplayData(displayState);
   });
@@ -77,6 +77,14 @@ function getDisplayState() {
     }
     return state;
   }
+}
+
+// Returns true if the given display state is the current state.
+function isCurrentDisplay(displayState) {
+  var newDisplayState = getDisplayState();
+  return displayState.type == newDisplayState.type &&
+      displayState.search == newDisplayState.search &&
+      displayState.id == newDisplayState.id;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -354,6 +362,7 @@ function drawClaim(claim) {
   mainFrame += definitionBox(claim);
   $('#mainframe').html(mainFrame);
   setClaimInputHandlers(claim);
+  setEstimate(claim, claim.currentbet, "");
 }
 
 function isOpen(claim) {
@@ -447,9 +456,6 @@ function setClaimInputHandlers(claim) {
     range: "min"
   });
 
-  // Recalculate the user's bet now and whenever he moves the slider.
-  setEstimate(claim, claim.currentbet, "");
-
   $('#newbet').slider({
     slide:function(event, ui) {
       setEstimate(claim, ui.value, "slider");
@@ -480,14 +486,7 @@ function setClaimInputHandlers(claim) {
 
 function getDisplayData(displayState) {
   var returnCall = function() {
-    var newDisplayState = getDisplayState();
-    if (displayState.type != newDisplayState.type ||
-        displayState.search != newDisplayState.search ||
-        displayState.id != newDisplayState.id) {
-      return;
-    }
-
-    if (isDirty(displayState)) {
+    if (isCurrentDisplay(displayState) && isDirty(displayState)) {
       updateDisplay(displayState);
     }
     dirty = newCache();
@@ -535,7 +534,7 @@ function pingServer(query, queryType, returnCall) {
   }
 
   if (!('login' in query) && !('signup' in query) && !('search' in query) &&
-      !('claim' in query))
+      !('claim' in query) && !('makebet' in query))
     return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.
@@ -544,6 +543,7 @@ function pingServer(query, queryType, returnCall) {
     request = $.post;
   }
 
+  console.debug(query);
   request(queryType, query, function(xml) {
     console.debug(xml);
     autoParseXML(xml);
@@ -819,20 +819,23 @@ function submitBet(claim, bet){
 
   $('#betloader').css("visibility", "visible");
   updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
-    function(xml) {
+    function(claim) {return function(xml) {
+      console.debug(claim);
       $('#betloader').css("visibility", "hidden");
+      var displayState = {'type':'displayclaim', 'id':claim.id};
+      var old_version = claim.version;
       claim = cache.claims[claim.id];
-      var response = $(xml).find('makebet').find('response').text();
-      if (response == 'success') {
-        $('#oldbet').slider({value: [bet]});
-        clearBetError();
-        recalculateView(claim, bet);
-      } else if (response == 'conflict'){
-        setBetError('This view is no longer up-to-date. - someone else bet.');
-      } else {
+      if (isCurrentDisplay(displayState) && claim.version != old_version) {
+        updateDisplay(displayState);
+      }
+
+      var response = $(xml).find('makebet').text();
+      if (response == 'conflict'){
+        setBetError('This view is no longer up-to-date, because someone else bet on this claim.');
+      } else if (response == 'toocommitted') {
         setBetError("You cannot risk that much on one bet.");
       }
-    }
+    };} (claim)
   );
 }
 
@@ -848,9 +851,9 @@ function validateBet(claim, bet) {
 
   var stakes = getStakes(claim, bet);
   var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
-  var newStake = -Math.min(stakes.cur[0], stakes.cur[1]);
-  if (isNaN(newStake) ||
-      newStake > claim.maxstake * (user.reputation - otherStake)) {
+  var curStake = -Math.min(stakes.cur[0], stakes.cur[1]);
+  if (isNaN(curStake) ||
+      curStake > claim.maxstake * (user.reputation - otherStake)) {
     setBetError('You cannot risk that much on one bet.');
     return false;
   }

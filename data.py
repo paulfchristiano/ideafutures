@@ -127,6 +127,15 @@ class Data(object):
       results.append(result)
     return results
 
+  # Atomically updates the value of an object in the database. The update should
+  # not affect the key fields of the object.
+  @classmethod
+  def atomic_update(cls, keys, update):
+    if type(keys) not in (list, tuple, dict):
+      keys = (keys,)
+    keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
+    db[cls.collection].update(keys_dict, update)
+
   # Constructs a new object from its values. Does not save it to the database.
   def __init__(self, values, internal=False):
     self.__class__.add_key_properties()
