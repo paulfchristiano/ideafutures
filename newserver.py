@@ -7,7 +7,7 @@ from random import randint
 import sys
 
 DEFAULT_DOMAINS = ['general', 'promoted']
-RESTRICTED_DOMAINS = ['all', 'active', 'personal', 'promoted']
+RESTRICTED_DOMAINS = ['all', 'active', 'promoted']
 DEFAULT_REPUTATION = 100.0
 
 def is_admin(user):
@@ -114,24 +114,20 @@ def search_query(user, search):
     if user is None or len(user.domains) == 0:
       vals = execute_searches(['promoted'])
     else:
-      vals = execute_searches(user.domains, user)
+      vals = execute_searches(user.domains)
   else:
-    vals = execute_searches([search], user)
+    vals = execute_searches([search])
   result = [('claim', wrap(claim)) for claim in vals]
   return result + [('search', \
       wrap([('uid', claim.uid) for claim in vals] + [('query', search)]))]
 
 # Executes searches for the domains in the list 'searches'. Returns a list of
 # claims in those domains, ordered from newest to oldest.
-def execute_searches(searches, user=None):
+def execute_searches(searches):
   if 'all' in searches:
     vals = Claim.find(uses_key_fields=False)
   elif 'active' in searches:
     vals = Claim.find({'resolved':0})
-  elif 'personal' in searches:
-    vals = []
-    if user is not None:
-      vals = Claim.find({'uid':{'$in':map(int, user.committed.keys())}})
   elif 'promoted' in searches:
     if len(searches) > 1:
       searches = tuple(search for search in searches if search != 'promoted')
