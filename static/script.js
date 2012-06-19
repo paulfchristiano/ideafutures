@@ -152,6 +152,10 @@ function setBetError(message){
   $('#beterror').html(message);
 }
 
+function clearBetError(message){
+  $('#beterror').html('');
+}
+
 function updateActiveLink(displayType) {
   $('#recentclaimsnavbar').removeClass('activeLink');
   if (displayType == 'listclaims') {
@@ -207,12 +211,15 @@ function loginSidebarBlock(){
 
 function betSidebarBlock(claim) {
   result = "<div class='sidebarblock'>";
-  result += "<div class='row'> Multiplier is " + claim.bounty + "</div>";
+  result += "<div class='row'>Multiplier is " + claim.bounty + "</div>";
   if (loggedIn()) {
-    result += "<div class='row'> Max risk is " + drawReputation(claim.maxstake) + " * ";
-    result += drawReputation(user.reputation) + " = " + drawReputation(claim.maxstake*user.reputation) + "</div>";
+    stakes = getStakes(claim, 0.5);
+    otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+    result += "<div class='row'> Max risk is ";
+    result += drawReputation(claim.maxstake * (user.reputation - otherStake)) + "</div>";
   }
   result += "</div>";
+  console.debug(result);
   return result;
 }
 
@@ -465,16 +472,7 @@ function setClaimInputHandlers(claim) {
 
   $('#submitbet').click(function() {
     bet = $('#betinput').val()/100;
-    if (!loggedIn){
-      setBetError("You must be logged in to bet.");
-    } else if (tooCommitted(claim)) {
-      setBetError("You cannot risk that much.");
-    } else if (isNaN(bet) || bet < 0 || bet > 1){
-      setBetError("Your new estimate must be a number between 0 and 1.");
-    } else {
-      setBetError("");
-      submitBet(claim.id, bet);
-    }
+    submitBet(claim, bet);
   });
 }
 
@@ -743,7 +741,7 @@ function logout() {
  * -------------------------------------------------------------------------- */
 
 function setEstimate(claim, bet, source) {
-  if (bet < 0 || bet > 1) {
+  if (!loggedIn() || isNaN(bet) || bet < 0 || bet > 1) {
     return;
   }
 
@@ -758,44 +756,45 @@ function setEstimate(claim, bet, source) {
 }
 
 function recalculateView(claim, bet) {
-  if (user.name == null) {
-    return;
-  }
-
-  // Create a new history in which the user bet 'bet' on this claim.
-  newHistory = jQuery.extend([], claim.history);
-  newHistory.push({'user':user.name, 'probability':bet, 'time':new Date()});
-
-  // Calculate the amount the user is betting on this claim.
-  currentTrueStake = getCommitment(claim, claim.history, true);
-  currentFalseStake = getCommitment(claim, claim.history, false);
-  totalTrueStake = getCommitment(claim, newHistory, true);
-  totalFalseStake = getCommitment(claim, newHistory, false);
-
   // Refresh the old bet slider.
   $('#oldbet').slider({value: [claim.currentbet]});
   $('#oldbettext').html(drawBet(claim.currentbet) + "%");
 
   // Refresh the stake box.
-  $('#currenttruestake').html(drawReputation(currentTrueStake));
-  $('#currentfalsestake').html(drawReputation(currentFalseStake));
-  $('#thistruestake').html(drawReputation(totalTrueStake - currentTrueStake));
-  $('#thisfalsestake').html(drawReputation(totalFalseStake - currentFalseStake));
-  $('#totaltruestake').html(drawReputation(totalTrueStake));
-  $('#totalfalsestake').html(drawReputation(totalFalseStake));
-  if (totalTrueStake < -1 * claim['bounty'] * user.reputation) {
-    $('#totaltruestake').addClass('error');
-  } else{
-    $('#totaltruestake').removeClass('error');
-  }
-  if (totalFalseStake < -1 * claim['bounty'] * user.reputation) {
+  stakes = getStakes(claim, bet);
+  $('#currentfalsestake').html(drawReputation(stakes.old[0]));
+  $('#currenttruestake').html(drawReputation(stakes.old[1]));
+  $('#thisfalsestake').html(drawReputation(stakes.cur[0] - stakes.old[0]));
+  $('#thistruestake').html(drawReputation(stakes.cur[1] - stakes.old[1]));
+  $('#totalfalsestake').html(drawReputation(stakes.cur[0]));
+  $('#totaltruestake').html(drawReputation(stakes.cur[1]));
+
+  otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+  if (-stakes.cur[0] > claim.maxstake * (user.reputation - otherStake)) {
     $('#totalfalsestake').addClass('error');
   } else{
     $('#totalfalsestake').removeClass('error');
   }
+  if (-stakes.cur[1] > claim.maxstake * (user.reputation - otherStake)) {
+    $('#totaltruestake').addClass('error');
+  } else{
+    $('#totaltruestake').removeClass('error');
+  }
 }
 
-function getCommitment(claim, newHistory, outcome) {
+function getStakes(claim, bet) {
+  // Create a new history in which the user bet 'bet' on this claim.
+  newHistory = jQuery.extend([], claim.history);
+  newHistory.push({'user':user.name, 'probability':bet, 'time':new Date()});
+
+  // Calculate the amount the user is betting on this claim.
+  return {'old': {0: getStake(claim, claim.history, false),
+                  1: getStake(claim, claim.history, true)},
+          'cur': {0: getStake(claim, newHistory, false),
+                  1: getStake(claim, newHistory, true)}};
+}
+
+function getStake(claim, newHistory, outcome) {
   if (newHistory.length == 0) {
     return 0;
   }
@@ -815,6 +814,53 @@ function getCommitment(claim, newHistory, outcome) {
   }
 
   return result;
+}
+
+function submitBet(claim, bet){
+  if (!validateBet(claim, bet)) {
+    return;
+  }
+
+  $('#betloader').css("visibility", "visible");
+  queryServer({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
+  function(xml){
+    $('#betloader').css("visibility", "hidden");
+    claim = cache.claims[id];
+    response = $(xml).find('makebet').find('response').text();
+    if (response=='success') {
+      $('#oldbet').slider({
+        value: [ bet ],
+      });
+      recalculateView(id);
+    } else if (response=='interveningbet'){
+      betError("This view is no longer up to date (someone else has interfered).");
+    } else {
+      betError("You cannot risk that much.");
+    }
+  });
+}
+
+// Returns true if the user can place this bet, and false otherwise.
+function validateBet(claim, bet) {
+  if (!loggedIn()) {
+    setBetError('You must be logged in to bet.');
+    return false;
+  } else if (isNaN(bet) || bet < 0 || bet > 1) {
+    setBetError('Your new estimate must be a number between 0 and 1.');
+    return false;
+  }
+
+  stakes = getStakes(claim, bet);
+  otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+  newStake = -Math.min(stakes.cur[0], stakes.cur[1]);
+  if (isNaN(newStake) ||
+      newStake > claim.maxstake * (user.reputation - otherStake)) {
+    setBetError('You cannot risk that much on one bet.');
+    return false;
+  }
+
+  setBetError('Valid bet.');
+  return true;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -1043,35 +1089,6 @@ function humanDate(d){
 function humanTime(d){
   if (d == null) return "";
   else return padInt(d.getHours()) + ":" + padInt(d.getMinutes());
-}
-
-function tooCommitted(claim){
-  id = claim.id;
-  if (isNaN(getCommitment(id, proposedHistory, true)) || isNaN(getCommitment(id, proposedHistory, false))) return true;
-  return (getCommitment(id, proposedHistory, true) < -1 * claim['maxstake'] * user.reputation || getCommitment(id, proposedHistory, false) < -1 * claim['maxstake'] * user.reputation);
-}
-
-
-
-function submitBet(id, bet){
-      $('#betloader').css("visibility", "visible");
-      claim = cache.claims[id];
-      queryServer({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
-      function(xml){
-        $('#betloader').css("visibility", "hidden");
-        claim = cache.claims[id];
-        response = $(xml).find('makebet').find('response').text();
-        if (response=='success') {
-          $('#oldbet').slider({
-            value: [ bet ],
-          });
-          recalculateView(id);
-        } else if (response=='interveningbet'){
-          betError("This view is no longer up to date (someone else has interfered).");
-        } else {
-          betError("You cannot risk that much.");
-        }
-      });
 }
 
 function deleteBet(id){
