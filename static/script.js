@@ -485,12 +485,12 @@ function setClaimInputHandlers(claim) {
  * -------------------------------------------------------------------------- */
 
 function getDisplayData(displayState) {
-  var returnCall = function() {
+  var returnCall = function(displayState) {return function() {
     if (isCurrentDisplay(displayState) && isDirty(displayState)) {
       updateDisplay(displayState);
     }
     dirty = newCache();
-  };
+  };} (displayState);
 
   if (displayState.type == 'listclaims') {
     queryServer({'search':displayState.search}, returnCall);
@@ -689,7 +689,7 @@ function cacheSearch(query, results) {
 
 function login(name, password){
   queryServer({'login':1, 'name':name, 'password':password},
-    function(xml) {
+    function(name, password) {return function(xml) {
       var result = $(xml).find('login').text();
       if (result == 'success') {
         user.name = name;
@@ -701,13 +701,13 @@ function login(name, password){
       } else if (result == 'wrongpassword') {
         setLoginError('Incorrect password.');
       }
-    }
+    };} (name, password)
   );
 }
 
 function signup(name, password){
   updateServer({'signup':1, 'name':name, 'password':password},
-    function(xml){
+    function(name, password) {return function(xml) {
       var result = $(xml).find('signup').text();
       if (result == 'success') {
         user.name = name;
@@ -721,7 +721,7 @@ function signup(name, password){
       } else if (result == 'shortpassword') {
         setLoginError('Your password must be at least 3 characters.');
       }
-    }
+    };} (name, password)
   );
 }
 
