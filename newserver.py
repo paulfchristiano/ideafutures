@@ -8,6 +8,7 @@ import sys
 
 DEFAULT_DOMAINS = ['general', 'promoted']
 RESTRICTED_DOMAINS = ['all', 'promoted']
+DEFAULT_REPUTATION = 100.0
 
 class User(Data):
   collection = 'users'
@@ -161,7 +162,8 @@ def signup_post(name, password):
   elif len(password) < 3:
     return [('signup', 'shortpassword')]
   # Create a new user with a reputation of 10.0.
-  user = User({'name':name, 'password':password, 'reputation':10.0, \
+  user = User({'name':name, 'password':password, \
+      'reputation':DEFAULT_REPUTATION, \
       'committed':{}, 'domains':DEFAULT_DOMAINS})
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
