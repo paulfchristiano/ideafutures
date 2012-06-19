@@ -16,6 +16,7 @@ function loggedIn() {
 
 var RESTRICTED_DOMAINS = ['all', 'promoted'];
 
+var alertSet = false;
 var currentTime = new Date();
 function newCache() {
   return {'claims':{}, 'searches':{}};
@@ -48,6 +49,7 @@ function restoreUserState() {
 // Make the document change when the hash parameters do.
 $(document).ready(function() {
   $(window).bind('hashchange', function(e) {
+    clearAlert();
     var displayState = getDisplayState();
     updateDisplay(displayState);
     getDisplayData(displayState);
@@ -106,16 +108,15 @@ function isCurrentDisplay(displayState) {
 
 // Update the user interface. Revert to the default display if the user attempts
 // to take an action which requires him to be logged in without doing so.
-// Returns the final display state.
 function updateDisplay(displayState) {
-  clearAlert();
-
   if (displayState.type == 'submitclaim' && !loggedIn()) {
     setAlert("You must be logged in to submit a claim.");
-    displayState = DEFAULT_DISPLAY;
+    history.go(-1);
+    return;
   } else if (displayState.type == 'listdomains' && !loggedIn()) {
     setAlert("You must be logged in to adjust domains.");
-    displayState = DEFAULT_DISPLAY;
+    history.go(-1);
+    return;
   }
 
   updateActiveLink(displayState.type);
@@ -154,10 +155,14 @@ function updateDisplay(displayState) {
 function setAlert(message) {
   $('#alertbox').html(message);
   $('#alertbox').show();
+  alertSet = true;
 }
 
 function clearAlert() {
-  $('#alertbox').hide();
+  if (!alertSet) {
+    $('#alertbox').hide();
+  }
+  alertSet = false;
 }
 
 function setLoginError(message) {
@@ -861,14 +866,12 @@ function submitBet(claim, bet) {
 function resolveBet(id, outcome) {
   updateServer({'resolvebet':1, 'id':id, 'outcome':outcome},
     function(id) {return function(xml) {
-      var response = $(xml).find('resolvebet').text();
-      if (response == 'success') {
-        setDisplayState(DEFAULT_DISPLAY);
-      } else if (response == 'conflict') {
-        var displayState = {'type':'displayclaim', 'id':id};
-        if (isCurrentDisplay(displayState)) {
-          updateDisplay(displayState);
-        }
+      var displayState = {'type':'displayclaim', 'id':id};
+      if (isCurrentDisplay(displayState)) {
+        updateDisplay(displayState);
+      }
+      if ($(xml).find('resolvebet').text() == 'conflict') {
+        setBetError('Unable to resolve bet.');
       }
     };} (id)
   );
