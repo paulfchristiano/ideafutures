@@ -682,9 +682,7 @@ function pingServer(query, queryType, returnCall) {
     request = $.post;
   }
 
-  console.debug(query);
   request(queryType, query, function(xml) {
-    console.debug(xml);
     autoParseXML(xml);
     returnCall(xml);
   }, 'xml');
