@@ -217,17 +217,17 @@ function drawReputation(reputation) {
 function loginSidebarBlock(){
   var result = "<div class='sidebarblock'>";
   if  (loggedIn()){
-    result += "<div class='row'>You are logged in as " + user.name + "</div>";
-    result += "<div class='row'>You reputation is " + drawReputation(user.reputation) + "</div>";
-    result += "<div class='row'>You have committed " + drawReputation(user.committed) + " points</div>";
-    result += "<div class='row'><input type='submit' class='left' value='Log Out' id='logoutbutton'></input></div>";
+    result += "<div class='row'>Logged in as " + user.name + ".</div>";
+    result += "<div class='row'>Reputation: " + drawReputation(user.reputation) + ".</div>";
+    result += "<div class='row'>Points committed: " + drawReputation(user.committed) + ".</div>";
+    result += "<div class='row'><input type='submit' class='left' value='Log out' id='logoutbutton'></input></div>";
   } else{
     result += "<div class='row'>Username:</div>";
     result += "<div class='row'><input type='text' id='usernameinput'></input></div>";
     result += "<div class='row'>Password:</div>";
     result += "<div class='row'><input type='password' id='passwordinput'></input></div>";
-    result += "<div class='row'><input type='submit' class='left' value='Log In' id='loginbutton'></intput>";
-    result += "<input type='submit' class='right' value='Sign Up' id='signupbutton'></intput></div>";
+    result += "<div class='row'><input type='submit' class='left' value='Log in' id='loginbutton'></intput>";
+    result += "<input type='submit' class='right' value='Sign up' id='signupbutton'></intput></div>";
     result += "<div class='row'><span class='error' id='loginerror'></span></div>";
   }
   return result + "</div>";
@@ -235,12 +235,12 @@ function loginSidebarBlock(){
 
 function betSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
-  result += "<div class='row'>Multiplier is " + claim.bounty + "</div>";
+  result += "<div class='row'>Multiplier on this claim: " + claim.bounty + ".</div>";
   if (loggedIn()) {
     var stakes = getStakes(claim, 0.5);
     var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
-    result += "<div class='row'>Max risk is ";
-    result += drawReputation(claim.maxstake * (user.reputation - otherStake)) + "</div>";
+    result += "<div class='row'>Your maximum bet: ";
+    result += drawReputation(claim.maxstake * (user.reputation - otherStake)) + ".</div>";
   }
   result += "</div>";
   return result;
@@ -248,8 +248,8 @@ function betSidebarBlock(claim) {
 
 function ownerSidebarBlock(){
   var result = "<div class='sidebarblock'>";
-  result += "<div class='row'><a id='confirm'>Confirm This Claim.</a></div>";
-  result += "<div class='row'><a id='deny'>Deny This Claim.</a></div>";
+  result += "<div class='row'><a id='confirm'>Confirm this claim.</a></div>";
+  result += "<div class='row'><a id='deny'>Deny this claim.</a></div>";
   result += "</div>";
   return result;
 }
@@ -389,10 +389,10 @@ function descriptionBox(claim) {
 function betBox(claim) {
   var result = "<div class='betbox'>";
   result += "<table>";
-  result += "<tr><td colspan='2'>Current Consensus:</td></tr>";
+  result += "<tr><td colspan='2'>Current consensus:</td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "%</div></td></tr>";
-  result += "<tr><td colspan='2'>Your Update:</td></tr>"
+  result += "<tr><td colspan='2'>Your update:</td></tr>"
   result += "<tr><td><div id='newbet' class='betslider'></div></td>";
   result += "<td><div class='betvalue'> <input type='text' id='betinput'></input>%</div></td></tr>";
   result += "</table>";
@@ -420,12 +420,12 @@ function closedBetBox(claim) {
 
 function stakeBox() {
   var result = "<table id='stakebox' class='center'>";
-  result += "<tr><th colspan='3'><h3>Your Stake</h3></th></tr>";
+  result += "<tr><th colspan='3'><h3>Your stake</h3></th></tr>";
   result += "<tr><td> </td> <td>True</td><td>False</td></tr>";
   result += "<tr><td>Current</td>";
   result += "<td><span id='currenttruestake' class='payoff'></span></td>";
   result += "<td><span id='currentfalsestake' class='payoff'></span></td></tr>";
-  result += "<tr><td>This Bet</td>";
+  result += "<tr><td>This bet</td>";
   result += "<td><span id='thistruestake' class='payoff'></span></td>";
   result += "<td><span id='thisfalsestake' class='payoff'></span></td></tr>";
   result += "<tr><td> Total </td>";
@@ -512,15 +512,15 @@ function submitClaimBox() {
   result += "<textarea id='definition'></textarea> </div>";
   result += "<div class='row'>Bounty:";
   result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
-  result += "Initial Estimate:"
+  result += "Initial estimate:"
   result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input>";
-  result += "Maximum Risk (as fraction of reputation): 0.1</div>";
-  result += "<div class='row'>Market closes (optional):";
+  result += "Maximum risk (as fraction of reputation): 0.1</div>";
+  result += "<div class='row'>Market close (optional):";
   result += "<input type='text' id='closedate'></input>";
   result += "<input type='text' id='closetime'></input> </div>";
   result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
-  result += "<div class='row'><a class='orange' id='submitclaimbutton'>Submit Claim</a></div>";
+  result += "<div class='row'><a class='orange' id='submitclaimbutton'>Submit claim</a></div>";
   result += "<div class='error row' id='submitclaimerror'></div>";
   result += "</div>";
   return result;
