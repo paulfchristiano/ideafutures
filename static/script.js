@@ -14,7 +14,7 @@ function loggedIn() {
   return user.name != null
 }
 
-var RESTRICTED_DOMAINS = ['all', 'promoted'];
+var RESTRICTED_DOMAINS = ['all', 'active', 'personal', 'promoted'];
 
 var alertSet = false;
 var currentTime = new Date();
@@ -272,7 +272,6 @@ function isAdmin(user) {
 
 function adminSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
-  //result += "<div class='row'> <a id='modify' href='#submitclaim+" + claim.id + "'> Modify this claim.</a> </div>";
   if (claim.promoted) {
     result += "<div class='row'> <a id='unpromote'> Un-promote this claim.</a> </div>";
   } else{
