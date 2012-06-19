@@ -59,13 +59,13 @@ $(document).ready(function() {
 // Returns a display: a dict mapping 'type' to a display type, and potentially
 // containing other information.
 function getDisplayState() {
-  paramFragment = $.param.fragment();
+  var paramFragment = $.param.fragment();
 
   if (paramFragment == '') {
     return DEFAULT_DISPLAY;
   } else {
-    state = {}
-    params  = paramFragment.split("+");
+    var state = {}
+    var params  = paramFragment.split("+");
     state.type = params[0];
     if (state.type == 'listclaims') {
       state.search = params[1];
@@ -99,15 +99,14 @@ function updateDisplay(displayState) {
 
   updateActiveLink(displayState.type);
 
-  newSidebar = loginSidebarBlock();
-  $('#sidebar').html(newSidebar);
-  setSidebarInputHandlers(displayState);
+  $('#sidebar').html(loginSidebarBlock);
+  setSidebarInputHandlers(DEFAULT_DISPLAY);
 
   if (isCached(displayState)) {
     // Draw the sidebar.
-    newSidebar = loginSidebarBlock();
+    var newSidebar = loginSidebarBlock();
     if (displayState.type == 'displayclaim') {
-      claim = cache.claims[displayState.id];
+      var claim = cache.claims[displayState.id];
       newSidebar += betSidebarBlock(claim);
       if (user.name == claim.owner) {
         newSidebar += ownerSidebarBlock();
@@ -191,7 +190,7 @@ function drawReputation(reputation) {
 // TODO: Move this code (and similar functions) to a new file. Use string
 // formatting to build the HTML instead of string concatenations.
 function loginSidebarBlock(){
-  result = "<div class='sidebarblock'>";
+  var result = "<div class='sidebarblock'>";
   if  (loggedIn()){
     result += "<div class='row'>You are logged in as " + user.name + "</div>";
     result += "<div class='row'>You reputation is " + drawReputation(user.reputation) + "</div>";
@@ -210,21 +209,20 @@ function loginSidebarBlock(){
 }
 
 function betSidebarBlock(claim) {
-  result = "<div class='sidebarblock'>";
+  var result = "<div class='sidebarblock'>";
   result += "<div class='row'>Multiplier is " + claim.bounty + "</div>";
   if (loggedIn()) {
-    stakes = getStakes(claim, 0.5);
-    otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
-    result += "<div class='row'> Max risk is ";
+    var stakes = getStakes(claim, 0.5);
+    var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
+    result += "<div class='row'>Max risk is ";
     result += drawReputation(claim.maxstake * (user.reputation - otherStake)) + "</div>";
   }
   result += "</div>";
-  console.debug(result);
   return result;
 }
 
 function ownerSidebarBlock(){
-  result = "<div class='sidebarblock'>";
+  var result = "<div class='sidebarblock'>";
   result += "<div class='row'><a id='confirm'>Confirm This Claim.</a></div>";
   result += "<div class='row'><a id='deny'>Deny This Claim.</a></div>";
   result += "</div>";
@@ -268,7 +266,7 @@ function setSidebarInputHandlers(displayState) {
 }
 
 function drawClaims(results) {
-  mainFrame = "";
+  var mainFrame = "";
   for (i = 0; i < results.length; i++){
     mainFrame += topicBox(results[i]);
   }
@@ -281,8 +279,8 @@ function drawClaims(results) {
 }
 
 function topicBox(claim) {
-  result = "<div class='topicbox'>";
-  href = "#displayclaim+" + claim.id;
+  var result = "<div class='topicbox'>";
+  var href = "#displayclaim+" + claim.id;
   result += "<h2> <a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
   result += claim.description + "</a> </h2>";
   result += "<div class='currentbet orange'>" + drawBet(claim.currentbet) + "%</div>";
@@ -306,17 +304,18 @@ function drawBet(p) {
 }
 
 function drawDate(d) {
-  description = "ago";
-  seconds = (currentTime - d)/1000;
+  var description = "ago";
+  var seconds = (currentTime - d)/1000;
   if (seconds < 0){
     seconds = -1*seconds;
     description = "from now";
   }
-  minutes = Math.round(seconds/60);
-  hours = Math.round(minutes/60);
-  days = Math.round(hours/24);
-  years = Math.round(days/365);
+  var minutes = Math.round(seconds/60);
+  var hours = Math.round(minutes/60);
+  var days = Math.round(hours/24);
+  var years = Math.round(days/365);
 
+  var result;
   if (seconds < 60) {
     result = seconds + " seconds " + description;
   } else if (minutes < 60) {
@@ -338,7 +337,7 @@ function prepareLoader(id) {
 }
 
 function drawClaim(claim) {
-  mainFrame = descriptionBox(claim);
+  var mainFrame = descriptionBox(claim);
   if (isOpen(claim)) {
     mainFrame += betBox(claim);
   } else {
@@ -366,7 +365,7 @@ function descriptionBox(claim) {
 }
 
 function betBox(claim) {
-  result = "<div class='betbox'>";
+  var result = "<div class='betbox'>";
   result += "<table>";
   result += "<tr><td colspan='2'>Current Consensus:</td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
@@ -383,7 +382,7 @@ function betBox(claim) {
 }
 
 function closedBetBox(claim) {
-  result = "<div class='betbox'><table>";
+  var result = "<div class='betbox'><table>";
   result += "<tr><td colspan='2'> Betting was closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
   result += "<tr><td colspan='2'> The market consensus at that time: </td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
@@ -393,7 +392,7 @@ function closedBetBox(claim) {
 }
 
 function stakeBox() {
-  result = "<table id='stakebox' class='center'>";
+  var result = "<table id='stakebox' class='center'>";
   result += "<tr><th colspan='3'><h3>Your Stake</h3></th></tr>";
   result += "<tr><td> </td> <td>True</td><td>False</td></tr>";
   result += "<tr><td>Current</td>";
@@ -410,7 +409,7 @@ function stakeBox() {
 }
 
 function historyBox(claim) {
-  result = "<table id='historybox' class='center'>";
+  var result = "<table id='historybox' class='center'>";
   result += "<tr><th colspan='3'><h3>History</h3></th></tr>";
   result += "<tr class='underline'><td>Estimate</td><td>User</td><td>Time</td></tr>";
 
@@ -471,8 +470,7 @@ function setClaimInputHandlers(claim) {
   });
 
   $('#submitbet').click(function() {
-    bet = $('#betinput').val()/100;
-    submitBet(claim, bet);
+    submitBet(claim, $('#betinput').val()/100);
   });
 }
 
@@ -481,8 +479,8 @@ function setClaimInputHandlers(claim) {
  * -------------------------------------------------------------------------- */
 
 function getDisplayData(displayState) {
-  returnCall = function() {
-    newDisplayState = getDisplayState();
+  var returnCall = function() {
+    var newDisplayState = getDisplayState();
     if (displayState.type != newDisplayState.type ||
         displayState.search != newDisplayState.search ||
         displayState.id != newDisplayState.id) {
@@ -498,7 +496,7 @@ function getDisplayData(displayState) {
   if (displayState.type == 'listclaims') {
     queryServer({'search':displayState.search}, returnCall);
   } else if (displayState.type == 'displayclaim'){
-    queryServer({'claim':id,}, returnCall);
+    queryServer({'claim':displayState.id}, returnCall);
   } else if (displayState.type == 'submitclaim') {
     queryServer({'alldomains':1}, returnCall);
   } else if (displayState.type == 'listdomains') {
@@ -528,21 +526,20 @@ function updateServer(update, returnCall) {
 function pingServer(query, queryType, returnCall) {
   // Sanitize the query by setting the return call and then automatically
   // supplying the user's name and password if these values are not null.
-  if (typeof(f) == 'undefined') {
-    f = function() {};
+  if (typeof(returnCall) == 'undefined') {
+    returnCall = function() {};
   }
   if (!('name' in query) && user.name != null) {
     query['name'] = user.name;
     query['password'] = user.password;
   }
 
-  console.debug(query);
   if (!('login' in query) && !('signup' in query) && !('search' in query) &&
       !('claim' in query))
     return;
 
   // Use a GET to do 'query' requests and a POST to do 'update's.
-  request = $.get;
+  var request = $.get;
   if (queryType == 'update') {
     request = $.post;
   }
@@ -551,7 +548,7 @@ function pingServer(query, queryType, returnCall) {
     console.debug(xml);
     autoParseXML(xml);
     returnCall(xml);
-  }, "xml");
+  }, 'xml');
 }
 
 // Take in XML information returned by the server and cache any time,
@@ -568,14 +565,13 @@ function autoParseXML(xml) {
 
   // Cache any claims, searches, and lists of domains found in the XML.
   $(xml).find('claim').each(function() {
-    claim = parseClaimFromXML(this);
-    cacheClaim(claim);
+    cacheClaim(parseClaimFromXML(this));
   });
 
   $(xml).find('search').each(function() {
-    result = [];
+    var result = [];
     $(this).find('uid').each(function() {
-      id = parseInt($(this).text());
+      var id = parseInt($(this).text());
       if (id in cache.claims) {
         result.push(cache.claims[id]);
       }
@@ -588,7 +584,7 @@ function autoParseXML(xml) {
 
   // TODO: Add dirty logic here.
   if ($(xml).find('alldomains').length > 0) {
-    alldomains = [];
+    var alldomains = [];
     $(xml).find('alldomains').find('domain').each(function() {
       alldomains.push($(this).text());
     });
@@ -596,7 +592,7 @@ function autoParseXML(xml) {
   }
 
   if ($(xml).find('userdomains').length > 0) {
-    userdomains = [];
+    var userdomains = [];
     $(xml).find('userdomains').find('domain').each(function() {
       userdomains.push($(this).text());
     });
@@ -607,11 +603,11 @@ function autoParseXML(xml) {
 // Sets the user's fields with data from the xml.
 function parseUserFromXML(xml) {
   $(xml).find('user').each(function() {
-    newReputation = parseFloat($(this).find('reputation').text());
+    var newReputation = parseFloat($(this).find('reputation').text());
     if (!isNaN(newReputation)) {
       user.reputation = newReputation;
     }
-    newCommitted = parseFloat($(this).find('committed').text());
+    var newCommitted = parseFloat($(this).find('committed').text());
     if (!isNaN(newCommitted)) {
       user.committed = newCommitted;
     }
@@ -620,7 +616,7 @@ function parseUserFromXML(xml) {
 
 // Returns a claim object, with all the relevant fields (listed below) set.
 function parseClaimFromXML(xml) {
-  result = {};
+  var result = {};
 
   result.id = parseInt($(xml).find('uid').text());
   result.age = parseDate($(xml).find('age').text());
@@ -656,13 +652,13 @@ function parseDate(strDate) {
   if (strDate == 'None') {
     return null;
   }
-  parts = strDate.split(/[\.\s\/:\-T]/);
+  var parts = strDate.split(/[\.\s\/:\-T]/);
   return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
 }
 
 function parseDateTime(strDate, strTime) {
-  dateParts = strDate.split(/[\.\s\/:\-T]/);
-  timeParts = strTime.split(/[\.\s\/:\-T]/);
+  var dateParts = strDate.split(/[\.\s\/:\-T]/);
+  var timeParts = strTime.split(/[\.\s\/:\-T]/);
   return new Date(dateParts[2], dateParts[0] - 1, dateParts[1], timeParts[0], timeParts[1]);
 }
 
@@ -694,7 +690,7 @@ function cacheSearch(query, results) {
 function login(name, password){
   queryServer({'login':1, 'name':name, 'password':password},
     function(xml) {
-      result = $(xml).find('login').text();
+      var result = $(xml).find('login').text();
       if (result == 'success') {
         user.name = name;
         user.password = password;
@@ -712,7 +708,7 @@ function login(name, password){
 function signup(name, password){
   updateServer({'signup':1, 'name':name, 'password':password},
     function(xml){
-      result = $(xml).find('signup').text();
+      var result = $(xml).find('signup').text();
       if (result == 'success') {
         user.name = name;
         user.password = password;
@@ -761,7 +757,7 @@ function recalculateView(claim, bet) {
   $('#oldbettext').html(drawBet(claim.currentbet) + "%");
 
   // Refresh the stake box.
-  stakes = getStakes(claim, bet);
+  var stakes = getStakes(claim, bet);
   $('#currentfalsestake').html(drawReputation(stakes.old[0]));
   $('#currenttruestake').html(drawReputation(stakes.old[1]));
   $('#thisfalsestake').html(drawReputation(stakes.cur[0] - stakes.old[0]));
@@ -769,7 +765,7 @@ function recalculateView(claim, bet) {
   $('#totalfalsestake').html(drawReputation(stakes.cur[0]));
   $('#totaltruestake').html(drawReputation(stakes.cur[1]));
 
-  otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+  var otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
   if (-stakes.cur[0] > claim.maxstake * (user.reputation - otherStake)) {
     $('#totalfalsestake').addClass('error');
   } else{
@@ -784,7 +780,7 @@ function recalculateView(claim, bet) {
 
 function getStakes(claim, bet) {
   // Create a new history in which the user bet 'bet' on this claim.
-  newHistory = jQuery.extend([], claim.history);
+  var newHistory = jQuery.extend([], claim.history);
   newHistory.push({'user':user.name, 'probability':bet, 'time':new Date()});
 
   // Calculate the amount the user is betting on this claim.
@@ -799,11 +795,11 @@ function getStake(claim, newHistory, outcome) {
     return 0;
   }
 
-  result = 0;
-  p = 1;
+  var result = 0;
+  var p = 1;
 
   for (i = 0; i < newHistory.length; i++) {
-    nextP = newHistory[i].probability;
+    var nextP = newHistory[i].probability;
     if (!outcome) {
       nextP = 1 - nextP;
     }
@@ -825,8 +821,7 @@ function submitBet(claim, bet){
   queryServer({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
   function(xml){
     $('#betloader').css("visibility", "hidden");
-    claim = cache.claims[id];
-    response = $(xml).find('makebet').find('response').text();
+    var response = $(xml).find('makebet').find('response').text();
     if (response=='success') {
       $('#oldbet').slider({
         value: [ bet ],
@@ -850,9 +845,9 @@ function validateBet(claim, bet) {
     return false;
   }
 
-  stakes = getStakes(claim, bet);
-  otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
-  newStake = -Math.min(stakes.cur[0], stakes.cur[1]);
+  var stakes = getStakes(claim, bet);
+  var otherStake = user.committed - Math.min(stakes.old[0], stakes.old[1]);
+  var newStake = -Math.min(stakes.cur[0], stakes.cur[1]);
   if (isNaN(newStake) ||
       newStake > claim.maxstake * (user.reputation - otherStake)) {
     setBetError('You cannot risk that much on one bet.');
@@ -868,7 +863,7 @@ function validateBet(claim, bet) {
  * -------------------------------------------------------------------------- */
 
 function submitClaimBox(id){
-  result = "<div class='submitbetbox'>";
+  var result = "<div class='submitbetbox'>";
   result += "<div class='row'>Short description:";
   result += "<input type='text' id='description' size='50' maxlength='200' </input> </div>";
   result += "<div class='row'><div class='left'>Precise definition:</div>";
@@ -891,11 +886,11 @@ function submitClaimBox(id){
 }
 
 function initializeSubmitClaim(id){
-  submitted = false;
-  claim = (typeof(id)=='undefined' || isNaN(id)) ?
+  var submitted = false;
+  var claim = (typeof(id)=='undefined' || isNaN(id)) ?
     { 'description':"", 'definition':"", 'maxstake':0.5, 'currentbet':0.5,
       'bounty':1.0, 'closes':null, 'domain':'general'} : cache.claims[id];
-  closedate = humanDate(claim['closes']);
+  var closedate = humanDate(claim['closes']);
   closetime = humanTime(claim['closes']);
   $('#description').val(claim['description']);
   $('#definition').val(claim['definition']);
@@ -927,16 +922,16 @@ function initializeSubmitClaim(id){
 
 function submitClaim(id){
   if (submitted) return;
-  proposedEstimate = $('#initialestimate').val();
-  bounty = $('#bounty').val();
-  maxstake = $('#maxstake').val();
-  description = $('#description').val();
-  definition = $('#definition').val();
-  domain = $('#domaintext').val();
+  var proposedEstimate = $('#initialestimate').val();
+  var bounty = $('#bounty').val();
+  var maxstake = $('#maxstake').val();
+  var description = $('#description').val();
+  var definition = $('#definition').val();
+  var domain = $('#domaintext').val();
   if (domain=='') domain = $('#domain').val();
-  closes = parseDateTime($('#closedate').val(), $('#closetime').val());
-  falseRisk = bounty*Math.log(proposedEstimate);
-  trueRisk = bounty*Math.log(1 - proposedEstimate);
+  var closes = parseDateTime($('#closedate').val(), $('#closetime').val());
+  var falseRisk = bounty*Math.log(proposedEstimate);
+  var trueRisk = bounty*Math.log(1 - proposedEstimate);
   if (typeof(id) == 'undefined'){
     if (trueRisk < -1 * maxstake * user.reputation || falseRisk < -1 * maxstake * user.reputation){
       claimError("You cannot risk that much.");
@@ -980,22 +975,6 @@ function claimError(str){
   $('#submitclaimerror').html(str);
 }
 
-function sortByAge(claim1, claim2){
-  date1 = claim1['age'];
-  date2 = claim2['age'];
-  if (date1 > date2) return -1;
-  else if (date2 > date1) return 1;
-  else return 0;
-}
-
-function getPayoff(outcome){
-  np = proposedEstimate;
-  if (!outcome) np = 1 - np;
-  p = currentClaim['currentbet'];
-  if (!outcome) p = 1 - p;
-  return currentClaim['bounty'] * (Math.log(np) - Math.log(p));
-}
-
 function displayFilters(){
   alldomains = cache['alldomains'].slice();
   alldomains.unshift("promoted");
@@ -1005,7 +984,7 @@ function displayFilters(){
   for (i = 0; i < cache['userdomains'].length; i++){
     isActiveDomain[cache['userdomains'][i]] = 1;
   }
-  newMainFrame = "<div class='domainheader'> <h1> Change Domains. </h1>";
+  var newMainFrame = "<div class='domainheader'> <h1> Change Domains. </h1>";
   newMainFrame += "<div class='row'> Choose which domains to display by default, ";
   newMainFrame += "or view recent claims within a domain.</div> </div>";
   newMainFrame += "<div>";
@@ -1066,11 +1045,11 @@ function displaySubmitClaim(id){
 }
 
 function serverDate(d){
-  month = padInt(d.getMonth() + 1);
-  hour = padInt(d.getHours());
-  minute = padInt(d.getMinutes());
-  second = padInt(d.getSeconds());
-  day = padInt(d.getDate());
+  var month = padInt(d.getMonth() + 1);
+  var hour = padInt(d.getHours());
+  var minute = padInt(d.getMinutes());
+  var second = padInt(d.getSeconds());
+  var day = padInt(d.getDate());
   return "" + (d.getFullYear()) + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
 }
 
