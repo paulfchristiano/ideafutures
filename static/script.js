@@ -818,21 +818,22 @@ function submitBet(claim, bet){
   }
 
   $('#betloader').css("visibility", "visible");
-  queryServer({'makebet':1, 'user':user, 'topic':claim['id'], 'probability':bet, 'lastbettime':serverDate(claim['lastbettime'])},
-  function(xml){
-    $('#betloader').css("visibility", "hidden");
-    var response = $(xml).find('makebet').find('response').text();
-    if (response=='success') {
-      $('#oldbet').slider({
-        value: [ bet ],
-      });
-      recalculateView(id);
-    } else if (response=='interveningbet'){
-      betError("This view is no longer up to date (someone else has interfered).");
-    } else {
-      betError("You cannot risk that much.");
+  updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
+    function(xml) {
+      $('#betloader').css("visibility", "hidden");
+      claim = cache.claims[claim.id];
+      var response = $(xml).find('makebet').find('response').text();
+      if (response == 'success') {
+        $('#oldbet').slider({value: [bet]});
+        clearBetError();
+        recalculateView(claim, bet);
+      } else if (response == 'conflict'){
+        setBetError('This view is no longer up-to-date. - someone else bet.');
+      } else {
+        setBetError("You cannot risk that much on one bet.");
+      }
     }
-  });
+  );
 }
 
 // Returns true if the user can place this bet, and false otherwise.
@@ -854,7 +855,7 @@ function validateBet(claim, bet) {
     return false;
   }
 
-  setBetError('Valid bet.');
+  clearBetError();
   return true;
 }
 
