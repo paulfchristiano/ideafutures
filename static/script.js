@@ -648,11 +648,10 @@ function isDirty(displayState) {
     return displayState.search in dirty.searches;
   } else if (displayState.type == 'displayclaim') {
     return displayState.id in dirty.claims;
-  } else if (displayState.type == 'submitclaim' ||
-      displayState.type == 'listdomains') {
-    // TODO: Need to implement dirty logic for alldomains.
-    //return 'alldomains' in dirty;
-    return true;
+  } else if (displayState.type == 'submitclaim') {
+    return 'alldomains' in dirty;
+  } else if (displayState.type == 'listdomains') {
+    return 'alldomains' in dirty || 'userdomains' in dirty;
   }
   return false;
 }
@@ -724,6 +723,10 @@ function autoParseXML(xml) {
     $(xml).find('alldomains').find('domain').each(function() {
       alldomains.push($(this).text());
     });
+    if (!('alldomains' in cache) ||
+        !(arrayEquals(cache.alldomains, alldomains))) {
+      dirty.alldomains = true;
+    }
     cache.alldomains = alldomains;
   }
 
@@ -732,8 +735,25 @@ function autoParseXML(xml) {
     $(xml).find('userdomains').find('domain').each(function() {
       userdomains.push($(this).text());
     });
+    if (!('userdomains' in cache) ||
+        !(arrayEquals(cache.userdomains, userdomains))) {
+      dirty.userdomains = true;
+    }
     cache.userdomains = userdomains;
   }
+}
+
+// Tests if two arrays containing simple data types are equal.
+function arrayEquals(array1, array2) {
+  if (array1.length != array2.length) {
+    return false;
+  }
+  for (var i = 0; i < array1.length; i++) {
+    if (array1[i] != array2[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // Sets the user's fields with data from the xml.
