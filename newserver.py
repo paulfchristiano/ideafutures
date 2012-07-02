@@ -337,10 +337,10 @@ def newdomains_post(user, newdomains):
     return [invalid_query_error]
   newdomains = newdomains.split(' ') if len(newdomains) else []
   domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS + RESTRICTED_DOMAINS)
-  if all(domain in domains for domain in newdomains):
-    User.atomic_update(user.name, {'$set':{'domains':newdomains}})
-    return [('userdomains', wrap(('domain', domain) \
-        for domain in sorted(newdomains)))]
+  newdomains = [domain for domain in newdomains if domain in domains]
+  User.atomic_update(user.name, {'$set':{'domains':newdomains}})
+  return [('userdomains', wrap(('domain', domain) \
+      for domain in sorted(newdomains)))]
   return [invalid_query_error]
 
 class IdeaFuturesServer:
