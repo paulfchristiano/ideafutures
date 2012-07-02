@@ -293,7 +293,6 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     bet = float(bet)
     bounty = float(bounty)
     maxstake = float(maxstake)
-    print closes
     if closes is None or closes == '':
       closes = ''
     else:
