@@ -322,7 +322,13 @@ function drawClaims(results) {
   if (results.length == 0) {
     var mainFrame = "<div class='domainheader'><h1>No claims found.</h1>";
     mainFrame += "<div class='row'>No claims match your current search.";
-    mainFrame += " Change your search on the <a href=\"#listdomains\">domains</a> page.</div></div>";
+    if (loggedIn()) {
+      mainFrame += " Change your search on the <a href=\"#listdomains\">domains</a> page";
+      mainFrame += " or <a href=\"#submitclaim\">submit a claim</a>.";
+    } else {
+      mainFrame += " Log in to change your search on the <a href=\"#listdomains\">domains</a> page.";
+    }
+    mainFrame += "</div></div>";
     $('#mainframe').html(mainFrame);
     return;
   }
