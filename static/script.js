@@ -346,17 +346,21 @@ function topicBox(claim) {
   result += "<h2> <a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
   result += claim.description + "</a> </h2>";
   result += "<div class='currentbet orange'>" + drawBet(claim.currentbet) + "%</div>";
-  result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
+  if (isOpen(claim)) {
+    result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
+  } else {
+    result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>See results</a>";
+  }
   result += '<img id="betloader' + claim.id + '" class="loading right" src="ajax-loader.gif"></img>';
   result += "<div class='betdata'>";
   result += "<div class='clear'> Last bet by " + lastBet.user;
   result += " " + drawDate(lastBet.time) + ".</div>";
-  if (claim.closes) {
-    if (isOpen(claim)) {
+  if (isOpen(claim)) {
+    if (claim.closes) {
       result += "<div class='clear'> Betting closes " + drawDate(claim.closes) + ".</div>";
-    } else {
-      result += "<div class='clear'> Betting closed " + drawDate(claim.closes) + ".</div>";
     }
+  } else {
+    result += "<div class='clear'> Betting closed " + drawDate(claim.closes) + ".</div>";
   }
   result += "<div class='clear'> Submitted by " + claim.owner + " " + drawDate(claim.age) +".</div>";
   result += "</div>";
