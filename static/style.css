@@ -344,6 +344,10 @@ div.betdescription {
     margin:0px 5px 0px 2px;
 }
 
+input[type="submit"]:hover {
+  background-color:rgb(205,205,205);
+}
+
 #definition {
     width:500px;
 }
