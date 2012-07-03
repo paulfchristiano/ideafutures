@@ -319,7 +319,8 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
   elif domain in RESTRICTED_DOMAINS or len(domain) < 4 or len(domain) > 16:
     return [('submitclaim', 'baddata')]
-  elif not domain.replace('_', '').isalpha() or domain != domain.lower():
+  elif not domain.replace('_', '').isalpha() or domain != domain.lower() \
+      or domain[-1] == '_':
     return [('submitclaim', 'baddata')]
 
   MAX_UID = (1 << 31) - 1

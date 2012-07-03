@@ -1044,6 +1044,9 @@ function submitClaim() {
   } else if (domain.match(/^[a-z_]+$/) == null) {
     setClaimError("Your claim's domain must only contain lowercase characters or spaces.");
     return;
+  } else if (domain[domain.length - 1] == '_') {
+    setClaimError("Your domain cannot have trailing spaces.");
+    return;
   }
 
   clearClaimError();
