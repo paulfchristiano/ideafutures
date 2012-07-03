@@ -112,7 +112,7 @@ def login_query(name, password):
 def search_query(user, search):
   if search == 'user_default':
     if user is None or len(user.domains) == 0:
-      vals = execute_searches(['promoted'])
+      vals = execute_searches(DEFAULT_DOMAINS)
     else:
       vals = execute_searches(user.domains)
   else:
