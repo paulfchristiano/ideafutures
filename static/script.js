@@ -243,7 +243,7 @@ function loginSidebarBlock(){
 
 function betSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
-  result += "<div class='row'>Domain: " + claim.domain + ".</div>";
+  result += "<div class='row'>Domain: " + drawDomain(claim.domain) + ".</div>";
   if (claim.promoted) {
     result += "<div class='row'>(Claim is promoted.)</div>";
   }
@@ -596,7 +596,7 @@ function setSubmitClaimInputHandlers() {
   for (var i = 0; i < cache.alldomains.length; i++) {
     domain = cache.alldomains[i];
     if (RESTRICTED_DOMAINS.indexOf(domain) == -1) {
-      $('#domain').append("<option value='" + domain + "'>" + domain + "</option>");
+      $('#domain').append("<option value='" + domain + "'>" + drawDomain(domain) + "</option>");
     }
   }
   $('#domain').append("<option value=''></option>");
@@ -625,9 +625,13 @@ function drawDomains(alldomains, userdomains) {
 function domainPicker(domain, userdomains) {
   var type = (userdomains.indexOf(domain) > -1) ? "activedomain" : 'inactivedomain';
   result = "<div class='row'><div class='left domainholder'><a id='domain" + domain + "' class='" + type + "'>";
-  result += domain + "</a></div><div class='right'> <a href='#listclaims+" + domain + "'>";
-  result += "(view " + domain + ")</a></div> </div>";
+  result += drawDomain(domain) + "</a></div><div class='right'> <a href='#listclaims+" + domain + "'>";
+  result += "(view " + drawDomain(domain) + ")</a></div> </div>";
   return result;
+}
+
+function drawDomain(domain) {
+  return domain.replace('_', ' ');
 }
 
 /* -------------------------------------------------------------------------- *
@@ -1021,7 +1025,7 @@ function submitClaim() {
       return;
     }
   }
-  var domain = $('#domaintext').val();
+  var domain = $('#domaintext').val().replace(/ /g, '_');
   if (domain == '') {
     domain = $('#domain').val();
   }
@@ -1038,7 +1042,7 @@ function submitClaim() {
     setClaimError("Your claim's domain must be shorter.");
     return;
   } else if (domain.match(/^[a-z_]+$/) == null) {
-    setClaimError("Your claim's domain must only contain lowercase characters or underscores.");
+    setClaimError("Your claim's domain must only contain lowercase characters or spaces.");
     return;
   }
 
