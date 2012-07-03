@@ -393,15 +393,15 @@ function drawDate(d) {
 
   var result;
   if (seconds < 60) {
-    result = seconds + " seconds " + description;
+    result = seconds + (seconds > 1 ? " seconds " : " second ") + description;
   } else if (minutes < 60) {
-    result = minutes + " minutes " + description;
+    result = minutes + (minutes > 1 ? " minutes " : " minute ") + description;
   } else if (hours < 24) {
-    result = hours + " hours " + description;
+    result = hours + (hours > 1 ? " hours " : " hour ") + description;
   } else if (days < 1000) {
-    result = days + " days " + description;
+    result = days + (days > 1 ? " days " : " day ") + description;
   } else {
-    result = years + " years " + description;
+    result = years + (years > 1 ? " years " : " year ") + description;
   }
   return "<span title='" + d + "'>"+result +"</span>";
 }
