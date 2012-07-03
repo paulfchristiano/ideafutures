@@ -1037,8 +1037,8 @@ function submitClaim() {
   } else if (domain.length > 16) {
     setClaimError("Your claim's domain must be shorter.");
     return;
-  } else if (domain.match(/^[a-z]+$/) == null) {
-    setClaimError("Your claim's domain must only contain lowercase characters.");
+  } else if (domain.match(/^[a-z_]+$/) == null) {
+    setClaimError("Your claim's domain must only contain lowercase characters or underscores.");
     return;
   }
 

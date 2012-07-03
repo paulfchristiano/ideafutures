@@ -6,8 +6,13 @@ from math import log
 from random import randint
 import sys
 
+# The default domains are the domains which logged out users see.
+# The restricted domains are not allowed to be the domain of any claim.
+# The special domains are always included in the set of all domains, even
+# though they are not the domain of any claim.
 DEFAULT_DOMAINS = ['general', 'promoted']
-RESTRICTED_DOMAINS = ['all', 'active', 'promoted']
+SPECIAL_DOMAINS = ['all', 'active', 'promoted']
+RESTRICTED_DOMAINS = SPECIAL_DOMAINS + ['user_default']
 DEFAULT_REPUTATION = 100.0
 
 def is_admin(user):
@@ -149,9 +154,9 @@ def claim_query(uid):
 
 def alldomains_query():
   domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS \
-      ).difference(RESTRICTED_DOMAINS)
+      ).difference(SPECIAL_DOMAINS)
   return [('alldomains', wrap(('domain', domain) \
-      for domain in RESTRICTED_DOMAINS + sorted(domains)))]
+      for domain in SPECIAL_DOMAINS + sorted(domains)))]
 
 def userdomains_query(user):
   if user is None:
@@ -314,7 +319,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
   elif domain in RESTRICTED_DOMAINS or len(domain) < 4 or len(domain) > 16:
     return [('submitclaim', 'baddata')]
-  elif not domain.isalpha() or domain != domain.lower():
+  elif not domain.replace('_', '').isalpha() or domain != domain.lower():
     return [('submitclaim', 'baddata')]
 
   MAX_UID = (1 << 31) - 1
@@ -336,7 +341,7 @@ def newdomains_post(user, newdomains):
   if newdomains is None:
     return [invalid_query_error]
   newdomains = newdomains.split(' ') if len(newdomains) else []
-  domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS + RESTRICTED_DOMAINS)
+  domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS + SPECIAL_DOMAINS)
   newdomains = [domain for domain in newdomains if domain in domains]
   User.atomic_update(user.name, {'$set':{'domains':newdomains}})
   return [('userdomains', wrap(('domain', domain) \
