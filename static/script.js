@@ -1,7 +1,101 @@
-// A display state is a dict mapping 'type' to one of 'listclaims',
+// A display state is a object mapping 'type' to one of 'listclaims',
 // 'displayclaim', 'submitclaim' or 'listdomains'.
-// It can also contain additional information about the current state.
-var DEFAULT_DISPLAY = {'type':'listclaims', 'search':'user_default'};
+// It must provide the 'setDisplayState', 'updateActiveLink',
+// 'getDisplayData', 'isCached', and 'isDirty' methods.
+// The default page is a search with the user's default domains.
+function ListClaims(search) {
+  this.type = 'listclaims';
+  this.search = search;
+  this.setDisplayState = function() {
+    window.location.hash = this.type + '+' + this.search;
+  };
+  this.draw = function() {
+    drawClaims(cache.searches[this.search]);
+  };
+  this.updateActiveLink = function() {
+    if (this.search == 'my_bets') {
+      $('#mybetsnavbar').addClass('activeLink');
+    } else {
+      $('#recentclaimsnavbar').addClass('activeLink');
+    }
+  };
+  this.getDisplayData = function(returnCall) {
+    queryServer({'search':this.search}, returnCall);
+  };
+  this.isCached = function() {
+    return this.search in cache.searches;
+  };
+  this.isDirty = function() {
+    return this.search in dirty.searches;
+  };
+}
+
+var DEFAULT_DISPLAY = new ListClaims('user_default');
+
+function DisplayClaim(id) {
+  this.type = 'displayclaim';
+  this.search = search;
+  this.setDisplayState = function() {
+    window.location.hash = this.type + '+' + this.id;
+  };
+  this.draw = function() {
+    drawClaim(cache.claims[this.id]);
+  };
+  this.updateActiveLink = function() {};
+  this.getDisplayData = function(returnCall) {
+    queryServer({'claim':this.id}, returnCall);
+  };
+  this.isCached = function() {
+    return this.id in cache.claims;
+  };
+  this.isDirty = function() {
+    return this.id in dirty.claims;
+  };
+}
+
+function SubmitClaim() {
+  this.type = 'submitclaim';
+  this.setDisplayState = function() {
+    window.location.hash = this.type;
+  };
+  this.draw = function() {
+    drawSubmitClaim();
+  };
+  this.updateActiveLink = function() {
+    $('#submitclaimnavbar').addClass('activeLink');
+  };
+  this.getDisplayData = function(returnCall) {
+    queryServer({'alldomains':1}, returnCall);
+  };
+  this.isCached = function() {
+    return 'alldomains' in cache;
+  };
+  this.isDirty = function() {
+    return 'alldomains' in dirty;
+  };
+}
+
+function ListDomains() {
+  this.type = 'listdomains';
+  this.setDisplayState = function() {
+    window.location.hash = this.type;
+  };
+  this.draw = function() {
+    drawDomains(cache.alldomains, cache.userdomains);
+  };
+  this.updateActiveLink = function() {
+    $('#domainsnavbar').addClass('activeLink');
+  };
+  this.getDisplayData = function(returnCall) {
+    queryServer({'alldomains':1, 'userdomains':1}, returnCall);
+  };
+  this.isCached = function() {
+    return 'alldomains' in cache && 'userdomains' in cache;
+  };
+  this.isDirty = function() {
+    return 'alldomains' in dirty || 'userdomains' in dirty;
+  };
+}
 
 // The user is a dict which stores a 'name', 'password', and 'reputation'.
 // These values are not null if and only if the user is logged in.
@@ -68,30 +162,20 @@ function getDisplayState() {
   if (paramFragment == '') {
     return DEFAULT_DISPLAY;
   } else {
-    var state = {}
     var params  = paramFragment.split("+");
-    state.type = params[0];
-    if (state.type == 'listclaims') {
-      state.search = params[1];
-    } else if (state.type  == 'displayclaim') {
-      state.id = parseInt(params[1]);
-    } else if (state.type != 'submitclaim' && state.type != 'listdomains') {
+    if (params[0] == 'listclaims') {
+      return new ListClaims(params[1]);
+    } else if (params[0]  == 'displayclaim') {
+      return new DisplayClaim(parseInt(params[1]));
+    } else if (params[0] == 'submitclaim') {
+      return new SubmitClaim();
+    } else if (params[0] == 'listdomains') {
+      return new ListDomains();
+    } else {
       // Unknown state type. Show the home page.
-      state = DEFAULT_DISPLAY;
+      return DEFAULT_DISPLAY;
     }
-    return state;
   }
-}
-
-// Sets the display hash tags by display state.
-function setDisplayState(displayState, message) {
-  var result = displayState.type;
-  if (result == 'listclaims') {
-    result += '+' + displayState.search;
-  } else if (result == 'displayclaim') {
-    result += '+' + displayState.id;
-  }
-  window.location.hash = result;
 }
 
 // Returns true if the given display state is the current state.
@@ -119,12 +203,12 @@ function updateDisplay(displayState) {
     return;
   }
 
-  updateActiveLink(displayState.type);
+  updateActiveLink(displayState);
 
   $('#sidebar').html(loginSidebarBlock);
   setSidebarInputHandlers(DEFAULT_DISPLAY);
 
-  if (isCached(displayState)) {
+  if (displayState.isCached()) {
     // Draw the sidebar.
     var newSidebar = loginSidebarBlock();
     if (displayState.type == 'displayclaim') {
@@ -140,16 +224,7 @@ function updateDisplay(displayState) {
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
 
-    // Draw the main frame.
-    if (displayState.type == 'listclaims') {
-      drawClaims(cache.searches[displayState.search]);
-    } else if (displayState.type == 'displayclaim') {
-      drawClaim(cache.claims[displayState.id]);
-    } else if (displayState.type == 'submitclaim') {
-      drawSubmitClaim();
-    } else if (displayState.type == 'listdomains') {
-      drawDomains(cache.alldomains, cache.userdomains);
-    }
+    displayState.draw();
   }
 }
 
@@ -186,34 +261,11 @@ function clearClaimError(str) {
   $('#submitclaimerror').html('');
 }
 
-function updateActiveLink(displayType) {
+function updateActiveLink(displayState) {
   $('#recentclaimsnavbar').removeClass('activeLink');
-  if (displayType == 'listclaims') {
-    $('#recentclaimsnavbar').addClass('activeLink');
-  }
-
   $('#submitclaimnavbar').removeClass('activeLink');
-  if (displayType == 'submitclaim') {
-    $('#submitclaimnavbar').addClass('activeLink');
-  }
-
   $('#domainsnavbar').removeClass('activeLink');
-  if (displayType == 'listdomains') {
-    $('#domainsnavbar').addClass('activeLink');
-  }
-}
-
-function isCached(displayState) {
-  if (displayState.type == 'listclaims') {
-    return displayState.search in cache.searches;
-  } else if (displayState.type == 'displayclaim') {
-    return displayState.id in cache.claims;
-  } else if (displayState.type == 'submitclaim') {
-    return 'alldomains' in cache;
-  } else if (displayState.type == 'listdomains') {
-    return 'alldomains' in cache && 'userdomains' in cache;
-  }
-  return false;
+  displayState.updateActiveLink();
 }
 
 function drawReputation(reputation) {
@@ -640,34 +692,12 @@ function drawDomain(domain) {
 
 function getDisplayData(displayState) {
   var returnCall = function(displayState) {return function() {
-    if (isCurrentDisplay(displayState) && isDirty(displayState)) {
+    if (isCurrentDisplay(displayState) && displayState.isDirty()) {
       updateDisplay(displayState);
     }
     dirty = newCache();
   };} (displayState);
-
-  if (displayState.type == 'listclaims') {
-    queryServer({'search':displayState.search}, returnCall);
-  } else if (displayState.type == 'displayclaim'){
-    queryServer({'claim':displayState.id}, returnCall);
-  } else if (displayState.type == 'submitclaim') {
-    queryServer({'alldomains':1}, returnCall);
-  } else if (displayState.type == 'listdomains') {
-    queryServer({'alldomains':1, 'userdomains':1}, returnCall);
-  }
-}
-
-function isDirty(displayState) {
-  if (displayState.type == 'listclaims') {
-    return displayState.search in dirty.searches;
-  } else if (displayState.type == 'displayclaim') {
-    return displayState.id in dirty.claims;
-  } else if (displayState.type == 'submitclaim') {
-    return 'alldomains' in dirty;
-  } else if (displayState.type == 'listdomains') {
-    return 'alldomains' in dirty || 'userdomains' in dirty;
-  }
-  return false;
+  displayState.getDisplayData(returnCall);
 }
 
 function queryServer(query, returnCall) {
@@ -916,9 +946,9 @@ function submitBet(claim, bet) {
   updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
     function(claim) {return function(xml) {
       $('#betloader').css("visibility", "hidden");
-      var displayState = {'type':'displayclaim', 'id':claim.id};
+      var displayState = new DisplayClaim(claim.id);
       if (isCurrentDisplay(displayState) &&
-          cache.claims[claim.id] != claim.version) {
+          cache.claims[claim.id].version != claim.version) {
         updateDisplay(displayState);
       }
 
@@ -937,7 +967,7 @@ function submitBet(claim, bet) {
 function resolveClaim(id, outcome) {
   updateServer({'resolveclaim':1, 'id':id, 'outcome':outcome},
     function(id) {return function(xml) {
-      var displayState = {'type':'displayclaim', 'id':id};
+      var displayState = new DisplayClaim(id);
       if (isCurrentDisplay(displayState)) {
         updateDisplay(displayState);
       }
@@ -951,7 +981,7 @@ function resolveClaim(id, outcome) {
 function promoteClaim(id, outcome) {
   updateServer({'promoteclaim':1, 'id':id, 'outcome':outcome},
     function(id) {return function(xml) {
-      var displayState = {'type':'displayclaim', 'id':id};
+      var displayState = new DisplayClaim(id);
       if (isCurrentDisplay(displayState)) {
         updateDisplay(displayState);
       }
@@ -967,10 +997,10 @@ function deleteClaim(id) {
     function(id) {return function(xml) {
       var result = $(xml).find('deleteclaim').text();
       if (result == 'success') {
-        setDisplayState(DEFAULT_DISPLAY);
+        DEFAULT_DISPLAY.setDisplayState();
         setAlert('Successfully deleted claim.');
       } else if (result == 'conflict') {
-        var displayState = {'type':'displayclaim', 'id':id};
+        var displayState = new DisplayClaim(id);
         if (isCurrentDisplay(displayState)) {
           updateDisplay(displayState);
         }
@@ -1057,7 +1087,7 @@ function submitClaim() {
     function(xml) {
       var result = $(xml).find('submitclaim').text();
       if (result == 'success') {
-        setDisplayState(DEFAULT_DISPLAY);
+        DEFAULT_DISPLAY.setDisplayState();
         setAlert('Successfully submitted claim.');
       } else {
         if (result == 'baddata') {
