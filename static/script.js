@@ -265,6 +265,7 @@ function updateActiveLink(displayState) {
   $('#recentclaimsnavbar').removeClass('activeLink');
   $('#submitclaimnavbar').removeClass('activeLink');
   $('#domainsnavbar').removeClass('activeLink');
+  $('#mybetsnavbar').removeClass('activeLink');
   displayState.updateActiveLink();
 }
 
