@@ -12,7 +12,7 @@ import sys
 # though they are not the domain of any claim.
 DEFAULT_DOMAINS = ['general', 'promoted']
 SPECIAL_DOMAINS = ['all', 'active', 'promoted']
-RESTRICTED_DOMAINS = SPECIAL_DOMAINS + ['user_default']
+RESTRICTED_DOMAINS = SPECIAL_DOMAINS + ['my_bets', 'user_default']
 DEFAULT_REPUTATION = 100.0
 
 def is_admin(user):
@@ -121,18 +121,22 @@ def search_query(user, search):
     else:
       vals = execute_searches(user.domains)
   else:
-    vals = execute_searches([search])
+    vals = execute_searches([search], user)
   result = [('claim', wrap(claim)) for claim in vals]
   return result + [('search', \
       wrap([('uid', claim.uid) for claim in vals] + [('query', search)]))]
 
 # Executes searches for the domains in the list 'searches'. Returns a list of
 # claims in those domains, ordered from newest to oldest.
-def execute_searches(searches):
+def execute_searches(searches, user=None):
   if 'all' in searches:
     vals = Claim.find(uses_key_fields=False)
   elif 'active' in searches:
     vals = Claim.find({'resolved':0})
+  if 'my_bets' in searches:
+    vals = []
+    if user is not None:
+      vals = Claim.find({'uid':{'$in':map(int, user.committed.keys())}})
   elif 'promoted' in searches:
     if len(searches) > 1:
       searches = tuple(search for search in searches if search != 'promoted')
