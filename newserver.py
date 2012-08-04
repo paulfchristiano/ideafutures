@@ -133,7 +133,7 @@ def execute_searches(searches, user=None):
     vals = Claim.find(uses_key_fields=False)
   elif 'active' in searches:
     vals = Claim.find({'resolved':0})
-  if 'my_bets' in searches:
+  elif 'my_bets' in searches:
     vals = []
     if user is not None:
       vals = Claim.find({'uid':{'$in':map(int, user.committed.keys())}})
