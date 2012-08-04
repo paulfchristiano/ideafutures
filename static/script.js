@@ -34,7 +34,7 @@ var DEFAULT_DISPLAY = new ListClaims('user_default');
 
 function DisplayClaim(id) {
   this.type = 'displayclaim';
-  this.search = search;
+  this.id = id;
   this.setDisplayState = function() {
     window.location.hash = this.type + '+' + this.id;
   };
