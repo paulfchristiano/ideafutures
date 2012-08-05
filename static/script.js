@@ -353,7 +353,9 @@ function adminSidebarBlock(claim) {
     result += "</div><div class='sidebarblock'>";
   }
   result += "<div class='row'><a href='#editclaim+" + claim.id + "'>";
-  result += "Edit this claim.</a></div>";
+  if (isOpen(claim)) {
+    result += "Edit this claim.</a></div>";
+  }
   if (claim.promoted) {
     result += "<div class='row'><a id='unpromote'>Un-promote this claim.</a></div>";
   } else{
