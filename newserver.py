@@ -469,7 +469,7 @@ class IdeaFuturesServer:
           results.extend(submitclaim_post(user, description, definition, \
               bet, bounty, maxstake, closes, domain))
         elif editclaim is not None:
-          results.extend(editclaim_post(user, editclaim, description, \
+          results.extend(editclaim_post(user, id, description, \
               definition, closes, domain))
         elif newdomains is not None:
           results.extend(newdomains_post(user, newdomains))

@@ -1179,17 +1179,20 @@ function submitClaim(claim) {
         'bet':bet, 'bounty':bounty, 'maxstake':maxstake, 'closes':serverDate(closes),
         'domain':domain};
     var updateType = 'submitclaim';
+    var newDisplay = DEFAULT_DISPLAY;
   } else {
-    var update = {'editclaim':claim.id, 'description':description, 'definition':definition,
+    var update = {'editclaim':1, 'id':claim.id, 'description':description, 'definition':definition,
         'closes':serverDate(closes), 'domain':domain};
     var updateType = 'editclaim';
+    var newDisplay = new DisplayClaim(id);
   }
   updateServer(update,
-    function(updateType) {return function(xml) {
+    function(updateType, newDisplay) {return function(xml) {
       var result = $(xml).find(updateType).text();
       if (result == 'success') {
-        DEFAULT_DISPLAY.setDisplayState();
-        setAlert('Successfully submitted claim.');
+        newDisplay.setDisplayState();
+        var verb = (updateType == 'submitclaim' ? 'submitted' : 'edited');
+        setAlert('Successfully ' + verb + ' claim.');
       } else {
         if (result == 'baddata') {
           setClaimError('One or more fields of your claim were incorrectly formatted.');
@@ -1200,7 +1203,7 @@ function submitClaim(claim) {
           submitClaim();
         });
       }
-    };} (updateType)
+    };} (updateType, newDisplay)
   );
 }
 
