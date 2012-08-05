@@ -652,8 +652,17 @@ function setSubmitClaimInputHandlers() {
       $('#domain').append("<option value='" + domain + "'>" + drawDomain(domain) + "</option>");
     }
   }
-  $('#domain').append("<option value=''></option>");
   $('#domain').val('general');
+
+  var toggleDropDown = function() {
+    if ($(this).val() == '') {
+      $('#domain').removeAttr('disabled');
+    } else {
+      $('#domain').attr('disabled', 'disabled');
+    }
+  };
+  $('#domaintext').blur(toggleDropDown);
+  $('#domaintext').keyup(toggleDropDown);
 
   $('#submitclaimbutton').click(function(){
     submitClaim();
@@ -1157,6 +1166,9 @@ function domainToggler(domain) {
 
 function setEstimate(claim, bet, source) {
   if (isNaN(bet) || bet <= 0 || bet >= 1) {
+    if (bet != claim.currentbet) {
+      setEstimate(claim, claim.currentbet, source);
+    }
     return;
   }
   if (source != 'slider') {
