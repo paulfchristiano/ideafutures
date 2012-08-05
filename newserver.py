@@ -340,7 +340,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   # Check if the user can stake enough to make this claim. This check is NOT
   # thread-safe, so we may allow the user to risk more than the max stake in
   # pathological cases.
-  stake = -min(log(bet), log(1 - bet))
+  stake = -bounty * min(log(bet), log(1 - bet))
   if stake > maxstake * (user.reputation - sum(user.committed.values())):
     return [('submitclaim', 'baddata')]
 
