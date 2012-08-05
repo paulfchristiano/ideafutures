@@ -261,6 +261,29 @@ def resolveclaim_post(user, uid, outcome):
   return [('resolveclaim', 'success'), ('claim', wrap(claim))]
 
 @admin_only
+def reopenclaim_post(user, uid):
+  try:
+    uid = int(uid)
+  except Exception, e:
+    return [invalid_query_error]
+  claim = Claim.get(uid)
+  if claim is None or not claim.resolved:
+    return [('reopenclaim', 'conflict')]
+  outcome = (claim.resolved == 1)
+
+  # Atomically reopen this claim and update users' reputations.
+  Claim.atomic_update(uid, {'$set':{'resolved':0, 'closes':''}})
+  claim = Claim.get(uid)
+  affected_names = set(bet['user'] for bet in claim.history)
+  for name in affected_names:
+    stake = get_stake(name, claim.bounty, claim.history, outcome, final=True)
+    maxstake = -min(get_stake(name, claim.bounty, claim.history, False),
+        get_stake(name, claim.bounty, claim.history, True))
+    User.atomic_update(name, \
+        {'$set':{'committed.%s' % uid:maxstake}, '$inc':{'reputation':-stake}})
+  return [('reopenclaim', 'success'), ('claim', wrap(claim))]
+
+@admin_only
 def promoteclaim_post(user, uid, outcome):
   try:
     uid = int(uid)
@@ -421,7 +444,7 @@ class IdeaFuturesServer:
   # Only one update is allowed per message.
   @cherrypy.expose
   def update(self, signup=None, makebet=None, resolveclaim=None, \
-      deleteclaim = None, promoteclaim=None, \
+      reopenclaim=None, promoteclaim=None, deleteclaim=None, \
       submitclaim = None, editclaim=None, \
       name=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
@@ -436,6 +459,8 @@ class IdeaFuturesServer:
           results.extend(makebet_post(user, id, bet, version))
         elif resolveclaim is not None:
           results.extend(resolveclaim_post(user, id, outcome))
+        elif reopenclaim is not None:
+          results.extend(reopenclaim_post(user, id))
         elif promoteclaim is not None:
           results.extend(promoteclaim_post(user, id, outcome))
         elif deleteclaim is not None:

@@ -348,6 +348,10 @@ function isAdmin() {
 
 function adminSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
+  if (claim.resolved) {
+    result += "<div class='row'><a id='reopen'>Re-open this claim.</a></div>";
+    result += "</div><div class='sidebarblock'>";
+  }
   result += "<div class='row'><a href='#editclaim+" + claim.id + "'>";
   result += "Edit this claim.</a></div>";
   if (claim.promoted) {
@@ -383,6 +387,9 @@ function setSidebarInputHandlers(displayState) {
     });
     $('#deny').click(function() {
       resolveClaim(id, false);
+    });
+    $('#reopen').click(function() {
+      reopenClaim(id);
     });
     $('#promote').click(function() {
       promoteClaim(id, true);
@@ -1039,6 +1046,20 @@ function resolveClaim(id, outcome) {
       }
       if ($(xml).find('resolveclaim').text() == 'conflict') {
         setBetError('Unable to resolve bet.');
+      }
+    };} (id)
+  );
+}
+
+function reopenClaim(id) {
+  updateServer({'reopenclaim':1, 'id':id},
+    function(id) {return function(xml) {
+      var displayState = new DisplayClaim(id);
+      if (isCurrentDisplay(displayState)) {
+        updateDisplay(displayState);
+      }
+      if ($(xml).find('reopen').text() == 'conflict') {
+        setBetError('Unable to reopen bet.');
       }
     };} (id)
   );
