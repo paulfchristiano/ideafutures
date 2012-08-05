@@ -243,22 +243,24 @@ def resolveclaim_post(user, uid, outcome):
   except Exception, e:
     return [invalid_query_error]
 
-  # Check that the claim is valid and unresolved and that the user owns it.
-  claim = Claim.get(uid)
-  if claim is None or claim.resolved:
-    return [('resolveclaim', 'conflict')]
-  if claim.owner != user.name and not is_admin(user):
-    return [authentication_failed_error]
+  # Try to resolve this claim. On success, update users' reputations.
+  for i in range(10):
+    claim = Claim.get(uid)
+    if claim is None or claim.resolved:
+      return [('resolveclaim', 'conflict')]
+    if claim.owner != user.name and not is_admin(user):
+      return [authentication_failed_error]
+    claim.resolved = outcome
+    claim.closes = now()
 
-  # Atomically resolve this claim and update users' reputations.
-  Claim.atomic_update(uid, {'$set':{'resolved':outcome, 'closes':now()}})
-  claim = Claim.get(uid)
-  affected_names = set(bet['user'] for bet in claim.history)
-  for name in affected_names:
-    stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
-    User.atomic_update(name, \
-        {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
-  return [('resolveclaim', 'success'), ('claim', wrap(claim))]
+    if claim.save():
+      affected_names = set(bet['user'] for bet in claim.history)
+      for name in affected_names:
+        stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
+        User.atomic_update(name, \
+            {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
+      return [('resolveclaim', 'success'), ('claim', wrap(claim))]
+  return [('resolveclaim', 'conflict')]
 
 @admin_only
 def reopenclaim_post(user, uid):
@@ -266,22 +268,26 @@ def reopenclaim_post(user, uid):
     uid = int(uid)
   except Exception, e:
     return [invalid_query_error]
-  claim = Claim.get(uid)
-  if claim is None or not claim.resolved:
-    return [('reopenclaim', 'conflict')]
-  outcome = (claim.resolved == 1)
 
-  # Atomically reopen this claim and update users' reputations.
-  Claim.atomic_update(uid, {'$set':{'resolved':0, 'closes':''}})
-  claim = Claim.get(uid)
-  affected_names = set(bet['user'] for bet in claim.history)
-  for name in affected_names:
-    stake = get_stake(name, claim.bounty, claim.history, outcome, final=True)
-    maxstake = -min(get_stake(name, claim.bounty, claim.history, False),
-        get_stake(name, claim.bounty, claim.history, True))
-    User.atomic_update(name, \
-        {'$set':{'committed.%s' % uid:maxstake}, '$inc':{'reputation':-stake}})
-  return [('reopenclaim', 'success'), ('claim', wrap(claim))]
+  # Try to reopen this claim. On success, update users' reputations.
+  for i in range(10):
+    claim = Claim.get(uid)
+    if claim is None or not claim.resolved:
+      return [('reopenclaim', 'conflict')]
+    outcome = claim.resolved
+    claim.resolved = 0
+    claim.closes = ''
+
+    if claim.save():
+      affected_names = set(bet['user'] for bet in claim.history)
+      for name in affected_names:
+        stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
+        maxstake = -min(get_stake(name, claim.bounty, claim.history, False),
+            get_stake(name, claim.bounty, claim.history, True))
+        User.atomic_update(name, {'$set': \
+            {'committed.%s' % uid:maxstake}, '$inc':{'reputation':-stake}})
+      return [('reopenclaim', 'success'), ('claim', wrap(claim))]
+  return [('reopenclaim', 'conflict')]
 
 @admin_only
 def promoteclaim_post(user, uid, outcome):
@@ -369,10 +375,6 @@ def editclaim_post(user, uid, description, definition, closes, domain):
     uid = int(uid)
   except Exception, e:
     return [invalid_query_error]
-  claim = Claim.get(int(uid))
-  if not claim:
-    return [('editclaim', 'baddata')]
-
   if definition is None:
     definition = ''
   if not is_valid_desc_def_domain(description, definition, domain):
@@ -385,12 +387,21 @@ def editclaim_post(user, uid, description, definition, closes, domain):
       closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
   except Exception, e:
     return [('editclaim', 'baddata')]
-  if closes != '' and closes < claim.age:
-    return [('editclaim', 'baddata')]
 
-  Claim.atomic_update(uid, {'$set':{'description':description, \
-      'definition':definition, 'closes':closes, 'domain':domain}})
-  return [('editclaim', 'success')]
+  for i in range(10):
+    claim = Claim.get(int(uid))
+    if not claim or claim.resolved:
+      return [('editclaim', 'conflict')]
+    elif closes != '' and closes < claim.age:
+      return [('editclaim', 'baddata')]
+    claim.description = description
+    claim.definition = definition
+    claim.closes = closes
+    claim.domain = domain
+
+    if claim.save():
+      return [('editclaim', 'success')]
+  return [('editclaim', 'conflict')]
 
 def is_valid_desc_def_domain(description, definition, domain):
   if description is None or len(description) < 4 or len(description) > 128:

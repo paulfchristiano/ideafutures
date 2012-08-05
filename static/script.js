@@ -1184,14 +1184,14 @@ function submitClaim(claim) {
     var update = {'editclaim':1, 'id':claim.id, 'description':description, 'definition':definition,
         'closes':serverDate(closes), 'domain':domain};
     var updateType = 'editclaim';
-    var newDisplay = new DisplayClaim(id);
+    var newDisplay = new DisplayClaim(claim.id);
   }
   updateServer(update,
-    function(updateType, newDisplay) {return function(xml) {
+    function(claim, updateType, newDisplay) {return function(xml) {
       var result = $(xml).find(updateType).text();
       if (result == 'success') {
         newDisplay.setDisplayState();
-        var verb = (updateType == 'submitclaim' ? 'submitted' : 'edited');
+        var verb = (typeof claim == 'undefined' ? 'submitted' : 'edited');
         setAlert('Successfully ' + verb + ' claim.');
       } else {
         if (result == 'baddata') {
@@ -1200,10 +1200,10 @@ function submitClaim(claim) {
           setClaimError('Unable to save claim. Another user may have submitted at the same time.');
         }
         $('#submitclaimbutton').click(function() {
-          submitClaim();
+          submitClaim(claim);
         });
       }
-    };} (updateType, newDisplay)
+    };} (claim, updateType, newDisplay)
   );
 }
 
