@@ -6,6 +6,12 @@ from math import log
 from random import randint
 import sys
 
+# Errors returned by the server if queried incorrectly.
+invalid_query_error = ('error', \
+    'One or more fields of the query were missing or incorrectly formatted.')
+authentication_failed_error = ('error', \
+    'Authentication failed. Username or password incorrect.')
+
 # The default domains are the domains which logged out users see.
 # The restricted domains are not allowed to be the domain of any claim.
 # The special domains are always included in the set of all domains, even
@@ -17,6 +23,14 @@ DEFAULT_REPUTATION = 100.0
 
 def is_admin(user):
   return user is not None and user.name in ('paulfc', 'skishore')
+
+# Decorator that tests that the first argument to f is an admin user.
+def admin_only(f):
+  def admin_only_f(*args):
+    if not args or not is_admin(args[0]):
+      return [authentication_failed_error]
+    return f(*args)
+  return admin_only_f
 
 class User(Data):
   collection = 'users'
@@ -84,12 +98,6 @@ def wrap(results):
   elif hasattr(results, '__iter__'):
     return ''.join('<%s>%s</%s>' % (key, value, key) for key, value in results)
   return wrap(results.to_dict())
-
-# Errors returned by the server if queried incorrectly.
-invalid_query_error = ('error', \
-    'One or more fields of the query were missing or incorrectly formatted.')
-authentication_failed_error = ('error', \
-    'Authentication failed. Username or password incorrect.')
 
 # Returns a User object if name and password are correct, or None otherwise.
 def authenticate(name, password):
@@ -252,29 +260,25 @@ def resolveclaim_post(user, uid, outcome):
         {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
   return [('resolveclaim', 'success'), ('claim', wrap(claim))]
 
+@admin_only
 def promoteclaim_post(user, uid, outcome):
   try:
     uid = int(uid)
     outcome = {'true':1, 'false':0}[outcome]
   except Exception, e:
     return [invalid_query_error]
-  if not is_admin(user):
-    return [authentication_failed_error]
   Claim.atomic_update(uid, {'$set':{'promoted':outcome}})
   claim = Claim.get(uid)
   if claim is not None:
     return [('promoteclaim', 'success'), ('claim', wrap(claim))]
   return [('promoteclaim', 'conflict')]
 
+@admin_only
 def deleteclaim_post(user, uid):
   try:
     uid = int(uid)
   except Exception, e:
     return [invalid_query_error]
-
-  # Check that the claim is valid and unresolved and that the user is an admin.
-  if not is_admin(user):
-    return [authentication_failed_error]
   claim = Claim.get(uid)
   if claim is None:
     return [('deleteclaim', 'conflict')]
@@ -336,14 +340,16 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     claim.uid = randint(0, MAX_UID)
   return [('submitclaim', 'conflict')]
 
+@admin_only
 def editclaim_post(user, uid, description, definition, closes, domain):
   try:
     uid = int(uid)
   except Exception, e:
     return [invalid_query_error]
   claim = Claim.get(int(uid))
-  if not is_admin(user) or not claim:
+  if not claim:
     return [('editclaim', 'baddata')]
+
   if definition is None:
     definition = ''
   if not is_valid_desc_def_domain(description, definition, domain):
