@@ -75,6 +75,27 @@ function SubmitClaim() {
   };
 }
 
+function EditClaim(id) {
+  this.type = 'editclaim';
+  this.id = id;
+  this.setDisplayState = function() {
+    window.location.hash = this.type + '+' + this.id;
+  };
+  this.draw = function() {
+    drawSubmitClaim(cache.claims[this.id]);
+  };
+  this.updateActiveLink = function() {};
+  this.getDisplayData = function(returnCall) {
+    queryServer({'alldomains':1, 'claim':this.id}, returnCall);
+  };
+  this.isCached = function() {
+    return 'alldomains' in cache && this.id in cache.claims;
+  };
+  this.isDirty = function() {
+    return 'alldomains' in dirty || this.id in cache.claims;
+  };
+}
+
 function ListDomains() {
   this.type = 'listdomains';
   this.setDisplayState = function() {
@@ -169,6 +190,8 @@ function getDisplayState() {
       return new DisplayClaim(parseInt(params[1]));
     } else if (params[0] == 'submitclaim') {
       return new SubmitClaim();
+    } else if (params[0] == 'editclaim') {
+      return new EditClaim(parseInt(params[1]));
     } else if (params[0] == 'listdomains') {
       return new ListDomains();
     } else {
@@ -214,10 +237,10 @@ function updateDisplay(displayState) {
     if (displayState.type == 'displayclaim') {
       var claim = cache.claims[displayState.id];
       newSidebar += betSidebarBlock(claim);
-      if ((user.name == claim.owner || isAdmin(user)) && isOpen(claim)) {
+      if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
         newSidebar += ownerSidebarBlock();
       }
-      if (isAdmin(user)) {
+      if (isAdmin()) {
         newSidebar += adminSidebarBlock(claim);
       }
     }
@@ -319,18 +342,20 @@ function ownerSidebarBlock(){
   return result;
 }
 
-function isAdmin(user) {
+function isAdmin() {
   return user.name == 'paulfc' || user.name == 'skishore';
 }
 
 function adminSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
+  result += "<div class='row'><a href='#editclaim+" + claim.id + "'>";
+  result += "Edit this claim.</a></div>";
   if (claim.promoted) {
-    result += "<div class='row'> <a id='unpromote'> Un-promote this claim.</a> </div>";
+    result += "<div class='row'><a id='unpromote'>Un-promote this claim.</a></div>";
   } else{
-    result += "<div class='row'> <a id='promote'> Promote this claim.</a> </div>";
+    result += "<div class='row'><a id='promote'>Promote this claim.</a></div>";
   }
-  result += "<div class='row'> <a id='delete'> Delete this claim.</a> </div>";
+  result += "<div class='row'><a id='delete'>Delete this claim.</a></div>";
   result += "</div>";
   return result;
 }
@@ -607,44 +632,66 @@ function setClaimInputHandlers(claim) {
   });
 }
 
-function drawSubmitClaim() {
-  $('#mainframe').html(submitClaimBox());
-  setSubmitClaimInputHandlers();
+function drawSubmitClaim(claim) {
+  $('#mainframe').html(submitClaimBox(claim));
+  setSubmitClaimInputHandlers(claim);
 }
 
-function submitClaimBox() {
+// When this function is called without a claim, generate a submit claim box.
+// When this function is called with a claim, generate an edit claim box.
+// (The edit claim box is missing the ability to set some fields, like the multiplier.)
+function submitClaimBox(claim) {
   var result = "<div class='submitbetbox'>";
   result += "<div class='row'>Short description:";
   result += "<input type='text' id='description' size='50' maxlength='200' </input></div>";
   result += "<div class='row'><div class='left'>Precise definition:</div>";
   result += "<textarea id='definition'></textarea> </div>";
-  result += "<div class='row'>Bounty:";
-  result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
-  result += "Initial estimate:"
-  result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input>";
-  result += "Maximum risk (as fraction of reputation): 0.1</div>";
+  if (typeof claim == 'undefined') {
+    result += "<div class='row'>Bounty:";
+    result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
+    result += "Initial estimate:"
+    result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input>";
+    result += "Maximum risk (as fraction of reputation): 0.1</div>";
+  }
   result += "<div class='row'>Market close (optional):";
   result += "<input type='text' id='closedate'></input>";
-  result += "<input type='text' id='closetime'></input> </div>";
+  result += "<input type='text' id='closetime'></input></div>";
   result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
-  result += "<div class='row'><a class='orange' id='submitclaimbutton'>Submit claim</a></div>";
+  if (typeof claim == 'undefined') {
+    result += "<div class='row'><a class='orange' id='submitclaimbutton'>Submit claim</a></div>";
+  } else {
+    result += "<div class='row'><a class='orange' id='submitclaimbutton'>Edit claim</a></div>";
+  }
   result += "<div class='error row' id='submitclaimerror'></div>";
   result += "</div>";
   return result;
 }
 
-function setSubmitClaimInputHandlers() {
-  $('#bounty').val(1.0);
-  $('#bounty').focus(function() {
-    this.select();
-  });
-  $('#initialestimate').val(0.5);
-  $('#initialestimate').focus(function() {
-    this.select();
-  });
-  $('#closetime').timepicker({});
+// Set input handlers for a submit claim box, or, if 'claim' is defined, for an edit claim box.
+function setSubmitClaimInputHandlers(claim) {
+  if (typeof claim == 'undefined') {
+    $('#bounty').val(1.0);
+    $('#bounty').focus(function() {
+      this.select();
+    });
+    $('#initialestimate').val(0.5);
+    $('#initialestimate').focus(function() {
+      this.select();
+    });
+  } else {
+    $('#description').val(claim.description);
+    $('#definition').val(claim.definition);
+  }
+
   $('#closedate').datepicker({});
+  $('#closetime').timepicker({});
+  if (typeof claim != 'undefined') {
+    if (claim.closes) {
+      $('#closedate').val(jQueryDate(claim.closes));
+      $('#closetime').val(jQueryTime(claim.closes));
+    }
+  }
 
   for (var i = 0; i < cache.alldomains.length; i++) {
     domain = cache.alldomains[i];
@@ -652,7 +699,11 @@ function setSubmitClaimInputHandlers() {
       $('#domain').append("<option value='" + domain + "'>" + drawDomain(domain) + "</option>");
     }
   }
-  $('#domain').val('general');
+  if (typeof claim == 'undefined') {
+    $('#domain').val('general');
+  } else {
+    $('#domain').val(claim.domain);
+  }
 
   var toggleDropDown = function() {
     if ($(this).val() == '') {
@@ -665,7 +716,7 @@ function setSubmitClaimInputHandlers() {
   $('#domaintext').keyup(toggleDropDown);
 
   $('#submitclaimbutton').click(function(){
-    submitClaim();
+    submitClaim(claim);
   });
 }
 
@@ -1020,9 +1071,13 @@ function deleteClaim(id) {
   );
 }
 
-function submitClaim() {
-  if (!loggedIn()) {
+// If 'claim' is undefined, submits a new claim. Otherwise, edits 'claim'.
+function submitClaim(claim) {
+  if (typeof claim == 'undefined' && !loggedIn()) {
     setClaimError("You must be logged in to submit a claim.");
+    return;
+  } else if (typeof claim != 'undefined' && !isAdmin()) {
+    setClaimError("You must be an admin to edit a claim.");
     return;
   }
 
@@ -1040,21 +1095,23 @@ function submitClaim() {
     return;
   }
 
-  var bet = $('#initialestimate').val();
-  if (isNaN(bet) || bet <= 0 || bet >= 1) {
-    setClaimError('Your initial estimate must be a number between 0 and 1.');
-    return;
-  }
-  var bounty = $('#bounty').val();
-  if (isNaN(bounty) || bounty <= 0) {
-    setClaimError("Your claim's bounty must be a positive number.");
-    return;
-  }
-  var maxstake = 0.1;
-  if (-bounty * Math.log(bet) > maxstake * (user.reputation - user.committed) ||
-      -bounty * Math.log(1 - bet) > maxstake * (user.reputation - user.committed)) {
-    setClaimError("You cannot set the bounty that high.");
-    return;
+  if (typeof claim == 'undefined') {
+    var bet = $('#initialestimate').val();
+    if (isNaN(bet) || bet <= 0 || bet >= 1) {
+      setClaimError('Your initial estimate must be a number between 0 and 1.');
+      return;
+    }
+    var bounty = $('#bounty').val();
+    if (isNaN(bounty) || bounty <= 0) {
+      setClaimError("Your claim's bounty must be a positive number.");
+      return;
+    }
+    var maxstake = 0.1;
+    if (-bounty * Math.log(bet) > maxstake * (user.reputation - user.committed) ||
+        -bounty * Math.log(1 - bet) > maxstake * (user.reputation - user.committed)) {
+      setClaimError("You cannot set the bounty that high.");
+      return;
+    }
   }
 
   var closes = null;
@@ -1091,11 +1148,19 @@ function submitClaim() {
 
   clearClaimError();
   $('#submitclaimbutton').click(function() {});
-  updateServer({'submitclaim':1, 'description':description, 'definition':definition,
-      'bet':bet, 'bounty':bounty, 'maxstake':maxstake, 'closes':serverDate(closes),
-      'domain':domain},
-    function(xml) {
-      var result = $(xml).find('submitclaim').text();
+  if (typeof claim == 'undefined') {
+    var update = {'submitclaim':1, 'description':description, 'definition':definition,
+        'bet':bet, 'bounty':bounty, 'maxstake':maxstake, 'closes':serverDate(closes),
+        'domain':domain};
+    var updateType = 'submitclaim';
+  } else {
+    var update = {'editclaim':claim.id, 'description':description, 'definition':definition,
+        'closes':serverDate(closes), 'domain':domain};
+    var updateType = 'editclaim';
+  }
+  updateServer(update,
+    function(updateType) {return function(xml) {
+      var result = $(xml).find(updateType).text();
       if (result == 'success') {
         DEFAULT_DISPLAY.setDisplayState();
         setAlert('Successfully submitted claim.');
@@ -1109,11 +1174,20 @@ function submitClaim() {
           submitClaim();
         });
       }
-    }
+    };} (updateType)
   );
 }
 
-function serverDate(d){
+function jQueryDate(d) {
+  return "" + padInt(d.getMonth() + 1) + "/" + padInt(d.getDate()) +
+      "/" + d.getFullYear();
+}
+
+function jQueryTime(d) {
+  return "" + padInt(d.getHours()) + ":" + padInt(d.getMinutes());
+}
+
+function serverDate(d) {
   if (d == null) {
     return '';
   }

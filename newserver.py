@@ -342,6 +342,41 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     claim.uid = randint(0, MAX_UID)
   return [('submitclaim', 'conflict')]
 
+def editclaim_post(user, uid, description, definition, closes, domain):
+  try:
+    uid = int(uid)
+  except Exception, e:
+    return [invalid_query_error]
+  claim = Claim.get(int(uid))
+  if not is_admin(user) or not claim:
+    return [('editclaim', 'baddata')]
+
+  if len(description) < 4 or len(description) > 128:
+    return [('editclaim', 'baddata')]
+  if definition is None:
+    definition = ''
+  if len(definition) > 512:
+    return [('editclaim', 'baddata')]
+  try:
+    if closes is None or closes == '':
+      closes = ''
+    else:
+      closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
+  except Exception, e:
+    return [('editclaim', 'baddata')]
+
+  if (closes != '' and closes < claim.age) or domain is None:
+    return [('editclaim', 'baddata')]
+  elif domain in RESTRICTED_DOMAINS or len(domain) < 4 or len(domain) > 16:
+    return [('editclaim', 'baddata')]
+  elif not domain.replace('_', '').isalpha() or domain != domain.lower() \
+      or domain[-1] == '_':
+    return [('editclaim', 'baddata')]
+
+  Claim.atomic_update(uid, {'$set':{'description':description, \
+      'definition':definition, 'closes':closes, 'domain':domain}})
+  return [('editclaim', 'success')]
+
 def newdomains_post(user, newdomains):
   if newdomains is None:
     return [invalid_query_error]
@@ -383,7 +418,8 @@ class IdeaFuturesServer:
   # Only one update is allowed per message.
   @cherrypy.expose
   def update(self, signup=None, makebet=None, resolveclaim=None, \
-      deleteclaim = None, promoteclaim=None, submitclaim = None, \
+      deleteclaim = None, promoteclaim=None, \
+      submitclaim = None, editclaim=None, \
       name=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
       maxstake=None, closes=None, domain=None, newdomains=None):
@@ -404,6 +440,9 @@ class IdeaFuturesServer:
         elif submitclaim is not None:
           results.extend(submitclaim_post(user, description, definition, \
               bet, bounty, maxstake, closes, domain))
+        elif editclaim is not None:
+          results.extend(editclaim_post(user, editclaim, description, \
+              definition, closes, domain))
         elif newdomains is not None:
           results.extend(newdomains_post(user, newdomains))
         # Need to re-authenticate the user to refresh any changes.
