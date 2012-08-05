@@ -426,9 +426,14 @@ function drawClaims(results) {
 function topicBox(claim) {
   var lastBet = claim.history[claim.history.length - 1];
   var href = "#displayclaim+" + claim.id;
-  var result = "<div class='topicbox'>";
-  result += "<h2> <a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
-  result += claim.description + "</a> </h2>";
+  var result = "<div class='topicbox'><h2>";
+  if (claim.resolved == 1) {
+    result += "<span class='ui-icon ui-icon-check' style='float: left; margin-right: .3em;'></span>"
+  } else if (claim.resolved == 2) {
+    result += "<span class='ui-icon ui-icon-close' style='float: left; margin-right: .3em;'></span>"
+  }
+  result += "<a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
+  result += claim.description + "</a></h2>";
   result += "<div class='currentbet orange'>" + drawBet(claim.currentbet) + "%</div>";
   if (isOpen(claim)) {
     result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
