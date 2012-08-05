@@ -292,12 +292,11 @@ def deleteclaim_post(user, uid):
 
 def submitclaim_post(user, description, definition, bet, bounty, \
     maxstake, closes, domain):
-  if len(description) < 4 or len(description) > 128:
-    return [('submitclaim', 'baddata')]
   if definition is None:
     definition = ''
-  if len(definition) > 512:
+  if not is_valid_desc_def_domain(description, definition, domain):
     return [('submitclaim', 'baddata')]
+
   try:
     bet = float(bet)
     bounty = float(bounty)
@@ -319,12 +318,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
 
   age = now()
-  if (closes != '' and closes < age) or domain is None:
-    return [('submitclaim', 'baddata')]
-  elif domain in RESTRICTED_DOMAINS or len(domain) < 4 or len(domain) > 16:
-    return [('submitclaim', 'baddata')]
-  elif not domain.replace('_', '').isalpha() or domain != domain.lower() \
-      or domain[-1] == '_':
+  if closes != '' and closes < age:
     return [('submitclaim', 'baddata')]
 
   MAX_UID = (1 << 31) - 1
@@ -350,13 +344,11 @@ def editclaim_post(user, uid, description, definition, closes, domain):
   claim = Claim.get(int(uid))
   if not is_admin(user) or not claim:
     return [('editclaim', 'baddata')]
-
-  if len(description) < 4 or len(description) > 128:
-    return [('editclaim', 'baddata')]
   if definition is None:
     definition = ''
-  if len(definition) > 512:
+  if not is_valid_desc_def_domain(description, definition, domain):
     return [('editclaim', 'baddata')]
+
   try:
     if closes is None or closes == '':
       closes = ''
@@ -364,18 +356,23 @@ def editclaim_post(user, uid, description, definition, closes, domain):
       closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
   except Exception, e:
     return [('editclaim', 'baddata')]
-
-  if (closes != '' and closes < claim.age) or domain is None:
-    return [('editclaim', 'baddata')]
-  elif domain in RESTRICTED_DOMAINS or len(domain) < 4 or len(domain) > 16:
-    return [('editclaim', 'baddata')]
-  elif not domain.replace('_', '').isalpha() or domain != domain.lower() \
-      or domain[-1] == '_':
+  if closes != '' and closes < claim.age:
     return [('editclaim', 'baddata')]
 
   Claim.atomic_update(uid, {'$set':{'description':description, \
       'definition':definition, 'closes':closes, 'domain':domain}})
   return [('editclaim', 'success')]
+
+def is_valid_desc_def_domain(description, definition, domain):
+  if description is None or len(description) < 4 or len(description) > 128:
+    return False
+  if definition is None or len(definition) > 512:
+    return False
+  if (domain is None or domain in RESTRICTED_DOMAINS or len(domain) < 4 or
+      len(domain) > 16 or not domain.replace('_', '').isalpha() or
+      domain != domain.lower() or domain[-1] == '_'):
+    return False
+  return True
 
 def newdomains_post(user, newdomains):
   if newdomains is None:
