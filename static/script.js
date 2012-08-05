@@ -693,7 +693,7 @@ function domainPicker(domain, userdomains) {
 }
 
 function drawDomain(domain) {
-  return domain.replace('_', ' ');
+  return domain.replace(/_/g, ' ');
 }
 
 /* -------------------------------------------------------------------------- *
