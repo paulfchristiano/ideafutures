@@ -1,0 +1,51 @@
+Styling:
+  Submit claims page:
+    General css changes
+    Embed form in a table
+    Use a slider for initial bet
+      Restrict slider to allowed range
+    Remove multiplier, max bet fields
+  Claims details page:
+    Change bet grid to outcomes table:
+      Title: "Outcomes"
+      Check and X for True or False
+      "Before this bet", "After this bet"
+    Show domain under claim, not sidebar
+    Move confirm/deny to center of page
+      Change to Mark True Check, Mark False X
+    Restrict slider to allowed range
+  General:
+    Floating sidebar and topbar
+    Show points free instead of committed
+    Nice modal for signup - name, email, pwd, retype pwd
+
+Tags:
+  Change "domains" to "tags" everywhere
+  Multiple tags per bet
+  Create widget for selecting a subet of tags:
+    Two tag clouds - public and private
+    Selected tags grow in place
+    Use widget on submit claim + manage tags page
+    On submit claims page, add options for creating new tags
+  Add "search by tag" bar to main page
+    (Incremental search)
+
+Private tags:
+  For each private tag you are a part of, add row on manage tags:
+    Header: tag name
+    Table mapping user -> email and status (invite sent, accepted)
+    If owner, two-four buttons on the right:
+      Add user:
+        Sends email
+        Email acceptance associates userid with email
+      Kick user - when users are selected
+      (Promote - if admin)
+      (Delete)
+    If member, Leave button on the right
+  Search semantics:
+    Users only see claims they have access to ALL private tags for
+
+Backend/scaling:
+  Store salted pwd hashes at the server
+  Pagination on main page
+  Fixed-size LRU cache for claims
