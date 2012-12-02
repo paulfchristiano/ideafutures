@@ -297,8 +297,8 @@ function loginSidebarBlock(){
   var result = "<div class='sidebarblock'>";
   if  (loggedIn()){
     result += "<div class='row'>Logged in as " + user.name + ".</div>";
-    result += "<div class='row'>Reputation: " + drawReputation(user.reputation) + ".</div>";
-    result += "<div class='row'>Points committed: " + drawReputation(user.committed) + ".</div>";
+    result += "<div class='row'>Reputation: " + drawReputation(user.reputation) + "</div>";
+    result += "<div class='row'>(Free: " + drawReputation(user.reputation - user.committed) + ")</div>";
     result += "<div class='row'><input type='submit' class='left' value='Log out' id='logoutbutton'></input></div>";
   } else{
     result += "<div class='row'>Username:</div>";
@@ -656,7 +656,7 @@ function setClaimInputHandlers(claim) {
     width: 360,
     buttons: [
       {
-        text: 'Mark true',
+        html: "<span>Mark true</span><span class='ui-icon right-align ui-icon-check'/>",
         tabIndex: -1,
         click: function() {
           resolveClaim(claim.id, true);
@@ -664,7 +664,7 @@ function setClaimInputHandlers(claim) {
         },
       },
       {
-        text: 'Mark false',
+        html: "<span>Mark false</span><span class='ui-icon right-align ui-icon-close'/>",
         tabIndex: -1,
         click: function() {
           resolveClaim(claim.id, false);

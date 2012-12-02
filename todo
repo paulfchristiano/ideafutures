@@ -13,11 +13,12 @@ x     "Before this bet", "After this bet"
 x   Show domain under claim, not sidebar
 x   Move confirm/deny to center of page
 ?     Change to Mark True Check, Mark False X
-    Restrict slider to allowed range
+x   Restrict slider to allowed range
   General:
     Floating sidebar and topbar
-    Show points free instead of committed
+x   Show points free instead of committed
     Nice modal for signup - name, email, pwd, retype pwd
+x   Nice modal for resolve bet
 
 Tags:
   Change "domains" to "tags" everywhere
