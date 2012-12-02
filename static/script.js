@@ -354,12 +354,6 @@ function setSidebarInputHandlers(displayState) {
 
   if (displayState.type == 'displayclaim'){
     id = displayState.id;
-    $('#confirm').click(function() {
-      resolveClaim(id, true);
-    });
-    $('#deny').click(function() {
-      resolveClaim(id, false);
-    });
     $('#reopen').click(function() {
       reopenClaim(id);
     });
@@ -490,6 +484,7 @@ function drawClaim(claim) {
   mainFrame += "</div>";
 
   mainFrame += definitionBox(claim);
+  mainFrame += resolveDialog(claim);
   $('#mainframe').html(mainFrame);
   setClaimInputHandlers(claim);
   setEstimate(claim, claim.currentbet, "");
@@ -518,8 +513,7 @@ function betBox(claim) {
   result += '<div class="row">';
   result += '<a id="submitbet" class="orange left">Bet on it!</a>';
   if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
-    // TODO: Make this link show a jQuery dialog box with options for true and false.
-    result += '<a id="resove" class="orange left bet-button">Resolve</a>';
+    result += '<a id="resolve" class="orange left bet-button">Resolve</a>';
   }
   result += '<img id="betloader" class="loading left" src="ajax-loader.gif"></img></div>';
   result += '<div class="clear error" id="beterror"></div>';
@@ -601,8 +595,14 @@ function definitionBox(claim) {
   return "";
 }
 
+function resolveDialog(claim) {
+  result = '<div id="resolve-dialog" title="Resolve claim">';
+  result += 'Mark this claim true or false when its status is known.';
+  result += '</div>';
+  return result;
+}
+
 function setClaimInputHandlers(claim) {
-  // Set slider ranges.
   $('#oldbet').slider({
     range: "min",
     disabled: true
@@ -638,6 +638,40 @@ function setClaimInputHandlers(claim) {
 
   $('#submitbet').click(function() {
     submitBet(claim, $('#betinput').val()/100);
+  });
+
+  $('#resolve-dialog').dialog({
+    autoOpen: false,
+    modal: true,
+    height: 108,
+    width: 360,
+    buttons: [
+      {
+        text: 'Mark true',
+        tabIndex: -1,
+        click: function() {
+          resolveClaim(claim.id, true);
+          $(this).dialog('close');
+        },
+      },
+      {
+        text: 'Mark false',
+        tabIndex: -1,
+        click: function() {
+          resolveClaim(claim.id, false);
+          $(this).dialog('close');
+        },
+      },
+      {
+        text: 'Cancel',
+        click: function() {
+          $(this).dialog('close');
+        },
+      },
+    ],
+  });
+  $('#resolve').click(function() {
+    $('#resolve-dialog').dialog('open');
   });
 }
 

@@ -11,8 +11,8 @@ x     Title: "Outcomes"
 x     Check and X for True or False
 x     "Before this bet", "After this bet"
 x   Show domain under claim, not sidebar
-    Move confirm/deny to center of page
-      Change to Mark True Check, Mark False X
+x   Move confirm/deny to center of page
+?     Change to Mark True Check, Mark False X
     Restrict slider to allowed range
   General:
     Floating sidebar and topbar
