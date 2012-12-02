@@ -507,7 +507,9 @@ function betBox(claim) {
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "%</div></td></tr>";
   result += "<tr><td colspan='2'>Your update:</td></tr>"
-  result += "<tr><td><div id='newbet' class='betslider'></div></td>";
+  result += "<tr><td><div id='left-extension' class='slider-extension'></div>";
+  result += "<div id='newbet' class='betslider'></div>";
+  result += "<div id='right-extension' class='slider-extension'></div></td>";
   result += "<td><div class='betvalue'> <input type='text' id='betinput'></input>%</div></td></tr>";
   result += "</table>";
   result += '<div class="row">';
@@ -603,25 +605,32 @@ function resolveDialog(claim) {
 }
 
 function setClaimInputHandlers(claim) {
+  var bounds = [0.01, 0.99];
+  if (loggedIn()) {
+    bounds = getBetBounds(claim);
+  }
   $('#oldbet').slider({
-    range: "min",
-    disabled: true
-  });
-  $('.betslider').slider({
+    range: 'min',
+    disabled: true,
     min: 0,
     max: 1,
+  });
+  $('.betslider').slider({
     step: 0.01,
     value: [claim.currentbet],
     orientation: "horizontal",
     animate: "normal",
     range: "min"
   });
-
   $('#newbet').slider({
+    min: bounds[0],
+    max: bounds[1],
     slide:function(event, ui) {
       setEstimate(claim, ui.value, "slider");
     },
   });
+  resizeBetSlider(bounds);
+
   $('#betinput').blur(function() {
     if (isNaN($('#betinput').val())) {
       setEstimate(claim, claim.currentbet, "");
@@ -673,6 +682,12 @@ function setClaimInputHandlers(claim) {
   $('#resolve').click(function() {
     $('#resolve-dialog').dialog('open');
   });
+}
+
+function resizeBetSlider(bounds) {
+  $('#left-extension').width(300*bounds[0]);
+  $('#newbet').width(300*(bounds[1] - bounds[0]));
+  $('#right-extension').width(300*(1 - bounds[1]));
 }
 
 function drawSubmitClaim(claim) {
@@ -1299,12 +1314,17 @@ function domainToggler(domain) {
  * -------------------------------------------------------------------------- */
 
 function setEstimate(claim, bet, source) {
-  if (isNaN(bet) || bet <= 0 || bet >= 1) {
+  if (isNaN(bet)) {
     if (bet != claim.currentbet) {
       setEstimate(claim, claim.currentbet, source);
     }
     return;
   }
+  var bounds = [
+      $('#newbet').slider('option', 'min'),
+      $('#newbet').slider('option', 'max'),
+  ];
+  bet = Math.min(Math.max(bet, bounds[0]), bounds[1]);
   if (source != 'slider') {
     $('#newbet').slider({value: [bet]});
   }
@@ -1341,6 +1361,38 @@ function recalculateView(claim, bet) {
   } else{
     $('#totaltruestake').removeClass('error');
   }
+}
+
+// TODO: This function can be written to compute max and min directly.
+// It's not an issue right now - the loop is not a bottleneck on performance.
+function getBetBounds(claim) {
+  var oldTrueStake = getStake(claim, claim.history, true);
+  var oldFalseStake = getStake(claim, claim.history, false);
+  var otherStake = user.committed + Math.min(oldTrueStake, oldFalseStake);
+
+  var newHistory = jQuery.extend([], claim.history);
+  newHistory.push({'user':user.name, 'probability':0, 'time':new Date()});
+  var min = 1;
+  var max = 0;
+  for (var i = 1; i < 99; i++) {
+    newHistory[newHistory.length - 1].probability = i/100;
+    var stake = getStake(claim, newHistory, true);
+    if (-stake <= claim.maxstake * (user.reputation - otherStake)) {
+      min = i/100;
+      break;
+    }
+  }
+  for (var i = 99; i >= 1; i--) {
+    newHistory[newHistory.length - 1].probability = i/100;
+    var stake = getStake(claim, newHistory, false);
+    if (-stake <= claim.maxstake * (user.reputation - otherStake)) {
+      max = i/100;
+      break;
+    }
+  }
+  min = Math.min(min, claim.currentbet);
+  max = Math.max(max, claim.currentbet);
+  return [min, max];
 }
 
 function getStakes(claim, bet) {

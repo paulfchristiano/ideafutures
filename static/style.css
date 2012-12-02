@@ -170,11 +170,6 @@ tr.even {
     float:left;
 }
 
-.betslider {
-    clear:left;
-    float:left;
-}
-
 .betvalue {
     clear:right;
     float:right;
@@ -489,4 +484,31 @@ div.change:last-child {
 
 h3.short {
   margin-bottom: 8px;
+}
+
+.slider-extension {
+  float: left;
+  height: 0.85em;
+}
+
+#left-extension {
+  margin-top: 10px;
+  margin-left: 10px;
+  margin-right: -10px;
+  background-color: #F7B850;
+  border: solid #DDD;
+  border-width: 1px 0px 1px 1px;
+}
+
+#right-extension {
+  margin-top: 10px;
+  margin-left: -10px;
+  background-color: #F8F8F8;
+  border: solid #DDD;
+  border-width: 1px 1px 1px 0px;
+}
+
+#newbet {
+  float: left;
+  border-width: 1px 0px 1px; 0px;
 }
