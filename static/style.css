@@ -123,6 +123,7 @@ div.topicbox {
 }
 
 #historybox {
+    margin-top: 16px;
     border-style: none;
     border-collapse: collapse;
     border-width: 0px;
@@ -253,7 +254,6 @@ h2 a:hover, h2 a:active {
 
 .loading {
     margin-left:10px;
-    margin-right:10px;
     height:25px;
     width:25px;
     visibility:hidden;
@@ -323,7 +323,8 @@ a.orange, a.orange:link, a.orange:visited, a.orange:hover, a.orange:active {
     cursor:pointer;
     font-size: 14px;
     font-weight: bold;
-    margin:auto;
+    margin-top: 12px;
+    margin-right: 12px;
     outline: 1px solid rgb(235,183,40);
     padding: 3px 0 4px;
     text-align: center;
@@ -444,3 +445,37 @@ div.change:last-child {
     border-bottom-style: solid;
 }
 
+.left-align {
+  float: left;
+  margin-right: .3em;
+}
+
+.right-align {
+  float: right;
+  margin-left: .3em;
+}
+
+.positive {
+  color: #080;
+}
+
+.negative {
+  color: #C00;
+}
+
+.descriptionbox {
+  margin-bottom: -12px;
+}
+
+.tagbox {
+  margin-bottom: 4px;
+}
+
+.bet-button {
+  margin-top: 8px;
+  margin-right: 8px;
+}
+
+h3.short {
+  margin-bottom: 8px;
+}

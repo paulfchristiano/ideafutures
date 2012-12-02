@@ -6,11 +6,11 @@ Styling:
       Restrict slider to allowed range
     Remove multiplier, max bet fields
   Claims details page:
-    Change bet grid to outcomes table:
-      Title: "Outcomes"
-      Check and X for True or False
-      "Before this bet", "After this bet"
-    Show domain under claim, not sidebar
+x   Change bet grid to outcomes table:
+x     Title: "Outcomes"
+x     Check and X for True or False
+x     "Before this bet", "After this bet"
+x   Show domain under claim, not sidebar
     Move confirm/deny to center of page
       Change to Mark True Check, Mark False X
     Restrict slider to allowed range

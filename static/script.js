@@ -232,14 +232,9 @@ function updateDisplay(displayState) {
   setSidebarInputHandlers(DEFAULT_DISPLAY);
 
   if (displayState.isCached()) {
-    // Draw the sidebar.
     var newSidebar = loginSidebarBlock();
     if (displayState.type == 'displayclaim') {
       var claim = cache.claims[displayState.id];
-      newSidebar += betSidebarBlock(claim);
-      if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
-        newSidebar += ownerSidebarBlock();
-      }
       if (isAdmin()) {
         newSidebar += adminSidebarBlock(claim);
       }
@@ -315,31 +310,6 @@ function loginSidebarBlock(){
     result += "<div class='row'><span class='error' id='loginerror'></span></div>";
   }
   return result + "</div>";
-}
-
-function betSidebarBlock(claim) {
-  var result = "<div class='sidebarblock'>";
-  result += "<div class='row'>Domain: " + drawDomain(claim.domain) + ".</div>";
-  if (claim.promoted) {
-    result += "<div class='row'>(Claim is promoted.)</div>";
-  }
-  result += "<div class='row'>Multiplier on this claim: " + claim.bounty + ".</div>";
-  if (loggedIn()) {
-    var stakes = getStakes(claim, 0.5);
-    var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
-    result += "<div class='row'>Your maximum bet: ";
-    result += drawReputation(claim.maxstake * (user.reputation - otherStake)) + ".</div>";
-  }
-  result += "</div>";
-  return result;
-}
-
-function ownerSidebarBlock(){
-  var result = "<div class='sidebarblock'>";
-  result += "<div class='row'><a id='confirm'>Confirm this claim.</a></div>";
-  result += "<div class='row'><a id='deny'>Deny this claim.</a></div>";
-  result += "</div>";
-  return result;
 }
 
 function isAdmin() {
@@ -437,9 +407,9 @@ function topicBox(claim) {
   var href = "#displayclaim+" + claim.id;
   var result = "<div class='topicbox'><h2>";
   if (claim.resolved == 1) {
-    result += "<span class='ui-icon ui-icon-check' style='float: left; margin-right: .3em;'></span>"
+    result += "<span class='ui-icon left-align ui-icon-check'/>"
   } else if (claim.resolved == 2) {
-    result += "<span class='ui-icon ui-icon-close' style='float: left; margin-right: .3em;'></span>"
+    result += "<span class='ui-icon left-align ui-icon-close'/>"
   }
   result += "<a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
   result += claim.description + "</a></h2>";
@@ -530,7 +500,9 @@ function isOpen(claim) {
 }
 
 function descriptionBox(claim) {
-  return "<div class='clear descriptionbox'><h1>\"" + claim.description + "\"</h1></div>";
+  result = "<div class='clear descriptionbox'><h1>\"" + claim.description + "\"</h1></div>";
+  result += "<div class='clear tagbox'>Tags: " + claim.domain + "</div>";
+  return result;
 }
 
 function betBox(claim) {
@@ -543,7 +515,12 @@ function betBox(claim) {
   result += "<tr><td><div id='newbet' class='betslider'></div></td>";
   result += "<td><div class='betvalue'> <input type='text' id='betinput'></input>%</div></td></tr>";
   result += "</table>";
-  result += '<div class="row"><a id="submitbet" class="orange left">Bet on it!</a>';
+  result += '<div class="row">';
+  result += '<a id="submitbet" class="orange left">Bet on it!</a>';
+  if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
+    // TODO: Make this link show a jQuery dialog box with options for true and false.
+    result += '<a id="resove" class="orange left bet-button">Resolve</a>';
+  }
   result += '<img id="betloader" class="loading left" src="ajax-loader.gif"></img></div>';
   result += '<div class="clear error" id="beterror"></div>';
   result += "</div>";
@@ -567,24 +544,42 @@ function closedBetBox(claim) {
 
 function stakeBox() {
   var result = "<table id='stakebox' class='center'>";
-  result += "<tr><th colspan='3'><h3>Your stake</h3></th></tr>";
-  result += "<tr><td> </td> <td>True</td><td>False</td></tr>";
-  result += "<tr><td>Current</td>";
-  result += "<td><span id='currenttruestake' class='payoff'></span></td>";
-  result += "<td><span id='currentfalsestake' class='payoff'></span></td></tr>";
+  result += "<tr><th colspan='3'><h3 class='short'>Outcomes:</h3></th></tr>";
+  result += "<tr><td></td>";
+  result += "<td><span class='left-align'>If</span>";
+  result += "<span class='ui-icon left-align ui-icon-check'/></td>";
+  result += "<td><span class='left-align'>If</span>";
+  result += "<span class='ui-icon left-align ui-icon-close'/></td>";
+  result += "<tr><td>Before this bet</td>";
+  result += "<td><span id='oldtruestake' class='payoff'></span></td>";
+  result += "<td><span id='oldfalsestake' class='payoff'></span></td></tr>";
   result += "<tr><td>This bet</td>";
-  result += "<td><span id='thistruestake' class='payoff'></span></td>";
-  result += "<td><span id='thisfalsestake' class='payoff'></span></td></tr>";
-  result += "<tr><td> Total </td>";
-  result += "<td><span id='totaltruestake' class='payoff'></span></td>";
-  result += "<td><span id='totalfalsestake' class='payoff'></span></td></tr>";
+  result += "<td><span id='thisbettruestake' class='payoff'></span></td>";
+  result += "<td><span id='thisbetfalsestake' class='payoff'></span></td></tr>";
+  result += "<tr><td>After this bet</td>";
+  result += "<td><span id='curtruestake' class='payoff'></span></td>";
+  result += "<td><span id='curfalsestake' class='payoff'></span></td></tr>";
   result += "</table>";
   return result;
 }
 
+function redrawStake(stake_id, stake, stake_only) {
+  if (stake_only) {
+    $('#' + stake_id).html(drawReputation(stake));
+  } else {
+    $('#' + stake_id).html(drawReputation(user.reputation + stake));
+  }
+  $('#' + stake_id).removeClass('positive negative');
+  if (stake > 0) {
+    $('#' + stake_id).addClass('positive');
+  } else if (stake < 0) {
+    $('#' + stake_id).addClass('negative');
+  }
+}
+
 function historyBox(claim) {
   var result = "<table id='historybox' class='center'>";
-  result += "<tr><th colspan='3'><h3>History</h3></th></tr>";
+  result += "<tr><th colspan='3'><h3 class='short'>History</h3></th></tr>";
   result += "<tr class='underline'><td>Estimate</td><td>User</td><td>Time</td></tr>";
 
   for (var i = claim.history.length - 1; i >= claim.history.length - 10 && i >= 0; i--) {
@@ -601,7 +596,7 @@ function historyBox(claim) {
 function definitionBox(claim) {
   if (claim.definition) {
     return "<div class='farleft' id='definitionbox'>" +
-        "<h3>Precise definition</h3>" + claim.definition + "</div>";
+        "<h3 class='short'>Precise definition</h3>" + claim.definition + "</div>";
   }
   return "";
 }
@@ -1294,12 +1289,12 @@ function recalculateView(claim, bet) {
 
   // Refresh the stake box.
   var stakes = getStakes(claim, bet);
-  $('#currentfalsestake').html(drawReputation(stakes.old[0]));
-  $('#currenttruestake').html(drawReputation(stakes.old[1]));
-  $('#thisfalsestake').html(drawReputation(stakes.cur[0] - stakes.old[0]));
-  $('#thistruestake').html(drawReputation(stakes.cur[1] - stakes.old[1]));
-  $('#totalfalsestake').html(drawReputation(stakes.cur[0]));
-  $('#totaltruestake').html(drawReputation(stakes.cur[1]));
+  redrawStake('oldfalsestake', stakes.old[0]);
+  redrawStake('oldtruestake', stakes.old[1]);
+  redrawStake('thisbetfalsestake', stakes.cur[0] - stakes.old[0], true);
+  redrawStake('thisbettruestake', stakes.cur[1] - stakes.old[1], true);
+  redrawStake('curfalsestake', stakes.cur[0]);
+  redrawStake('curtruestake', stakes.cur[1]);
 
   var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
   if (-stakes.cur[0] > claim.maxstake * (user.reputation - otherStake)) {
