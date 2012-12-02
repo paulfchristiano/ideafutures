@@ -409,9 +409,9 @@ function topicBox(claim) {
   result += claim.description + "</a></h2>";
   result += "<div class='currentbet orange'>" + drawBet(claim.currentbet) + "%</div>";
   if (isOpen(claim)) {
-    result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
+    result += "<a class='thick orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
   } else {
-    result += "<a class='orange right' href='" + href + "' id='displaybutton" + claim.id + "'>See results</a>";
+    result += "<a class='thick orange right' href='" + href + "' id='displaybutton" + claim.id + "'>See results</a>";
   }
   result += '<img id="betloader' + claim.id + '" class="loading right" src="ajax-loader.gif"></img>';
   result += "<div class='betdata'>";
@@ -511,9 +511,9 @@ function betBox(claim) {
   result += "<td><div class='betvalue'> <input type='text' id='betinput'></input>%</div></td></tr>";
   result += "</table>";
   result += '<div class="row">';
-  result += '<a id="submitbet" class="orange left">Bet on it!</a>';
+  result += '<a id="submitbet" class="thick orange left">Bet on it!</a>';
   if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
-    result += '<a id="resolve" class="orange left bet-button">Resolve</a>';
+    result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
   }
   result += '<img id="betloader" class="loading left" src="ajax-loader.gif"></img></div>';
   result += '<div class="clear error" id="beterror"></div>';
@@ -702,9 +702,9 @@ function submitClaimBox(claim) {
   result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
   if (typeof claim == 'undefined') {
-    result += "<div class='row'><a class='orange' id='submitclaimbutton'>Submit claim</a></div>";
+    result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Submit</a></div>";
   } else {
-    result += "<div class='row'><a class='orange' id='submitclaimbutton'>Edit claim</a></div>";
+    result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Edit</a></div>";
   }
   result += "<div class='error row' id='submitclaimerror'></div>";
   result += "</div>";

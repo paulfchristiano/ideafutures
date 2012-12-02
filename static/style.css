@@ -44,10 +44,6 @@ html {
     float:right;
 }
 
-.orange {
-    color:rgb(235,143,0);
-}
-
 .error {
     color:red;
 }
@@ -312,28 +308,43 @@ ul {
     text-align:center;
 }
 
-li {
+.orange {
+    color:rgb(235,143,0);
 }
 
 a.orange, a.orange:link, a.orange:visited, a.orange:hover, a.orange:active {
+    outline: 1px solid rgb(235,183,40);
     background-color: rgb(235,143,0);
     border: 1px solid #FFFFFF;
     color: #FFFFFF;
+}
+
+a.orange:hover, a.orange:active {
+    background-color: rgb(255,163,20);
+}
+
+a.gray, a.gray:link, a.gray:visited, a.gray:hover, a.gray:active {
+    outline: 1px solid #999;
+    background-color: #8C8C8C;
+    border: 1px solid #FFFFFF;
+    color: #FFFFFF;
+}
+
+a.gray:hover, a.gray:active {
+    background-color: #AAA;
+}
+
+a.thick {
     display: block;
     cursor:pointer;
     font-size: 14px;
     font-weight: bold;
     margin-top: 12px;
     margin-right: 12px;
-    outline: 1px solid rgb(235,183,40);
     padding: 3px 0 4px;
     text-align: center;
     text-decoration: none;
-    width: 100px;
-}
-
-a.orange:hover, a.orange:active {
-    background-color: rgb(255,163,20);
+    width: 80px;
 }
 
 div.betdescription {
