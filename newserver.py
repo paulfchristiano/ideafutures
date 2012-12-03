@@ -3,8 +3,12 @@ import cherrypy
 from data import Data
 from datetime import datetime
 from math import log
+import md5
 from random import randint
 import sys
+
+def hash_password(password):
+  return md5.new(password).hexdigest()
 
 # Errors returned by the server if queried incorrectly.
 invalid_query_error = ('error', \
@@ -34,7 +38,7 @@ def admin_only(f):
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'password', 'reputation', 'committed', 'domains')
+  fields = ('name', 'pwd_hash', 'reputation', 'committed', 'domains')
   num_key_fields = 1
 
   def wrap(self):
@@ -104,7 +108,8 @@ def authenticate(name, password):
   if name is None or password is None:
     return None
   user = User.get(name)
-  if user is None or user.password != password:
+  pwd_hash = hash_password(password)
+  if user is None or user.pwd_hash != pwd_hash:
     return None
   return user
 
@@ -115,9 +120,10 @@ def login_query(name, password):
   if name is None or password is None:
     return [invalid_query_error]
   user = User.get(name)
+  pwd_hash = hash_password(password)
   if user is None:
     return [('login', 'nosuchuser')]
-  elif user.password != password:
+  elif user.pwd_hash != pwd_hash:
     return [('login', 'wrongpassword')]
   else:
     return [('login', 'success')]
@@ -181,12 +187,13 @@ def signup_post(name, password):
     return [invalid_query_error]
   elif len(name) < 4 or len(name) > 16:
     return [('signup', 'usernamesize')]
-  elif len(password) < 4 or len(password) > 16:
+  elif len(password) < 8 or len(password) > 32:
     return [('signup', 'passwordsize')]
   elif not name.isalnum() or not password.isalnum():
     return [('signup', 'notalnum')]
   # Create a new user with a reputation of 10.0.
-  user = User({'name':name, 'password':password, \
+  pwd_hash = hash_password(password)
+  user = User({'name':name, 'pwd_hash':pwd_hash, \
       'reputation':DEFAULT_REPUTATION, \
       'committed':{}, 'domains':DEFAULT_DOMAINS})
   if user.save():

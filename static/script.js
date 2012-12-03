@@ -1027,7 +1027,7 @@ function signup(name, password){
       } else if (result == 'usernamesize') {
         setLoginError('Enter a username and password above.\nYour username must be between 4 and 16 characters.');
       } else if (result == 'passwordsize') {
-        setLoginError('Your password must be between 4 and 16 characters.');
+        setLoginError('Your password must be between 8 and 32 characters.');
       } else if (result == 'notalnum') {
         setLoginError('Your username and password must be alphanumeric.');
       }
