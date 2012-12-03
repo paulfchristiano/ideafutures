@@ -507,9 +507,9 @@ function betBox(claim) {
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "%</div></td></tr>";
   result += "<tr><td colspan='2'>Your update:</td></tr>"
-  result += "<tr><td><div id='left-extension' class='slider-extension'></div>";
+  result += "<tr><td><div id='left-newbet' class='left-slider-extension'></div>";
   result += "<div id='newbet' class='betslider'></div>";
-  result += "<div id='right-extension' class='slider-extension'></div></td>";
+  result += "<div id='right-newbet' class='right-slider-extension'></div></td>";
   result += "<td><div class='betvalue'> <input type='text' id='betinput'></input>%</div></td></tr>";
   result += "</table>";
   result += '<div class="row">';
@@ -629,7 +629,7 @@ function setClaimInputHandlers(claim) {
       setEstimate(claim, ui.value, "slider");
     },
   });
-  resizeBetSlider(bounds);
+  resizeSlider('newbet', bounds);
 
   $('#betinput').blur(function() {
     if (isNaN($('#betinput').val())) {
@@ -684,10 +684,11 @@ function setClaimInputHandlers(claim) {
   });
 }
 
-function resizeBetSlider(bounds) {
-  $('#left-extension').width(300*bounds[0]);
-  $('#newbet').width(300*(bounds[1] - bounds[0]));
-  $('#right-extension').width(300*(1 - bounds[1]));
+function resizeSlider(slider_id, bounds) {
+  var width = $('#' + slider_id).width();
+  $('#left-' + slider_id).width(width*bounds[0]);
+  $('#' + slider_id).width(width*(bounds[1] - bounds[0]));
+  $('#right-' + slider_id).width(width*(1 - bounds[1]));
 }
 
 function drawSubmitClaim(claim) {

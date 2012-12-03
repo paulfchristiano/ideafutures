@@ -486,12 +486,12 @@ h3.short {
   margin-bottom: 8px;
 }
 
-.slider-extension {
+.left-slider-extension, .right-slider-extension {
   float: left;
   height: 0.85em;
 }
 
-#left-extension {
+.left-slider-extension {
   margin-top: 10px;
   margin-left: 10px;
   margin-right: -10px;
@@ -500,7 +500,7 @@ h3.short {
   border-width: 1px 0px 1px 1px;
 }
 
-#right-extension {
+.right-slider-extension {
   margin-top: 10px;
   margin-left: -10px;
   background-color: #F8F8F8;
