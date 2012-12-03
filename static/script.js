@@ -1,13 +1,30 @@
 // A display state is a object mapping 'type' to one of 'listclaims',
 // 'displayclaim', 'submitclaim' or 'listdomains'.
-// It must provide the 'setDisplayState', 'updateActiveLink',
-// 'getDisplayData', 'isCached', and 'isDirty' methods.
+// It must provide the following methods:
+//   setDisplayState:
+//     Sets the window hash appropriately.
+//   isForbidden:
+//     Returns either false or an error string.
+//   draw:
+//     Draws the display in the main box and sidebar.
+//   updateActiveLink:
+//     Sets the active link in the navbar to 'active'.
+//   getDisplayData:
+//     Requests the necessary data from the server.
+//   isCached and isDirty:
+//     Checks the condition of the required data in the cache.
 // The default page is a search with the user's default domains.
 function ListClaims(search) {
   this.type = 'listclaims';
   this.search = search;
   this.setDisplayState = function() {
     window.location.hash = this.type + '+' + this.search;
+  };
+  this.isForbidden = function() {
+    if (this.search == 'my_bets' && !loggedIn()) {
+      return 'You must be logged in to see claims you have bet on.';
+    }
+    return false;
   };
   this.draw = function() {
     drawClaims(cache.searches[this.search]);
@@ -38,6 +55,9 @@ function DisplayClaim(id) {
   this.setDisplayState = function() {
     window.location.hash = this.type + '+' + this.id;
   };
+  this.isForbidden = function() {
+    return false;
+  };
   this.draw = function() {
     drawClaim(cache.claims[this.id]);
   };
@@ -57,6 +77,9 @@ function SubmitClaim() {
   this.type = 'submitclaim';
   this.setDisplayState = function() {
     window.location.hash = this.type;
+  };
+  this.isForbidden = function() {
+    return (!loggedIn() && "You must be logged in to submit a claim.");
   };
   this.draw = function() {
     drawSubmitClaim();
@@ -81,6 +104,9 @@ function EditClaim(id) {
   this.setDisplayState = function() {
     window.location.hash = this.type + '+' + this.id;
   };
+  this.isForbidden = function() {
+    return (!isAdmin() && "You must be an admin to edit a claim.");
+  };
   this.draw = function() {
     drawSubmitClaim(cache.claims[this.id]);
   };
@@ -100,6 +126,9 @@ function ListDomains() {
   this.type = 'listdomains';
   this.setDisplayState = function() {
     window.location.hash = this.type;
+  };
+  this.isForbidden = function() {
+    return (!isAdmin() && "You must be logged in to manage domains.");
   };
   this.draw = function() {
     drawDomains(cache.alldomains, cache.userdomains);
@@ -215,17 +244,9 @@ function isCurrentDisplay(displayState) {
 // Update the user interface. Revert to the default display if the user attempts
 // to take an action which requires him to be logged in without doing so.
 function updateDisplay(displayState) {
-  if (displayState.type == 'submitclaim' && !loggedIn()) {
-    setAlert("You must be logged in to submit a claim.");
-    history.go(-1);
-    return;
-  } else if (displayState.type == 'listdomains' && !loggedIn()) {
-    setAlert("You must be logged in to adjust domains.");
-    history.go(-1);
-    return;
-  } else if (displayState.type == 'listclaims' &&
-             displayState.search == 'my_bets' && !loggedIn()) {
-    setAlert("You must be logged in to see claims you have bet on.");
+  var forbidden = displayState.isForbidden();
+  if (forbidden) {
+    setAlert(forbidden);
     history.go(-1);
     return;
   }
