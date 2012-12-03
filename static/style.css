@@ -68,6 +68,13 @@ html {
     overflow:hidden;
     float:left;
     clear:left;
+    position: fixed;
+}
+
+#sidebar-spacer {
+    margin:10px 0px 5px;
+    width: 195px;
+    float:left;
 }
 
 #selectcategory {
@@ -179,16 +186,48 @@ tr.even {
     float:right;
 }
 
-#navbar a {
+#navbar {
+  position: fixed;
+  top: 0px;
+}
+
+#navbar-spacer {
+  height: 11px;
+}
+
+#navlinks {
+   border-top: 1px solid black;
+   border-bottom: 2px solid black;
+   list-style-type:none outside;
+   clear:both;
+   background-color: rgb(255,230,200);
+   overflow:hidden;
+   padding: 5px 0;
+   margin: 0px 0 0;
+   width: 950px;
+}
+
+#navlinks li{
+    padding: 0 15px;
+    margin: 1px;
+    float:left;
+    border-left: 1px solid;
+}
+
+#navlinks li:first-child {
+    border-left:none;
+}
+
+#navlinks a {
     text-decoration:none;
     color:gray;
 }
 
-#navbar a.activeLink {
+#navlinks a.activeLink {
     color:black;
 }
 
-#navbar a:hover {
+#navlinks a:hover {
     color:rgb(0,0,0);
 }
 
@@ -204,17 +243,6 @@ h2 a:hover, h2 a:active {
 .currentbet {
     font-size:3em;
     float:left;
-}
-
-#navbar {
-   border-top: 1px solid black;
-   border-bottom: 2px solid black;
-   list-style-type:none outside;
-   clear:both;
-   background-color: rgb(255,230,200);
-   overflow:hidden;
-   padding: 5px 0;
-   margin: 5px 0 0;
 }
 
 #alertbox{
@@ -264,23 +292,12 @@ body {
     font:12px Arial, Helvetica,sans-serif;
 }
 
-#navbar li{
-    padding: 0 15px;
-    margin: 1px;
-    float:left;
-    border-left: 1px solid;   
-}
-
 .right {
     float:right;
 }
 
 .left {
     float:left;
-}
-
-#navbar li:first-child {
-    border-left:none;
 }
 
 table.nicebox {

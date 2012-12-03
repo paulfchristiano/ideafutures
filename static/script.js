@@ -14,9 +14,9 @@ function ListClaims(search) {
   };
   this.updateActiveLink = function() {
     if (this.search == 'my_bets') {
-      $('#mybetsnavbar').addClass('activeLink');
+      $('#mybetsnavlink').addClass('activeLink');
     } else {
-      $('#recentclaimsnavbar').addClass('activeLink');
+      $('#recentclaimsnavlink').addClass('activeLink');
     }
   };
   this.getDisplayData = function(returnCall) {
@@ -62,7 +62,7 @@ function SubmitClaim() {
     drawSubmitClaim();
   };
   this.updateActiveLink = function() {
-    $('#submitclaimnavbar').addClass('activeLink');
+    $('#submitclaimnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
     queryServer({'alldomains':1}, returnCall);
@@ -105,7 +105,7 @@ function ListDomains() {
     drawDomains(cache.alldomains, cache.userdomains);
   };
   this.updateActiveLink = function() {
-    $('#domainsnavbar').addClass('activeLink');
+    $('#domainsnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
     queryServer({'alldomains':1, 'userdomains':1}, returnCall);
@@ -280,10 +280,10 @@ function clearClaimError(str) {
 }
 
 function updateActiveLink(displayState) {
-  $('#recentclaimsnavbar').removeClass('activeLink');
-  $('#submitclaimnavbar').removeClass('activeLink');
-  $('#domainsnavbar').removeClass('activeLink');
-  $('#mybetsnavbar').removeClass('activeLink');
+  $('#recentclaimsnavlink').removeClass('activeLink');
+  $('#submitclaimnavlink').removeClass('activeLink');
+  $('#domainsnavlink').removeClass('activeLink');
+  $('#mybetsnavlink').removeClass('activeLink');
   displayState.updateActiveLink();
 }
 

@@ -4,7 +4,8 @@ Styling:
     Embed form in a table
     Use a slider for initial bet
       Restrict slider to allowed range
-    Remove multiplier, max bet fields
+x   Use datetimepicker instead of two fields for date and time
+x   Remove multiplier, max bet fields
   Claims details page:
 x   Change bet grid to outcomes table:
 x     Title: "Outcomes"
@@ -12,10 +13,10 @@ x     Check and X for True or False
 x     "Before this bet", "After this bet"
 x   Show domain under claim, not sidebar
 x   Move confirm/deny to center of page
-?     Change to Mark True Check, Mark False X
+x     Change to Mark True Check, Mark False X
 x   Restrict slider to allowed range
   General:
-    Floating sidebar and topbar
+x   Floating sidebar and topbar
 x   Show points free instead of committed
     Nice modal for signup - name, email, pwd, retype pwd
 x   Nice modal for resolve bet
