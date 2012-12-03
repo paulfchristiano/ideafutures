@@ -712,8 +712,7 @@ function submitClaimBox(claim) {
     result += "Maximum risk (as fraction of reputation): 0.1</div>";
   }
   result += "<div class='row'>Market close (optional):";
-  result += "<input type='text' id='closedate'></input>";
-  result += "<input type='text' id='closetime'></input></div>";
+  result += "<input type='text' id='closes'></input></div>";
   result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
   if (typeof claim == 'undefined') {
@@ -742,12 +741,10 @@ function setSubmitClaimInputHandlers(claim) {
     $('#definition').val(claim.definition);
   }
 
-  $('#closedate').datepicker({});
-  $('#closetime').timepicker({});
+  $('#closes').datetimepicker();
   if (typeof claim != 'undefined') {
     if (claim.closes) {
-      $('#closedate').val(jQueryDate(claim.closes));
-      $('#closetime').val(jQueryTime(claim.closes));
+      $('#closes').val(jQueryDate(claim.closes));
     }
   }
 
@@ -970,16 +967,11 @@ function parseDate(strDate) {
     return null;
   }
   var parts = strDate.split(/[\.\s\/:\-T]/);
-  return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
-}
-
-function parseDateTime(strDate, strTime) {
-  if (strTime == '') {
-    strTime = '23:59';
+  if (parts.length == 5) {
+    // If strDate does not include a seconds count, add it here.
+    parts.push(0);
   }
-  var dateParts = strDate.split(/[\.\s\/:\-T]/);
-  var timeParts = strTime.split(/[\.\s\/:\-T]/);
-  return new Date(dateParts[2], dateParts[0] - 1, dateParts[1], timeParts[0], timeParts[1]);
+  return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
 }
 
 function cacheClaim(claim) {
@@ -1187,8 +1179,8 @@ function submitClaim(claim) {
   }
 
   var closes = null;
-  if ($('#closedate').val() != '') {
-    var closes = parseDateTime($('#closedate').val(), $('#closetime').val());
+  if ($('#closes').val() != '') {
+    var closes = parseDate($('#closes').val());
     if (closes < new Date()) {
       setClaimError('Your claim must close at some time in the future.');
       return;
@@ -1254,12 +1246,8 @@ function submitClaim(claim) {
 }
 
 function jQueryDate(d) {
-  return "" + padInt(d.getMonth() + 1) + "/" + padInt(d.getDate()) +
-      "/" + d.getFullYear();
-}
-
-function jQueryTime(d) {
-  return "" + padInt(d.getHours()) + ":" + padInt(d.getMinutes());
+  return ("" + padInt(d.getMonth() + 1) + "/" + padInt(d.getDate()) + "/" + d.getFullYear() +
+          " " + padInt(d.getHours()) + ":" + padInt(d.getMinutes()));
 }
 
 function serverDate(d) {
