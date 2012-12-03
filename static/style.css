@@ -52,14 +52,10 @@ html {
   background-color:rgb(230,230,230);
   border-style: none none solid none;
   border-color: rgb(180,180,180);
-  border-width:2px;
-  padding:3px;
-  overflow:hidden;
-}
-
-.sidebarblock:first-child {
-  width:200px;
-  border-top-style:solid;
+  border-width: 2px;
+  padding: 3px;
+  width: 200px;
+  overflow: hidden;
 }
 
 #sidebar {
@@ -354,7 +350,6 @@ a.thick {
   cursor:pointer;
   font-size: 14px;
   font-weight: bold;
-  margin-top: 12px;
   margin-right: 12px;
   padding: 3px 0 4px;
   text-align: center;
@@ -504,6 +499,7 @@ div.change:last-child {
 
 h3.short {
   margin-bottom: 8px;
+  font-size: 17px;
 }
 
 .left-slider-extension, .right-slider-extension {
@@ -531,4 +527,22 @@ h3.short {
 #newbet {
   float: left;
   border-width: 1px 0px 1px; 0px;
+}
+
+#loginbutton, #signupbutton {
+  margin-top: 6px;
+}
+
+#beterror, #submitclaimerror {
+  margin-top: 4px;
+  margin-bottom: -20px;
+  font-size: 12px;
+}
+
+#definitionbox {
+  margin-top: 20px;
+}
+
+#submitbet, #resolve {
+  margin-top: 8px;
 }
