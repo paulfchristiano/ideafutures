@@ -1327,18 +1327,6 @@ function recalculateView(claim, bet) {
   redrawStake('thisbettruestake', stakes.cur[1] - stakes.old[1], true);
   redrawStake('curfalsestake', stakes.cur[0]);
   redrawStake('curtruestake', stakes.cur[1]);
-
-  var otherStake = user.committed + Math.min(stakes.old[0], stakes.old[1]);
-  if (-stakes.cur[0] > claim.maxstake * (user.reputation - otherStake)) {
-    $('#totalfalsestake').addClass('error');
-  } else{
-    $('#totalfalsestake').removeClass('error');
-  }
-  if (-stakes.cur[1] > claim.maxstake * (user.reputation - otherStake)) {
-    $('#totaltruestake').addClass('error');
-  } else{
-    $('#totaltruestake').removeClass('error');
-  }
 }
 
 // TODO: This function can be written to compute max and min directly.

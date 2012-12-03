@@ -7,6 +7,8 @@ import md5
 from random import randint
 import sys
 
+# TODO: We need to store a secret salt on the server itself to protect
+# people with weaker passwords. This salt shouldn't be committed the repo.
 def hash_password(password):
   return md5.new(password).hexdigest()
 
