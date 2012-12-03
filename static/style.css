@@ -530,8 +530,9 @@ h3.short {
   border-width: 1px 0px 1px; 0px;
 }
 
-#loginbutton, #signupbutton {
-  margin-top: 6px;
+#loginbutton, #signupbutton, #loginerror {
+  margin-top: 3px;
+  margin-bottom: 0px;
 }
 
 #beterror, #submitclaimerror {
