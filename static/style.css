@@ -115,7 +115,7 @@ div.betdata {
 }
 
 div.topicbox {
-  margin:0 0 30px;
+  margin:8px 0 22px;
   overflow:hidden;
   padding:5px;
   clear:both;
@@ -350,6 +350,7 @@ a.thick {
   cursor:pointer;
   font-size: 14px;
   font-weight: bold;
+  margin-top: -6px;
   margin-right: 12px;
   padding: 3px 0 4px;
   text-align: center;
