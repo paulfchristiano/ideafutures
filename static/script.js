@@ -131,7 +131,7 @@ function loggedIn() {
 
 var RESTRICTED_DOMAINS = ['all', 'active', 'promoted'];
 
-var alertSet = false;
+var alertNum = 0;
 var currentTime = new Date();
 function newCache() {
   return {'claims':{}, 'searches':{}};
@@ -164,7 +164,6 @@ function restoreUserState() {
 // Make the document change when the hash parameters do.
 $(document).ready(function() {
   $(window).bind('hashchange', function(e) {
-    clearAlert();
     var displayState = getDisplayState();
     updateDisplay(displayState);
     getDisplayData(displayState);
@@ -247,16 +246,44 @@ function updateDisplay(displayState) {
 }
 
 function setAlert(message) {
+  alertNum += 1;
+  $('#alertbox').css({'opacity': 0});
   $('#alertbox').html(message);
+  $('#alertbox').css({'margin-left': 358 - $('#alertbox').width()/2});
   $('#alertbox').show();
-  alertSet = true;
-}
-
-function clearAlert() {
-  if (!alertSet) {
-    $('#alertbox').hide();
-  }
-  alertSet = false;
+  $('#alertbox').animate({'opacity': 1}, {
+    duration: 200,
+    queue: false,
+    complete: function(oldAlertNum) {
+      return function() {
+        if (alertNum > oldAlertNum) {
+          return;
+        }
+        $('#alertbox').animate({'opacity': 1}, {
+          duration: 2000,
+          queue: false,
+          complete: function(oldAlertNum) {
+            return function() {
+              if (alertNum > oldAlertNum) {
+                return;
+              }
+              $('#alertbox').animate({'opacity': 0}, {
+                duration: 200,
+                queue: false,
+                complete: function(oldAlertNum) {
+                  return function() {
+                    if (alertNum == oldAlertNum) {
+                      $('#alertbox').hide();
+                    }
+                  };
+                } (oldAlertNum),
+              });
+            };
+          } (oldAlertNum),
+        });
+      };
+    } (alertNum),
+  });
 }
 
 function setLoginError(message) {
@@ -619,7 +646,7 @@ function setClaimInputHandlers(claim) {
     step: 0.01,
     value: [claim.currentbet],
     orientation: "horizontal",
-    animate: "normal",
+    animate: "fast",
     range: "min"
   });
   $('#newbet').slider({

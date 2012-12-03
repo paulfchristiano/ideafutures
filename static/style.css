@@ -247,11 +247,14 @@ h2 a:hover, h2 a:active {
 
 #alertbox{
   border: 1px solid black;
-  clear:both;
-  width:100%;
-  padding:10px;
-  margin:10px;
-  background-color:rgb(255, 200, 200);
+  background-color: #FCC;
+  clear: both;
+  position: fixed;
+  padding: 8px;
+  margin-top: 16px;
+  margin-left: 208px;
+  text-align: center;
+  opacity: 0;
 }
 
 .activedomain{
