@@ -706,11 +706,8 @@ function submitClaimBox(claim) {
   result += "<div class='row'><div class='left'>Precise definition:</div>";
   result += "<textarea id='definition'></textarea> </div>";
   if (typeof claim == 'undefined') {
-    result += "<div class='row'>Bounty:";
-    result += "<input type='text' id='bounty' size='4' maxlength='5'></input>";
-    result += "Initial estimate:"
-    result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input>";
-    result += "Maximum risk (as fraction of reputation): 0.1</div>";
+    result += "<div class='row'>Initial estimate:"
+    result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input></div>";
   }
   result += "<div class='row'>Market close (optional):";
   result += "<input type='text' id='closes'></input></div>";
@@ -729,10 +726,6 @@ function submitClaimBox(claim) {
 // Set input handlers for a submit claim box, or, if 'claim' is defined, for an edit claim box.
 function setSubmitClaimInputHandlers(claim) {
   if (typeof claim == 'undefined') {
-    $('#bounty').val(1.0);
-    $('#bounty').focus(function() {
-      this.select();
-    });
     $('#initialestimate').val(0.5);
     $('#initialestimate').focus(function() {
       this.select();
@@ -1166,11 +1159,7 @@ function submitClaim(claim) {
       setClaimError('Your initial estimate must be a number between 0 and 1.');
       return;
     }
-    var bounty = $('#bounty').val();
-    if (isNaN(bounty) || bounty <= 0) {
-      setClaimError("Your claim's bounty must be a positive number.");
-      return;
-    }
+    var bounty = 1.44;
     var maxstake = 0.1;
     if (-bounty * Math.log(bet) > maxstake * (user.reputation - user.committed) ||
         -bounty * Math.log(1 - bet) > maxstake * (user.reputation - user.committed)) {
