@@ -223,6 +223,11 @@ function updateDisplay(displayState) {
     setAlert("You must be logged in to adjust domains.");
     history.go(-1);
     return;
+  } else if (displayState.type == 'listclaims' &&
+             displayState.search == 'my_bets' && !loggedIn()) {
+    setAlert("You must be logged in to see claims you have bet on.");
+    history.go(-1);
+    return;
   }
 
   updateActiveLink(displayState);
@@ -260,7 +265,7 @@ function setAlert(message) {
           return;
         }
         $('#alertbox').animate({'opacity': 1}, {
-          duration: 2000,
+          duration: 1600,
           queue: false,
           complete: function(oldAlertNum) {
             return function() {
