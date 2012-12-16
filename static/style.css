@@ -19,10 +19,6 @@ html {
   padding:0px 15px 0px;
 }
 
-.submitbetbox {
-  margin-top:15px;
-}
-
 #definitionbox {
   margin:10px;
   width:390px;
@@ -371,10 +367,6 @@ input[type="submit"]:hover {
   background-color:rgb(205,205,205);
 }
 
-#definition {
-  width:500px;
-}
-
 input, textarea {
   -moz-border-radius: 4px 4px 4px 4px;
   border: 1px solid #8A8A8B;
@@ -560,4 +552,38 @@ h3.short {
 
 #resolve-spacer {
   height: 4px;
+}
+
+#submitclaim-form {
+  margin-top: 20px;
+  margin-left: -2px;
+  width: 90%;
+}
+
+#submitclaim-form p {
+  margin-top: 4px;
+  margin-bottom: 6px;
+}
+
+#submitclaim-form label {
+  float: left;
+  margin-top: 3px;
+  margin-right: 3px;
+  text-align: right;
+  width: 16%;
+}
+
+#submitclaim-form textarea {
+  width: 64%;
+  height: 14px;
+  resize: none;
+}
+
+#submitclaim-form input {
+  width: 24%;
+  height: 14px;
+}
+
+#submitclaim-spacer {
+  height: 14px;
 }

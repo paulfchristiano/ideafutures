@@ -376,15 +376,15 @@ function loginSidebarBlock(){
 
 function signupDialog() {
   result = '<div id="signup-dialog" title="Sign up"><form><fieldset';
-  result += '<label for="signup-username">Username</label>';
+  result += '<label for="signup-username">Username:</label>';
   result += '<input type="text" id="signup-username" class="text-input ui-widget-content ui-corner-all" />'
-  result += '<label for="signup-email">Email</label>';
+  result += '<label for="signup-email">Email:</label>';
   result += '<input type="text" id="signup-email" value="" class="text-input ui-widget-content ui-corner-all" />'
-  result += '<label for="signup-password">Password</label>'
+  result += '<label for="signup-password">Password:</label>'
   result += '<input type="password" id="signup-password" value="" class="text-input ui-widget-content ui-corner-all" />'
-  result += '<label for="retype-password">Retype password</label>'
+  result += '<label for="retype-password">Retype password:</label>'
   result += '<input type="password" id="retype-password" value="" class="text-input ui-widget-content ui-corner-all" />'
-  result += "<div class='row'><span class='error' id='signuperror'></span></div>";
+  result += "<br/><div class='row'><span class='error' id='signuperror'></span></div>";
   result += '</fieldset></form></div>';
   return result;
 }
@@ -809,31 +809,41 @@ function drawSubmitClaim(claim) {
 // When this function is called with a claim, generate an edit claim box.
 // (The edit claim box is missing the ability to set some fields, like the multiplier.)
 function submitClaimBox(claim) {
-  var result = "<div class='submitbetbox'>";
-  result += "<div class='row'>Short description:";
-  result += "<input type='text' id='description' size='50' maxlength='200' </input></div>";
-  result += "<div class='row'><div class='left'>Precise definition:</div>";
-  result += "<textarea id='definition'></textarea> </div>";
+  var result = '<fieldset id="submitclaim-form">';
+  result += '<p><label for="description">Short description: </label>';
+  result += '<textarea id="description" maxlength="128"/></p>';
+  result += '<p><label for="definition">Precise definition: </label>';
+  result += '<textarea id="definition" maxlength="512"/></p>';
+  result += '<p><label for="closes">Market close: </label>';
+  result += '<input type="text" id="closes" maxlength="32"/></p>';
   if (typeof claim == 'undefined') {
     result += "<div class='row'>Initial estimate:"
     result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input></div>";
   }
-  result += "<div class='row'>Market close (optional):";
-  result += "<input type='text' id='closes'></input></div>";
   result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
+  result += '</fieldset><div id="submitclaim-spacer"/>';
   if (typeof claim == 'undefined') {
     result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Submit</a></div>";
   } else {
     result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Edit</a></div>";
   }
   result += "<div class='error row' id='submitclaimerror'></div>";
-  result += "</div>";
   return result;
+}
+
+function alignSubmitClaimTextarea(jqtextarea) {
+  var offset = jqtextarea.offset();
+  offset.left = $('#closes').offset().left;
+  jqtextarea.offset(offset);
+  jqtextarea.autosize();
 }
 
 // Set input handlers for a submit claim box, or, if 'claim' is defined, for an edit claim box.
 function setSubmitClaimInputHandlers(claim) {
+  alignSubmitClaimTextarea($('#description'));
+  alignSubmitClaimTextarea($('#definition'));
+
   if (typeof claim == 'undefined') {
     $('#initialestimate').val(0.5);
     $('#initialestimate').focus(function() {

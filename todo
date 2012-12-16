@@ -1,7 +1,7 @@
 Styling:
   Submit claims page:
-    General css changes
-    Embed form in a table
+x   General css changes
+x   Embed form in a table
     Use a slider for initial bet
       Restrict slider to allowed range
 x   Use datetimepicker instead of two fields for date and time
