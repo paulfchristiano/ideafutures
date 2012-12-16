@@ -573,6 +573,11 @@ h3.short {
   width: 16%;
 }
 
+#submitclaim-form label[for='betinput'] {
+  margin-top: 14px;
+  margin-right: -4px;
+}
+
 #submitclaim-form textarea {
   width: 64%;
   height: 14px;
@@ -582,6 +587,16 @@ h3.short {
 #submitclaim-form input {
   width: 24%;
   height: 14px;
+}
+
+#submitclaim-form #bettable {
+  font-size: 17px;
+  width: 390px;
+}
+
+#submitclaim-form #betinput {
+  width: 30px;
+  height: auto;
 }
 
 #submitclaim-spacer {

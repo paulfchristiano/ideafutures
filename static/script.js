@@ -158,6 +158,8 @@ function loggedIn() {
   return user.name != null
 }
 
+var DEFAULT_BOUNTY = 1.44;
+var DEFAULT_MAXSTAKE = 0.1;
 var RESTRICTED_DOMAINS = ['all', 'active', 'promoted'];
 
 var alertNum = 0;
@@ -594,7 +596,6 @@ function drawClaim(claim) {
   mainFrame += resolveDialog(claim);
   $('#mainframe').html(mainFrame);
   setClaimInputHandlers(claim);
-  setEstimate(claim, claim.currentbet, "");
 }
 
 function isOpen(claim) {
@@ -712,20 +713,12 @@ function resolveDialog(claim) {
   return result;
 }
 
-function setClaimInputHandlers(claim) {
-  var bounds = [0.01, 0.99];
-  if (loggedIn()) {
-    bounds = getBetBounds(claim);
-  }
-  $('#oldbet').slider({
-    range: 'min',
-    disabled: true,
-    min: 0,
-    max: 1,
-  });
+// TODO: This code could be refactored a bit. Some betslider
+// initialization still occurs in setClaimInputHandlers().
+function setBetSliderInputHandlers(bounds, defaultBet, claim) {
   $('.betslider').slider({
     step: 0.01,
-    value: [claim.currentbet],
+    value: [defaultBet],
     orientation: "horizontal",
     animate: "fast",
     range: "min"
@@ -741,7 +734,7 @@ function setClaimInputHandlers(claim) {
 
   $('#betinput').blur(function() {
     if (isNaN($('#betinput').val())) {
-      setEstimate(claim, claim.currentbet, "");
+      setEstimate(claim, defaultBet, "");
     } else {
       setEstimate(claim, ($('#betinput').val())/100, "");
     }
@@ -752,6 +745,22 @@ function setClaimInputHandlers(claim) {
   $('#betinput').keyup(function() {
     setEstimate(claim, ($('#betinput').val())/100, "field");
   });
+
+  setEstimate(claim, defaultBet, '');
+}
+
+function setClaimInputHandlers(claim) {
+  var bounds = [0.01, 0.99];
+  if (loggedIn()) {
+    bounds = getBetBounds(claim);
+  }
+  $('#oldbet').slider({
+    range: 'min',
+    disabled: true,
+    min: 0,
+    max: 1,
+  });
+  setBetSliderInputHandlers(bounds, claim.currentbet, claim);
 
   $('#submitbet').click(function() {
     submitBet(claim, $('#betinput').val()/100);
@@ -817,8 +826,13 @@ function submitClaimBox(claim) {
   result += '<p><label for="closes">Market close: </label>';
   result += '<input type="text" id="closes" maxlength="32"/></p>';
   if (typeof claim == 'undefined') {
-    result += "<div class='row'>Initial estimate:"
-    result += "<input type='text' id='initialestimate' size='4' maxlength='5'></input></div>";
+    result += '<p><label for="betinput">Initial estimate: </label>';
+    result += '<table id="bettable"><tbody><tr>';
+    result += "<td><div id='left-newbet' class='left-slider-extension'></div>";
+    result += "<div id='newbet' class='betslider'></div>";
+    result += "<div id='right-newbet' class='right-slider-extension'></div></td>";
+    result += '<td><input type="text" id="betinput">%<td>';
+    result += '</tr></tbody></table></p>';
   }
   result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
@@ -845,10 +859,11 @@ function setSubmitClaimInputHandlers(claim) {
   alignSubmitClaimTextarea($('#definition'));
 
   if (typeof claim == 'undefined') {
-    $('#initialestimate').val(0.5);
-    $('#initialestimate').focus(function() {
-      this.select();
-    });
+    var min_bet = Math.exp(-DEFAULT_MAXSTAKE*(user.reputation - user.committed)/DEFAULT_BOUNTY);
+    min_bet = Math.min(Math.ceil(100*min_bet)/100, 0.5);
+    var bounds = [min_bet, 1 - min_bet];
+    setBetSliderInputHandlers(bounds, 0.5);
+    // TODO: Create a div that shows the amount currently staked on this bet.
   } else {
     $('#description').val(claim.description);
     $('#definition').val(claim.definition);
@@ -1276,16 +1291,16 @@ function submitClaim(claim) {
   }
 
   if (typeof claim == 'undefined') {
-    var bet = $('#initialestimate').val();
+    var bet = $('#betinput').val()/100;
     if (isNaN(bet) || bet <= 0 || bet >= 1) {
       setClaimError('Your initial estimate must be a number between 0 and 1.');
       return;
     }
-    var bounty = 1.44;
-    var maxstake = 0.1;
-    if (-bounty * Math.log(bet) > maxstake * (user.reputation - user.committed) ||
-        -bounty * Math.log(1 - bet) > maxstake * (user.reputation - user.committed)) {
-      setClaimError("You cannot set the bounty that high.");
+    var bounty = DEFAULT_BOUNTY;
+    var maxstake = DEFAULT_MAXSTAKE;
+    if (getBetRisk(bet, bounty) > maxstake * (user.reputation - user.committed)) {
+      setClaimError('You are risking too much on this bet. ' +
+                    'Decrease your risk by moving your initial estimate closer to 50%.');
       return;
     }
   }
@@ -1415,7 +1430,7 @@ function domainToggler(domain) {
 
 function setEstimate(claim, bet, source) {
   if (isNaN(bet)) {
-    if (bet != claim.currentbet) {
+    if (claim != undefined && bet != claim.currentbet) {
       setEstimate(claim, claim.currentbet, source);
     }
     return;
@@ -1431,7 +1446,7 @@ function setEstimate(claim, bet, source) {
   if (source != 'field') {
     $('#betinput').val(drawBet(bet));
   }
-  if (loggedIn()) {
+  if (claim != undefined && loggedIn()) {
     recalculateView(claim, bet);
   }
 }
@@ -1515,6 +1530,10 @@ function getStake(claim, newHistory, outcome) {
   }
 
   return result;
+}
+
+function getBetRisk(bet, bounty) {
+  return Math.max(-bounty * Math.log(bet), -bounty * Math.log(1 - bet));
 }
 
 // Returns true if the user can place this bet, and false otherwise.

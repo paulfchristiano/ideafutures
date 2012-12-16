@@ -2,8 +2,8 @@ Styling:
   Submit claims page:
 x   General css changes
 x   Embed form in a table
-    Use a slider for initial bet
-      Restrict slider to allowed range
+x   Use a slider for initial bet
+x     Restrict slider to allowed range
 x   Use datetimepicker instead of two fields for date and time
 x   Remove multiplier, max bet fields
   Claims details page:
