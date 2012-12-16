@@ -1,9 +1,11 @@
 Styling:
   Submit claims page:
+    Add a header ("Starred fields are required") and fix spacing
 x   General css changes
 x   Embed form in a table
 x   Use a slider for initial bet
 x     Restrict slider to allowed range
+      Show the amount risked as a function of the initial prob.
 x   Use datetimepicker instead of two fields for date and time
 x   Remove multiplier, max bet fields
   Claims details page:
@@ -15,6 +17,7 @@ x   Show domain under claim, not sidebar
 x   Move confirm/deny to center of page
 x     Change to Mark True Check, Mark False X
 x   Restrict slider to allowed range
+      Show bounds on the slider?
   General:
 x   Floating sidebar and topbar
 x   Show points free instead of committed
@@ -52,3 +55,4 @@ x Store pwd hashes at the server
     Salt hashes w/ salt stored outside repo
   Pagination on main page
   Fixed-size LRU cache for claims
+  Don't take bounty or maxstake from the client
