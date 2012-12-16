@@ -5,6 +5,7 @@ from datetime import datetime
 from math import log
 import md5
 from random import randint
+import re
 import sys
 
 # TODO: We need to store a secret salt on the server itself to protect
@@ -40,7 +41,7 @@ def admin_only(f):
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'pwd_hash', 'reputation', 'committed', 'domains')
+  fields = ('name', 'email', 'pwd_hash', 'reputation', 'committed', 'domains')
   num_key_fields = 1
 
   def wrap(self):
@@ -184,8 +185,8 @@ def userdomains_query(user):
   return [('userdomains', wrap(('domain', domain) \
       for domain in sorted(user.domains)))]
 
-def signup_post(name, password):
-  if name is None or password is None:
+def signup_post(name, email, password):
+  if name is None or email is None or password is None:
     return [invalid_query_error]
   elif len(name) < 4 or len(name) > 16:
     return [('signup', 'usernamesize')]
@@ -193,11 +194,18 @@ def signup_post(name, password):
     return [('signup', 'passwordsize')]
   elif not name.isalnum() or not password.isalnum():
     return [('signup', 'notalnum')]
+  elif not re.sub('[_@.]', '', email).isalnum():
+    return [('signup', 'invalidemail')]
   # Create a new user with a reputation of 10.0.
   pwd_hash = hash_password(password)
-  user = User({'name':name, 'pwd_hash':pwd_hash, \
-      'reputation':DEFAULT_REPUTATION, \
-      'committed':{}, 'domains':DEFAULT_DOMAINS})
+  user = User({
+      'name':name,
+      'email':email,
+      'pwd_hash':pwd_hash,
+      'reputation':DEFAULT_REPUTATION,
+      'committed':{},
+      'domains':DEFAULT_DOMAINS
+  })
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
   else:
@@ -466,14 +474,14 @@ class IdeaFuturesServer:
   def update(self, signup=None, makebet=None, resolveclaim=None, \
       reopenclaim=None, promoteclaim=None, deleteclaim=None, \
       submitclaim = None, editclaim=None, \
-      name=None, password=None, id=None, bet=None, version=None, \
+      name=None, email=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
       maxstake=None, closes=None, domain=None, newdomains=None):
     results = []
     try:
       user = authenticate(name, password)
       if signup is not None:
-        results.extend(signup_post(name, password))
+        results.extend(signup_post(name, email, password))
       elif user is not None:
         if makebet is not None:
           results.extend(makebet_post(user, id, bet, version))

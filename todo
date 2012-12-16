@@ -18,7 +18,7 @@ x   Restrict slider to allowed range
   General:
 x   Floating sidebar and topbar
 x   Show points free instead of committed
-    Nice modal for signup - name, email, pwd, retype pwd
+x   Nice modal for signup - name, email, pwd, retype pwd
 x   Nice modal for resolve bet
 
 Tags:
@@ -48,6 +48,7 @@ Private tags:
     Users only see claims they have access to ALL private tags for
 
 Backend/scaling:
-  Store salted pwd hashes at the server
+x Store pwd hashes at the server
+    Salt hashes w/ salt stored outside repo
   Pagination on main page
   Fixed-size LRU cache for claims

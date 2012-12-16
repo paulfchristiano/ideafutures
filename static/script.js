@@ -316,6 +316,14 @@ function setLoginError(message) {
   $('#loginerror').html(message);
 }
 
+function setSignupError(message) {
+  $('#signuperror').html(message);
+}
+
+function clearSignupError(message) {
+  $('#signuperror').html('');
+}
+
 function setBetError(message) {
   $('#beterror').html(message);
 }
@@ -355,14 +363,30 @@ function loginSidebarBlock(){
     result += "<div class='row'><input type='submit' class='left' value='Log out' id='logoutbutton'></input></div>";
   } else{
     result += "<div class='row'>Username:</div>";
-    result += "<div class='row'><input type='text' id='usernameinput'></input></div>";
+    result += "<div class='row'><input type='text' id='login-username'></input></div>";
     result += "<div class='row'>Password:</div>";
-    result += "<div class='row'><input type='password' id='passwordinput'></input></div>";
+    result += "<div class='row'><input type='password' id='login-password'></input></div>";
     result += "<div class='row'><input type='submit' class='left' value='Log in' id='loginbutton'></intput>";
     result += "<input type='submit' class='right' value='Sign up' id='signupbutton'></intput></div>";
     result += "<div class='row'><span class='error' id='loginerror'></span></div>";
+    result += signupDialog();
   }
   return result + "</div>";
+}
+
+function signupDialog() {
+  result = '<div id="signup-dialog" title="Sign up"><form><fieldset';
+  result += '<label for="signup-username">Username</label>';
+  result += '<input type="text" id="signup-username" class="text-input ui-widget-content ui-corner-all" />'
+  result += '<label for="signup-email">Email</label>';
+  result += '<input type="text" id="signup-email" value="" class="text-input ui-widget-content ui-corner-all" />'
+  result += '<label for="signup-password">Password</label>'
+  result += '<input type="password" id="signup-password" value="" class="text-input ui-widget-content ui-corner-all" />'
+  result += '<label for="retype-password">Retype password</label>'
+  result += '<input type="password" id="retype-password" value="" class="text-input ui-widget-content ui-corner-all" />'
+  result += "<div class='row'><span class='error' id='signuperror'></span></div>";
+  result += '</fieldset></form></div>';
+  return result;
 }
 
 function isAdmin() {
@@ -390,20 +414,49 @@ function adminSidebarBlock(claim) {
 }
 
 function setSidebarInputHandlers(displayState) {
-  $('#passwordinput').keypress(function(e) {
-    if (e.which == 13) {
-      $('#loginbutton').focus().click();
-    }
-  });
-  $('#signupbutton').click(function() {
-    signup($('#usernameinput').val(), $('#passwordinput').val());
-  });
-  $('#loginbutton').click(function() {
-    login($('#usernameinput').val(), $('#passwordinput').val());
-  });
-  $('#logoutbutton').click(function() {
-    logout();
-  });
+  if (loggedIn()) {
+    $('#logoutbutton').click(function() {
+      logout();
+    });
+  } else {
+    $('#login-password').keypress(function(e) {
+      if (e.which == 13) {
+        $('#loginbutton').focus().click();
+      }
+    });
+    $('#loginbutton').click(function() {
+      login($('#login-username').val(), $('#login-password').val());
+    });
+
+    $('#signup-dialog').dialog({
+      autoOpen: false,
+      modal: true,
+      width: 300,
+      buttons: {
+        "Submit": function() {
+          if ($('#signup-password').val() != $('#retype-password').val()) {
+            setSignupError('The passwords you entered do not match.');
+          } else {
+            signup(
+              $('#signup-username').val(),
+              $('#signup-email').val(),
+              $('#signup-password').val()
+            );
+          }
+        },
+        "Cancel": function() {
+          $('#signup-dialog').dialog('close');
+        },
+      },
+    });
+    $('#signupbutton').click(function() {
+      $('#signup-dialog').find('form').find('input').each(function() {
+        $(this).val('');
+      });
+      clearSignupError('');
+      $('#signup-dialog').dialog('open');
+    });
+  }
 
   if (displayState.type == 'displayclaim'){
     id = displayState.id;
@@ -1066,23 +1119,26 @@ function login(name, password){
   );
 }
 
-function signup(name, password){
-  updateServer({'signup':1, 'name':name, 'password':password},
+function signup(name, email, password){
+  updateServer({'signup':1, 'name':name, 'email':email, 'password':password},
     function(name, password) {return function(xml) {
       var result = $(xml).find('signup').text();
       if (result == 'success') {
+        $('#signup-dialog').dialog('close');
         user.name = name;
         user.password = password;
         saveUserState();
         $(window).trigger('hashchange');
       } else if (result == 'usernametaken') {
-        setLoginError('That username is taken.');
+        setSignupError('That username is taken.');
       } else if (result == 'usernamesize') {
-        setLoginError('Enter a username and password above.\nYour username must be between 4 and 16 characters.');
+        setSignupError('Enter a username and password above.\nYour username must be between 4 and 16 characters.');
       } else if (result == 'passwordsize') {
-        setLoginError('Your password must be between 8 and 32 characters.');
+        setSignupError('Your password must be between 8 and 32 characters.');
       } else if (result == 'notalnum') {
-        setLoginError('Your username and password must be alphanumeric.');
+        setSignupError('Your username and password must be alphanumeric.');
+      } else if (result == 'invalidemail') {
+        setSignupError('Your email cannot be recognized.');
       }
     };} (name, password)
   );

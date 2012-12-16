@@ -548,3 +548,8 @@ h3.short {
 #submitbet, #resolve {
   margin-top: 8px;
 }
+
+.text-input {
+  width: 95%;
+  margin-bottom: 8px;
+}
