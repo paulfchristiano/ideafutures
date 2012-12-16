@@ -430,6 +430,7 @@ function setSidebarInputHandlers(displayState) {
 
     $('#signup-dialog').dialog({
       autoOpen: false,
+      resizable: false,
       modal: true,
       width: 300,
       buttons: {
@@ -705,7 +706,8 @@ function definitionBox(claim) {
 
 function resolveDialog(claim) {
   result = '<div id="resolve-dialog" title="Resolve claim">';
-  result += 'Mark this claim true or false when its status is known.';
+  result += '<div id="resolve-spacer"/>';
+  result += '<span>Mark this claim true or false when its status is known.</span>';
   result += '</div>';
   return result;
 }
@@ -757,6 +759,7 @@ function setClaimInputHandlers(claim) {
 
   $('#resolve-dialog').dialog({
     autoOpen: false,
+    resizable: false,
     modal: true,
     height: 108,
     width: 360,

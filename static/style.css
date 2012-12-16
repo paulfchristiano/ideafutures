@@ -553,3 +553,11 @@ h3.short {
   width: 95%;
   margin-bottom: 8px;
 }
+
+#resolve-dialog {
+  overflow: hidden;
+}
+
+#resolve-spacer {
+  height: 4px;
+}
