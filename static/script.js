@@ -1092,14 +1092,18 @@ function parseClaimFromXML(xml) {
   return result;
 }
 
-function parseDate(strDate) {
+function parseDate(strDate, from_jQuery) {
   if (strDate == '') {
     return null;
   }
   var parts = strDate.split(/[\.\s\/:\-T]/);
-  if (parts.length == 5) {
-    // If strDate does not include a seconds count, add it here.
-    parts.push(0);
+  if (from_jQuery) {
+    // Dates written by the jQuery datetimepicker are out-of-order. Fix this here:
+    var missing_parts = 6 - parts.length;
+    for (var i = 0; i < missing_parts; i++) {
+      parts.push(0);
+    }
+    return new Date(parts[2], parts[0] - 1, parts[1], parts[3], parts[4], parts[5]);
   }
   return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
 }
@@ -1309,7 +1313,7 @@ function submitClaim(claim) {
 
   var closes = null;
   if ($('#closes').val() != '') {
-    var closes = parseDate($('#closes').val());
+    var closes = parseDate($('#closes').val(), true);
     if (closes < new Date()) {
       setClaimError('Your claim must close at some time in the future.');
       return;
