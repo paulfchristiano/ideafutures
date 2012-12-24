@@ -1,6 +1,6 @@
 Styling:
   Submit claims page:
-    Add a header ("Starred fields are required") and fix spacing
+x   Add a header ("Starred fields are required") and fix spacing
 x   General css changes
 x   Embed form in a table
 x   Use a slider for initial bet

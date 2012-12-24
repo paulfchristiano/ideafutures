@@ -480,7 +480,7 @@ function setSidebarInputHandlers(displayState) {
 
 function drawClaims(results) {
   if (results.length == 0) {
-    var mainFrame = "<div class='domainheader'><h1>No claims found.</h1>";
+    var mainFrame = "<div class='header'><h1>No claims found.</h1>";
     mainFrame += "<div class='row'>No claims match your current search.";
     if (loggedIn()) {
       mainFrame += " Change your search on the <a href=\"#listdomains\">domains</a> page";
@@ -603,8 +603,8 @@ function isOpen(claim) {
 }
 
 function descriptionBox(claim) {
-  result = "<div class='clear descriptionbox'><h1>\"" + claim.description + "\"</h1></div>";
-  result += "<div class='clear tagbox'>Tags: " + claim.domain + "</div>";
+  var result = "<div class='header'><h1>\"" + claim.description + "\"</h1>";
+  result += "<div class='row'>Tags: " + claim.domain + "</div></div>";
   return result;
 }
 
@@ -818,15 +818,17 @@ function drawSubmitClaim(claim) {
 // When this function is called with a claim, generate an edit claim box.
 // (The edit claim box is missing the ability to set some fields, like the multiplier.)
 function submitClaimBox(claim) {
-  var result = '<fieldset id="submitclaim-form">';
-  result += '<p><label for="description">Short description: </label>';
+  var result = '<div class="header"><h1>Submit a new claim</h1>';
+  result += '<div class="row">Starred fields are required.</div></div>';
+  result += '<fieldset id="submitclaim-form">';
+  result += '<p><label for="description">*Short description: </label>';
   result += '<textarea id="description" maxlength="128"/></p>';
   result += '<p><label for="definition">Precise definition: </label>';
   result += '<textarea id="definition" maxlength="512"/></p>';
   result += '<p><label for="closes">Market close: </label>';
   result += '<input type="text" id="closes" maxlength="32"/></p>';
   if (typeof claim == 'undefined') {
-    result += '<p><label for="betinput">Initial estimate: </label>';
+    result += '<p><label for="betinput">*Initial estimate: </label>';
     result += '<table id="bettable"><tbody><tr>';
     result += "<td><div id='left-newbet' class='left-slider-extension'></div>";
     result += "<div id='newbet' class='betslider'></div>";
@@ -834,7 +836,7 @@ function submitClaimBox(claim) {
     result += '<td><input type="text" id="betinput">%<td>';
     result += '</tr></tbody></table></p>';
   }
-  result += "<div class='row'>Choose an existing domain: <select id='domain'></select>";
+  result += "<div class='row'>*Choose an existing domain: <select id='domain'></select>";
   result += " or create a new one: <input type='text' id='domaintext'></input></div>"
   result += '</fieldset><div id="submitclaim-spacer"/>';
   if (typeof claim == 'undefined') {
@@ -904,7 +906,7 @@ function setSubmitClaimInputHandlers(claim) {
 }
 
 function drawDomains(alldomains, userdomains) {
-  var mainFrame = "<div class='domainheader'><h1>Change domains.</h1>";
+  var mainFrame = "<div class='header'><h1>Change domains</h1>";
   mainFrame += "<div class='row'>Choose which domains to display by default, ";
   mainFrame += "or view recent claims within a domain.</div></div>";
   mainFrame += "<div>";
