@@ -592,6 +592,15 @@ h3.short {
   height: 14px;
 }
 
+#submitclaim-form #close-date {
+  width: 11%;
+  margin-right: 6px;
+}
+
+#submitclaim-form #close-time {
+  width: 6%;
+}
+
 #submitclaim-form #bettable {
   font-size: 17px;
   width: 390px;

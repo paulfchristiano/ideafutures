@@ -825,8 +825,9 @@ function submitClaimBox(claim) {
   result += '<textarea id="description" maxlength="128"/></p>';
   result += '<p><label for="definition">Precise definition: </label>';
   result += '<textarea id="definition" maxlength="512"/></p>';
-  result += '<p><label for="closes">Market close: </label>';
-  result += '<input type="text" id="closes" maxlength="32"/></p>';
+  result += '<p><label for="close-date">Market close: </label>';
+  result += '<input type="text" id="close-date" maxlength="10"/>';
+  result += '<input type="text" id="close-time" maxlength="5"/></p>';
   if (typeof claim == 'undefined') {
     result += '<p><label for="betinput">*Initial estimate: </label>';
     result += '<table id="bettable"><tbody><tr>';
@@ -850,7 +851,7 @@ function submitClaimBox(claim) {
 
 function alignSubmitClaimTextarea(jqtextarea) {
   var offset = jqtextarea.offset();
-  offset.left = $('#closes').offset().left;
+  offset.left = $('#close-date').offset().left;
   jqtextarea.offset(offset);
   jqtextarea.autosize();
 }
@@ -871,10 +872,13 @@ function setSubmitClaimInputHandlers(claim) {
     $('#definition').val(claim.definition);
   }
 
-  $('#closes').datetimepicker();
+  $('#close-date').datepicker();
+  $('#close-time').timepicker();
   if (typeof claim != 'undefined') {
     if (claim.closes) {
-      $('#closes').val(jQueryDate(claim.closes));
+      var datetime = jQueryDateTime(claim.closes);
+      $('#close-date').val(datetime.date);
+      $('#close-time').val(datetime.time);
     }
   }
 
@@ -1092,17 +1096,12 @@ function parseClaimFromXML(xml) {
   return result;
 }
 
-function parseDate(strDate, from_jQuery) {
+function parseDate(strDate, reorder) {
   if (strDate == '') {
     return null;
   }
   var parts = strDate.split(/[\.\s\/:\-T]/);
-  if (from_jQuery) {
-    // Dates written by the jQuery datetimepicker are out-of-order. Fix this here:
-    var missing_parts = 6 - parts.length;
-    for (var i = 0; i < missing_parts; i++) {
-      parts.push(0);
-    }
+  if (reorder) {
     return new Date(parts[2], parts[0] - 1, parts[1], parts[3], parts[4], parts[5]);
   }
   return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
@@ -1312,13 +1311,22 @@ function submitClaim(claim) {
   }
 
   var closes = null;
-  if ($('#closes').val() != '') {
-    var closes = parseDate($('#closes').val(), true);
-    if (closes < new Date()) {
+  if ($('#close-date').val()) {
+    if ($('#close-time').val()) {
+      var dateStr = $('#close-date').val() + ' ' + $('#close-time').val() + ':00';
+    } else {
+      dateStr = $('#close-date').val() + ' 23:59:00';
+    }
+    closes = parseDate(dateStr, true);
+    if (closes == 'Invalid Date') {
+      setClaimError('Your entry for market close is malformatted.');
+      return;
+    } else if (closes < new Date()) {
       setClaimError('Your claim must close at some time in the future.');
       return;
     }
   }
+
   var domain = $('#domaintext').val().replace(/ /g, '_');
   if (domain == '') {
     domain = $('#domain').val();
@@ -1378,9 +1386,11 @@ function submitClaim(claim) {
   );
 }
 
-function jQueryDate(d) {
-  return ("" + padInt(d.getMonth() + 1) + "/" + padInt(d.getDate()) + "/" + d.getFullYear() +
-          " " + padInt(d.getHours()) + ":" + padInt(d.getMinutes()));
+function jQueryDateTime(d) {
+  return {
+    date: "" + padInt(d.getMonth() + 1) + "/" + padInt(d.getDate()) + "/" + d.getFullYear(),
+    time: "" + padInt(d.getHours()) + ":" + padInt(d.getMinutes()),
+  };
 }
 
 function serverDate(d) {
