@@ -837,8 +837,8 @@ function submitClaimBox(claim) {
     result += '<td><input type="text" id="betinput">%<td>';
     result += '</tr></tbody></table></p>';
   }
-  result += "<div class='row'>*Choose an existing domain: <select id='domain'></select>";
-  result += " or create a new one: <input type='text' id='domaintext'></input></div>"
+  result += '<p><label for="domain">*Subject tags: </label>';
+  result += "<ul id='domain' data-name='domain'></ul></p>";
   result += '</fieldset><div id="submitclaim-spacer"/>';
   if (typeof claim == 'undefined') {
     result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Submit</a></div>";
@@ -882,17 +882,27 @@ function setSubmitClaimInputHandlers(claim) {
     }
   }
 
+  var domains = [];
   for (var i = 0; i < cache.alldomains.length; i++) {
     domain = cache.alldomains[i];
     if (RESTRICTED_DOMAINS.indexOf(domain) == -1) {
-      $('#domain').append("<option value='" + domain + "'>" + drawDomain(domain) + "</option>");
+      domains.push(drawDomain(domain));
     }
   }
-  if (typeof claim == 'undefined') {
-    $('#domain').val('general');
-  } else {
-    $('#domain').val(claim.domain);
+  if (typeof claim != 'undefined') {
+    $('#domain').append('<li>' + claim.domain + '</li>');
   }
+  $('#domain').tagit({
+    allowSpaces: true,
+    autocomplete: {
+        delay: 0,
+        source: domains,
+      },
+    onTagClicked: function(event, ui) {
+      $('#domain').tagit('removeTagByLabel', ui.tagLabel);
+    },
+    removeConfirmation: true,
+  });
 
   var toggleDropDown = function() {
     if ($(this).val() == '') {
@@ -1327,29 +1337,34 @@ function submitClaim(claim) {
     }
   }
 
-  var domain = $('#domaintext').val().replace(/ /g, '_');
-  if (domain == '') {
-    domain = $('#domain').val();
+  var domains = $('#domain').tagit('assignedTags');
+  for (var i = 0; i < domains.length; i++) {
+    var domain = domains[i].replace(/ /g, '_');
+    if (RESTRICTED_DOMAINS.indexOf(domain) > -1) {
+      setClaimError("The domain '" + domain + "' is reserved.");
+    } else if (domain.length < 4) {
+      setClaimError("The domain '" + domain + "' is too short.");
+      return;
+    } else if (domain.length > 16) {
+      setClaimError("The domain '" + domain + "' is too long.");
+      return;
+    } else if (domain.match(/^[a-z_]+$/) == null) {
+      setClaimError("The domain '" + domain + "' should only contain lowercase characters or spaces.");
+      return;
+    } else if (domain[domain.length - 1] == '_') {
+      setClaimError("The domain '" + domain + "' has trailing spaces.");
+      return;
+    }
+    domains[i] = domain;
   }
-  if (domain == '') {
+  if (!domains.length) {
     setClaimError('You must enter a domain for this claim.');
     return;
-  } else if (RESTRICTED_DOMAINS.indexOf(domain) > -1) {
-    setClaimError("The '" + domain + "' domain is reserved.");
-    return;
-  } else if (domain.length < 4) {
-    setClaimError("Your claim's domain must be longer.");
-    return;
-  } else if (domain.length > 16) {
-    setClaimError("Your claim's domain must be shorter.");
-    return;
-  } else if (domain.match(/^[a-z_]+$/) == null) {
-    setClaimError("Your claim's domain must only contain lowercase characters or spaces.");
-    return;
-  } else if (domain[domain.length - 1] == '_') {
-    setClaimError("Your domain cannot have trailing spaces.");
+  } else if (domains.length > 1) {
+    setClaimError('We currently do not support multiple tags for a claim.');
     return;
   }
+  var domain = domains[1];
 
   clearClaimError();
   $('#submitclaimbutton').click(function() {});

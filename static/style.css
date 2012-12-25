@@ -588,17 +588,7 @@ h3.short {
 }
 
 #submitclaim-form input {
-  width: 24%;
   height: 14px;
-}
-
-#submitclaim-form #close-date {
-  width: 12%;
-  margin-right: 6px;
-}
-
-#submitclaim-form #close-time {
-  width: 6%;
 }
 
 #submitclaim-form #bettable {
@@ -611,6 +601,32 @@ h3.short {
   height: auto;
 }
 
+#submitclaim-form #close-date {
+  width: 12%;
+  margin-right: 6px;
+}
+
+#submitclaim-form #close-time {
+  width: 6%;
+}
+
+#submitclaim-form #domain {
+  border-color: #8A8A8B;
+  float: left;
+  font-size: 11px;
+  margin-top: -2px;
+  margin-bottom: 2px;
+  margin-left: 0px;
+  width: 64%;
+}
+
 #submitclaim-spacer {
   height: 26px;
+}
+
+/* This is dangerous! It may affect jQueryUI */
+/* elements other than the tag inputs.       */
+.ui-autocomplete {
+  text-align: left;
+  font-size: 11px;
 }

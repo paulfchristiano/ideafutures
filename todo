@@ -53,6 +53,7 @@ Private tags:
 Backend/scaling:
 x Store pwd hashes at the server
     Salt hashes w/ salt stored outside repo
+  Use JSON for transport from the server to the client
   Pagination on main page
   Fixed-size LRU cache for claims
   Don't take bounty or maxstake from the client
