@@ -268,11 +268,13 @@
                         // So let's ensure that it closes.
                         that.tagInput.autocomplete('close');
                     }
-                }).blur(function(e){
+                }).focusout(function(e){
                     // Create a tag when the element loses focus.
                     // If autocomplete is enabled and suggestion was clicked, don't add it.
                     if (!that.tagInput.data('autocomplete-open')) {
                         that.createTag(that._cleanedInput());
+                    } else {
+                        that.tagInput.autocomplete('close');
                     }
                 });
 
@@ -354,7 +356,7 @@
         },
 
         _showAutocomplete: function() {
-            this.tagInput.autocomplete('search', '');
+            this.tagInput.autocomplete('search', this.tagInput.val());
         },
 
         _findTagByLabel: function(name) {
@@ -510,6 +512,9 @@
             }
 
             this._trigger('afterTagRemoved', null, {tag: tag, tagLabel: this.tagLabel(tag)});
+            if (this.tagInput.data('autocomplete-open')) {
+                this._showAutocomplete();
+            }
         },
 
         removeTagByLabel: function(tagLabel, animate) {

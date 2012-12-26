@@ -894,6 +894,7 @@ function setSubmitClaimInputHandlers(claim) {
   }
   $('#domain').tagit({
     allowSpaces: true,
+    animate: false,
     autocomplete: {
         delay: 0,
         source: domains,
@@ -902,18 +903,9 @@ function setSubmitClaimInputHandlers(claim) {
       $('#domain').tagit('removeTagByLabel', ui.tagLabel);
     },
     removeConfirmation: true,
+    showAutocompleteOnFocus: true,
   });
   $('#domain').find('input').attr('maxlength', 16);
-
-  var toggleDropDown = function() {
-    if ($(this).val() == '') {
-      $('#domain').removeAttr('disabled');
-    } else {
-      $('#domain').attr('disabled', 'disabled');
-    }
-  };
-  $('#domaintext').blur(toggleDropDown);
-  $('#domaintext').keyup(toggleDropDown);
 
   $('#submitclaimbutton').click(function(){
     submitClaim(claim);
