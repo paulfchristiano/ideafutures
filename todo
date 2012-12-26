@@ -27,7 +27,7 @@ x   Nice modal for resolve bet
 Tags:
   Change "domains" to "tags" everywhere
   Multiple tags per bet
-  Create widget for selecting a subet of tags:
+x Create widget for selecting a subet of tags:
     Two tag clouds - public and private
     Selected tags grow in place
     Use widget on submit claim + manage tags page
@@ -51,9 +51,9 @@ Private tags:
     Users only see claims they have access to ALL private tags for
 
 Backend/scaling:
+x Don't take bounty or maxstake from the client
 x Store pwd hashes at the server
     Salt hashes w/ salt stored outside repo
-  Use JSON for transport from the server to the client
   Pagination on main page
   Fixed-size LRU cache for claims
-  Don't take bounty or maxstake from the client
+  Use JSON for transport from the server to the client

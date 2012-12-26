@@ -903,6 +903,7 @@ function setSubmitClaimInputHandlers(claim) {
     },
     removeConfirmation: true,
   });
+  $('#domain').find('input').attr('maxlength', 16);
 
   var toggleDropDown = function() {
     if ($(this).val() == '') {
