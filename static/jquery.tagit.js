@@ -34,6 +34,7 @@
             placeholderText   : null,   // Sets `placeholder` attr on input field.
             readOnly          : false,  // Disables editing.
             removeConfirmation: false,  // Require confirmation to remove tags.
+            sortable          : false,  // Allows the user to sort tags.
             tagLimit          : null,   // Max number of tags allowed (null for unlimited).
 
             // Used for autocomplete, unless you override `autocomplete.source`.
@@ -302,6 +303,12 @@
                     that.tagInput.data('autocomplete-open', false)
                 });
             }
+
+            // For some reason, calling sortable() earlier causes problems with jQueryUI, so we defer it to here.
+            if (this.options.sortable) {
+                this.element.sortable();
+            }
+            this.element.disableSelection();
         },
 
         _cleanedInput: function() {

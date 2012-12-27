@@ -899,10 +899,8 @@ function setSubmitClaimInputHandlers(claim) {
         delay: 0,
         source: domains,
       },
-    onTagClicked: function(event, ui) {
-      $('#domain').tagit('removeTagByLabel', ui.tagLabel);
-    },
     removeConfirmation: true,
+    sortable: true,
     showAutocompleteOnFocus: true,
   });
   var padding = parseInt($('#domain').css('padding-left'));

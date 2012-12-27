@@ -30,6 +30,9 @@ ul.tagit li.tagit-choice a.tagit-label {
     cursor: pointer;
     text-decoration: none;
 }
+ul.tagit li.tagit-choice span.tagit-label {
+    cursor: default;
+}
 ul.tagit li.tagit-choice .tagit-close {
     cursor: pointer;
     position: absolute;
