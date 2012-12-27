@@ -905,6 +905,8 @@ function setSubmitClaimInputHandlers(claim) {
     removeConfirmation: true,
     showAutocompleteOnFocus: true,
   });
+  var padding = parseInt($('#domain').css('padding-left'));
+  $('#domain').width($('#description').width() - padding - 2);
   $('#domain').find('input').attr('maxlength', 16);
 
   $('#submitclaimbutton').click(function(){
