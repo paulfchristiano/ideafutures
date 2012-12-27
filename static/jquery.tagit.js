@@ -273,7 +273,10 @@
                     // If autocomplete is enabled and suggestion was clicked, don't add it.
                     if (!that.tagInput.data('autocomplete-open')) {
                         that.createTag(that._cleanedInput());
-                    } else {
+                    } else if (!$('.ui-autocomplete .ui-state-hover').length) {
+                        // This condition is a complete hack to see if this focusout event is due to a user clicking
+                        // on an autocompletion. The real bug is that jQueryUI doesn't handle blur events caused by
+                        // clicking on draggable correctly: see http://bugs.jqueryui.com/ticket/4261
                         that.tagInput.autocomplete('close');
                     }
                 });
