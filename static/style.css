@@ -235,9 +235,13 @@ h2 a:hover, h2 a:active {
 }
 
 
-.currentbet {
+a.currentbet {
   font-size:3em;
   float:left;
+}
+
+a.currentbet:hover, a.currentbet:active {
+  color: #EB8F00;
 }
 
 #alertbox{

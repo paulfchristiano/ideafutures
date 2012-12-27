@@ -516,7 +516,7 @@ function topicBox(claim) {
   }
   result += "<a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
   result += claim.description + "</a></h2>";
-  result += "<div class='currentbet orange'>" + drawBet(claim.currentbet) + "%</div>";
+  result += "<a href='" + href + "' class='currentbet'>" + drawBet(claim.currentbet) + "%</a>";
   if (isOpen(claim)) {
     result += "<a class='thick orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
   } else {
