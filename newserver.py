@@ -2,6 +2,7 @@
 import cherrypy
 from data import Data
 from datetime import datetime
+import json
 from math import log
 import md5
 from random import randint
@@ -19,13 +20,13 @@ invalid_query_error = ('error', \
 authentication_failed_error = ('error', \
     'Authentication failed. Username or password incorrect.')
 
-# The default domains are the domains which logged out users see.
-# The restricted domains are not allowed to be the domain of any claim.
-# The special domains are always included in the set of all domains, even
-# though they are not the domain of any claim.
-DEFAULT_DOMAINS = ['general', 'promoted']
-SPECIAL_DOMAINS = ['all', 'active', 'promoted']
-RESTRICTED_DOMAINS = SPECIAL_DOMAINS + ['my_bets', 'user_default']
+# The default tags are the tags which logged out users see.
+# The restricted tags are not allowed to be the tags of any claim.
+# The special tags are always included in the set of all tags, even
+# though they are not the tags of any claim.
+DEFAULT_TAGS = ['general', 'promoted']
+SPECIAL_TAGS = ['all', 'active', 'promoted']
+RESTRICTED_TAGS = SPECIAL_TAGS + ['my_bets', 'user_default']
 DEFAULT_REPUTATION = 100.0
 
 def is_admin(user):
@@ -41,7 +42,7 @@ def admin_only(f):
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'email', 'pwd_hash', 'reputation', 'committed', 'domains')
+  fields = ('name', 'email', 'pwd_hash', 'reputation', 'committed', 'tags')
   num_key_fields = 1
 
   def wrap(self):
@@ -50,15 +51,19 @@ class User(Data):
 
 class Claim(Data):
   collection = 'claims'
-  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'domain', \
+  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'tags', \
       'maxstake', 'owner', 'promoted', 'resolved', 'definition', 'history')
   num_key_fields = 1
 
   def wrap(self):
     results = self.to_dict()
+    results['tags'] = wrap(('tag', tag) for tag in results['tags'])
     results['history'] = wrap(('bet', wrap(bet)) for bet in results['history'])
     results['version'] = self.version_
     return wrap(results.items())
+
+def deduplicate(l):
+  return [x for (i, x) in enumerate(l) if x not in l[:i]]
 
 #------------------------------------------------------------------------------#
 # Betting logic begins here!                                                   #
@@ -133,18 +138,18 @@ def login_query(name, password):
 
 def search_query(user, search):
   if search == 'user_default':
-    if user is None or len(user.domains) == 0:
-      vals = execute_searches(DEFAULT_DOMAINS)
+    if user is None or len(user.tags) == 0:
+      vals = execute_searches(DEFAULT_TAGS)
     else:
-      vals = execute_searches(user.domains)
+      vals = execute_searches(user.tags)
   else:
     vals = execute_searches([search], user)
   result = [('claim', wrap(claim)) for claim in vals]
   return result + [('search', \
       wrap([('uid', claim.uid) for claim in vals] + [('query', search)]))]
 
-# Executes searches for the domains in the list 'searches'. Returns a list of
-# claims in those domains, ordered from newest to oldest.
+# Executes searches for the tags in the list 'searches'. Returns a list of
+# claims in those tags, ordered from newest to oldest.
 def execute_searches(searches, user=None):
   if 'all' in searches:
     vals = Claim.find(uses_key_fields=False)
@@ -157,12 +162,12 @@ def execute_searches(searches, user=None):
   elif 'promoted' in searches:
     if len(searches) > 1:
       searches = tuple(search for search in searches if search != 'promoted')
-      vals = Claim.find({'$or':[{'promoted':1}, {'domain':{'$in':searches}}]}, \
+      vals = Claim.find({'$or':[{'promoted':1}, {'tags':{'$in':searches}}]}, \
             uses_key_fields=False)
     else:
       vals = Claim.find({'promoted':1}, uses_key_fields=False)
   else:
-    vals = Claim.find({'domain':{'$in':searches}}, uses_key_fields=False)
+    vals = Claim.find({'tags':{'$in':searches}}, uses_key_fields=False)
   return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
 def claim_query(uid):
@@ -173,17 +178,17 @@ def claim_query(uid):
     return []
   return [('claim', wrap(claim))]
 
-def alldomains_query():
-  domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS \
-      ).difference(SPECIAL_DOMAINS)
-  return [('alldomains', wrap(('domain', domain) \
-      for domain in SPECIAL_DOMAINS + sorted(domains)))]
+def alltags_query():
+  tags = set(Claim.distinct('tags') + DEFAULT_TAGS \
+      ).difference(SPECIAL_TAGS)
+  return [('alltags', wrap(('tag', tag) \
+      for tag in SPECIAL_TAGS + sorted(tags)))]
 
-def userdomains_query(user):
+def usertags_query(user):
   if user is None:
     return [authentication_failed_error]
-  return [('userdomains', wrap(('domain', domain) \
-      for domain in sorted(user.domains)))]
+  return [('usertags', wrap(('tag', tag) \
+      for tag in sorted(user.tags)))]
 
 def signup_post(name, email, password):
   if name is None or email is None or password is None:
@@ -204,7 +209,7 @@ def signup_post(name, email, password):
       'pwd_hash':pwd_hash,
       'reputation':DEFAULT_REPUTATION,
       'committed':{},
-      'domains':DEFAULT_DOMAINS
+      'tags':DEFAULT_TAGS
   })
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
@@ -341,10 +346,14 @@ def deleteclaim_post(user, uid):
   return [('deleteclaim', 'conflict')]
 
 def submitclaim_post(user, description, definition, bet, bounty, \
-    maxstake, closes, domain):
+    maxstake, closes, tags):
   if definition is None:
     definition = ''
-  if not is_valid_desc_def_domain(description, definition, domain):
+  try:
+    tags = deduplicate(json.loads(tags))
+  except Exception, e:
+    return [('submitclaim', 'baddata')]
+  if not is_valid_desc_def_tags(description, definition, tags):
     return [('submitclaim', 'baddata')]
 
   try:
@@ -373,7 +382,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
 
   MAX_UID = (1 << 31) - 1
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
-      'closes':closes, 'description':description, 'domain':domain, \
+      'closes':closes, 'description':description, 'tags':tags, \
       'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
       'definition':definition, \
       'history':[{'user':user.name, 'probability':bet, 'time':age}]})
@@ -387,14 +396,18 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   return [('submitclaim', 'conflict')]
 
 @admin_only
-def editclaim_post(user, uid, description, definition, closes, domain):
+def editclaim_post(user, uid, description, definition, closes, tags):
   try:
     uid = int(uid)
   except Exception, e:
     return [invalid_query_error]
   if definition is None:
     definition = ''
-  if not is_valid_desc_def_domain(description, definition, domain):
+  try:
+    tags = deduplicate(json.loads(tags))
+  except Exception, e:
+    return [('editclaim', 'baddata')]
+  if not is_valid_desc_def_tags(description, definition, tags):
     return [('editclaim', 'baddata')]
 
   try:
@@ -414,40 +427,43 @@ def editclaim_post(user, uid, description, definition, closes, domain):
     claim.description = description
     claim.definition = definition
     claim.closes = closes
-    claim.domain = domain
+    claim.tags = tags
 
     if claim.save():
       return [('editclaim', 'success')]
   return [('editclaim', 'conflict')]
 
-def is_valid_desc_def_domain(description, definition, domain):
+def is_valid_desc_def_tags(description, definition, tags):
   if description is None or len(description) < 4 or len(description) > 128:
     return False
   if definition is None or len(definition) > 512:
     return False
-  if (domain is None or domain in RESTRICTED_DOMAINS or len(domain) < 4 or
-      len(domain) > 16 or not domain.replace('_', '').isalpha() or
-      domain != domain.lower() or domain[-1] == '_'):
+  if (tags is None or not type(tags) == list
+      or len(tags) > 16 or tags != deduplicate(tags)):
+    return False
+  if any(type(tag) != unicode or tag in RESTRICTED_TAGS
+         or len(tag) < 4 or len(tag) > 16
+         or not tag.replace('_', '').isalpha()
+         or tag != tag.lower() or tag[-1] == '_'
+         for tag in tags):
     return False
   return True
 
-def newdomains_post(user, newdomains):
-  if newdomains is None:
+def newtags_post(user, newtags):
+  if newtags is None:
     return [invalid_query_error]
-  newdomains = newdomains.split(' ') if len(newdomains) else []
-  domains = set(Claim.distinct('domain') + DEFAULT_DOMAINS + SPECIAL_DOMAINS)
-  newdomains = [domain for domain in newdomains if domain in domains]
-  User.atomic_update(user.name, {'$set':{'domains':newdomains}})
-  return [('userdomains', wrap(('domain', domain) \
-      for domain in sorted(newdomains)))]
-  return [invalid_query_error]
+  newtags = newtags.split(' ') if len(newtags) else []
+  tags = set(Claim.distinct('tags') + DEFAULT_TAGS + SPECIAL_TAGS)
+  newtags = [tag for tag in newtags if tag in tags]
+  User.atomic_update(user.name, {'$set':{'tags':newtags}})
+  return [('usertags', wrap(('tag', tag) for tag in sorted(newtags)))]
 
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
   def query(self, login=None, search=None, claim=None, \
-      alldomains=None,  userdomains=None, name=None, password=None):
+      alltags=None,  usertags=None, name=None, password=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -459,10 +475,10 @@ class IdeaFuturesServer:
         results.extend(search_query(user, search))
       if claim is not None:
         results.extend(claim_query(claim))
-      if alldomains is not None:
-        results.extend(alldomains_query())
-      if userdomains is not None:
-        results.extend(userdomains_query(user))
+      if alltags is not None:
+        results.extend(alltags_query())
+      if usertags is not None:
+        results.extend(usertags_query(user))
     except Exception, e:
       results.append(('error', str(e)))
     results.append(('currenttime', now()))
@@ -476,7 +492,7 @@ class IdeaFuturesServer:
       submitclaim = None, editclaim=None, \
       name=None, email=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
-      maxstake=None, closes=None, domain=None, newdomains=None):
+      maxstake=None, closes=None, tags=None, newtags=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -495,12 +511,12 @@ class IdeaFuturesServer:
           results.extend(deleteclaim_post(user, id))
         elif submitclaim is not None:
           results.extend(submitclaim_post(user, description, definition, \
-              bet, bounty, maxstake, closes, domain))
+              bet, bounty, maxstake, closes, tags))
         elif editclaim is not None:
           results.extend(editclaim_post(user, id, description, \
-              definition, closes, domain))
-        elif newdomains is not None:
-          results.extend(newdomains_post(user, newdomains))
+              definition, closes, tags))
+        elif newtags is not None:
+          results.extend(newtags_post(user, newtags))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))

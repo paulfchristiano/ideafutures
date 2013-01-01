@@ -1,5 +1,5 @@
 // A display state is a object mapping 'type' to one of 'listclaims',
-// 'displayclaim', 'submitclaim' or 'listdomains'.
+// 'displayclaim', 'submitclaim' or 'listtags'.
 // It must provide the following methods:
 //   setDisplayState:
 //     Sets the window hash appropriately.
@@ -13,7 +13,7 @@
 //     Requests the necessary data from the server.
 //   isCached and isDirty:
 //     Checks the condition of the required data in the cache.
-// The default page is a search with the user's default domains.
+// The default page is a search with the user's default tags.
 function ListClaims(search) {
   this.type = 'listclaims';
   this.search = search;
@@ -88,13 +88,13 @@ function SubmitClaim() {
     $('#submitclaimnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
-    queryServer({'alldomains':1}, returnCall);
+    queryServer({'alltags':1}, returnCall);
   };
   this.isCached = function() {
-    return 'alldomains' in cache;
+    return 'alltags' in cache;
   };
   this.isDirty = function() {
-    return 'alldomains' in dirty;
+    return 'alltags' in dirty;
   };
 }
 
@@ -112,38 +112,38 @@ function EditClaim(id) {
   };
   this.updateActiveLink = function() {};
   this.getDisplayData = function(returnCall) {
-    queryServer({'alldomains':1, 'claim':this.id}, returnCall);
+    queryServer({'alltags':1, 'claim':this.id}, returnCall);
   };
   this.isCached = function() {
-    return 'alldomains' in cache && this.id in cache.claims;
+    return 'alltags' in cache && this.id in cache.claims;
   };
   this.isDirty = function() {
-    return 'alldomains' in dirty || this.id in cache.claims;
+    return 'alltags' in dirty || this.id in cache.claims;
   };
 }
 
-function ListDomains() {
-  this.type = 'listdomains';
+function ListTags() {
+  this.type = 'listtags';
   this.setDisplayState = function() {
     window.location.hash = this.type;
   };
   this.isForbidden = function() {
-    return (!isAdmin() && "You must be logged in to manage domains.");
+    return (!isAdmin() && "You must be logged in to manage tags.");
   };
   this.draw = function() {
-    drawDomains(cache.alldomains, cache.userdomains);
+    drawTags(cache.alltags, cache.usertags);
   };
   this.updateActiveLink = function() {
-    $('#domainsnavlink').addClass('activeLink');
+    $('#tagsnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
-    queryServer({'alldomains':1, 'userdomains':1}, returnCall);
+    queryServer({'alltags':1, 'usertags':1}, returnCall);
   };
   this.isCached = function() {
-    return 'alldomains' in cache && 'userdomains' in cache;
+    return 'alltags' in cache && 'usertags' in cache;
   };
   this.isDirty = function() {
-    return 'alldomains' in dirty || 'userdomains' in dirty;
+    return 'alltags' in dirty || 'usertags' in dirty;
   };
 }
 
@@ -160,7 +160,7 @@ function loggedIn() {
 
 var DEFAULT_BOUNTY = 1.44;
 var DEFAULT_MAXSTAKE = 0.1;
-var RESTRICTED_DOMAINS = ['all', 'active', 'promoted'];
+var RESTRICTED_TAGS = ['all', 'active', 'promoted'];
 
 var alertNum = 0;
 var currentTime = new Date();
@@ -222,8 +222,8 @@ function getDisplayState() {
       return new SubmitClaim();
     } else if (params[0] == 'editclaim') {
       return new EditClaim(parseInt(params[1]));
-    } else if (params[0] == 'listdomains') {
-      return new ListDomains();
+    } else if (params[0] == 'listtags') {
+      return new ListTags();
     } else {
       // Unknown state type. Show the home page.
       return DEFAULT_DISPLAY;
@@ -345,7 +345,7 @@ function clearClaimError(str) {
 function updateActiveLink(displayState) {
   $('#recentclaimsnavlink').removeClass('activeLink');
   $('#submitclaimnavlink').removeClass('activeLink');
-  $('#domainsnavlink').removeClass('activeLink');
+  $('#tagsnavlink').removeClass('activeLink');
   $('#mybetsnavlink').removeClass('activeLink');
   displayState.updateActiveLink();
 }
@@ -483,10 +483,10 @@ function drawClaims(results) {
     var mainFrame = "<div class='header'><h1>No claims found.</h1>";
     mainFrame += "<div class='row'>No claims match your current search.";
     if (loggedIn()) {
-      mainFrame += " Change your search on the <a href=\"#listdomains\">domains</a> page";
+      mainFrame += " Change your search on the <a href=\"#listtags\">tags</a> page";
       mainFrame += " or <a href=\"#submitclaim\">submit a claim</a>.";
     } else {
-      mainFrame += " Log in to change your search on the <a href=\"#listdomains\">domains</a> page.";
+      mainFrame += " Log in to change your search on the <a href=\"#listtags\">tags</a> page.";
     }
     mainFrame += "</div></div>";
     $('#mainframe').html(mainFrame);
@@ -604,7 +604,7 @@ function isOpen(claim) {
 
 function descriptionBox(claim) {
   var result = "<div class='header'><h1>\"" + claim.description + "\"</h1>";
-  result += "<div class='row'>Tags: " + claim.domain + "</div></div>";
+  result += "<div class='row'>Tags: " + claim.tags.join(', ') + "</div></div>";
   return result;
 }
 
@@ -837,8 +837,8 @@ function submitClaimBox(claim) {
     result += '<td><input type="text" id="betinput">%<td>';
     result += '</tr></tbody></table></p>';
   }
-  result += '<p><label for="domain">*Subject tags: </label>';
-  result += "<ul id='domain' data-name='domain'></ul></p>";
+  result += '<p><label for="tags">*Subject tags: </label>';
+  result += "<ul id='tags' data-name='tags'></ul></p>";
   result += '</fieldset><div id="submitclaim-spacer"/>';
   if (typeof claim == 'undefined') {
     result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Submit</a></div>";
@@ -882,61 +882,63 @@ function setSubmitClaimInputHandlers(claim) {
     }
   }
 
-  var domains = [];
-  for (var i = 0; i < cache.alldomains.length; i++) {
-    domain = cache.alldomains[i];
-    if (RESTRICTED_DOMAINS.indexOf(domain) == -1) {
-      domains.push(drawDomain(domain));
+  var tags = [];
+  for (var i = 0; i < cache.alltags.length; i++) {
+    tag = cache.alltags[i];
+    if (RESTRICTED_TAGS.indexOf(tag) == -1) {
+      tags.push(drawTag(tag));
     }
   }
   if (typeof claim != 'undefined') {
-    $('#domain').append('<li>' + claim.domain + '</li>');
+    for (var i = 0; i < claim.tags.length; i++) {
+      $('#tags').append('<li>' + claim.tags[i] + '</li>');
+    }
   }
-  $('#domain').tagit({
+  $('#tags').tagit({
     allowSpaces: true,
     animate: false,
     autocomplete: {
         delay: 0,
-        source: domains,
+        source: tags,
       },
     removeConfirmation: true,
     sortable: true,
     showAutocompleteOnFocus: true,
   });
-  var padding = parseInt($('#domain').css('padding-left'));
-  $('#domain').width($('#description').width() - padding - 2);
-  $('#domain').find('input').attr('maxlength', 16);
+  var padding = parseInt($('#tags').css('padding-left'));
+  $('#tags').width($('#description').width() - padding - 2);
+  $('#tags').find('input').attr('maxlength', 16);
 
   $('#submitclaimbutton').click(function(){
     submitClaim(claim);
   });
 }
 
-function drawDomains(alldomains, userdomains) {
-  var mainFrame = "<div class='header'><h1>Change domains</h1>";
-  mainFrame += "<div class='row'>Choose which domains to display by default, ";
-  mainFrame += "or view recent claims within a domain.</div></div>";
+function drawTags(alltags, usertags) {
+  var mainFrame = "<div class='header'><h1>Manage tags</h1>";
+  mainFrame += "<div class='row'>Choose which tags to display by default, ";
+  mainFrame += "or view recent claims within a tags.</div></div>";
   mainFrame += "<div>";
-  for (var i = 0; i < alldomains.length; i++) {
-    mainFrame += domainPicker(alldomains[i], userdomains);
+  for (var i = 0; i < alltags.length; i++) {
+    mainFrame += tagPicker(alltags[i], usertags);
   }
   mainFrame += "</div>";
   $('#mainframe').html(mainFrame);
-  for (var i = 0; i < alldomains.length; i++) {
-    $('#domain' + alldomains[i]).click(domainToggler(alldomains[i]));
+  for (var i = 0; i < alltags.length; i++) {
+    $('#tag' + alltags[i]).click(tagToggler(alltags[i]));
   }
 }
 
-function domainPicker(domain, userdomains) {
-  var type = (userdomains.indexOf(domain) > -1) ? "activedomain" : 'inactivedomain';
-  result = "<div class='row'><div class='left domainholder'><a id='domain" + domain + "' class='" + type + "'>";
-  result += drawDomain(domain) + "</a></div><div class='right'> <a href='#listclaims+" + domain + "'>";
-  result += "(view " + drawDomain(domain) + ")</a></div> </div>";
+function tagPicker(tag, usertags) {
+  var type = (usertags.indexOf(tag) > -1) ? "activetag" : 'inactivetag';
+  result = "<div class='row'><div class='left tagholder'><a id='tag" + tag + "' class='" + type + "'>";
+  result += drawTag(tag) + "</a></div><div class='right'> <a href='#listclaims+" + tag + "'>";
+  result += "(view " + drawTag(tag) + ")</a></div> </div>";
   return result;
 }
 
-function drawDomain(domain) {
-  return domain.replace(/_/g, ' ');
+function drawTag(tag) {
+  return tag.replace(/_/g, ' ');
 }
 
 /* -------------------------------------------------------------------------- *
@@ -985,7 +987,7 @@ function pingServer(query, queryType, returnCall) {
 }
 
 // Take in XML information returned by the server and cache any time,
-// reputation, claim, search, or domain information.
+// reputation, claim, search, or tag information.
 function autoParseXML(xml) {
   // TODO: If the return XML contains an error, return the user to the default
   // display and alert him with the error. Check for this condition first; do
@@ -996,7 +998,7 @@ function autoParseXML(xml) {
 
   parseUserFromXML(xml);
 
-  // Cache any claims, searches, and lists of domains found in the XML.
+  // Cache any claims, searches, and lists of tags found in the XML.
   $(xml).find('claim').each(function() {
     cacheClaim(parseClaimFromXML(this));
   });
@@ -1015,28 +1017,28 @@ function autoParseXML(xml) {
     }
   });
 
-  if ($(xml).find('alldomains').length > 0) {
-    var alldomains = [];
-    $(xml).find('alldomains').find('domain').each(function() {
-      alldomains.push($(this).text());
+  if ($(xml).find('alltags').length > 0) {
+    var alltags = [];
+    $(xml).find('alltags').find('tag').each(function() {
+      alltags.push($(this).text());
     });
-    if (!('alldomains' in cache) ||
-        !(arrayEquals(cache.alldomains, alldomains))) {
-      dirty.alldomains = true;
+    if (!('alltags' in cache) ||
+        !(arrayEquals(cache.alltags, alltags))) {
+      dirty.alltags = true;
     }
-    cache.alldomains = alldomains;
+    cache.alltags = alltags;
   }
 
-  if ($(xml).find('userdomains').length > 0) {
-    var userdomains = [];
-    $(xml).find('userdomains').find('domain').each(function() {
-      userdomains.push($(this).text());
+  if ($(xml).find('usertags').length > 0) {
+    var usertags = [];
+    $(xml).find('usertags').find('tag').each(function() {
+      usertags.push($(this).text());
     });
-    if (!('userdomains' in cache) ||
-        !(arrayEquals(cache.userdomains, userdomains))) {
-      dirty.userdomains = true;
+    if (!('usertags' in cache) ||
+        !(arrayEquals(cache.usertags, usertags))) {
+      dirty.usertags = true;
     }
-    cache.userdomains = userdomains;
+    cache.usertags = usertags;
   }
 }
 
@@ -1076,7 +1078,10 @@ function parseClaimFromXML(xml) {
   result.bounty = parseFloat($(xml).find('bounty').text());
   result.closes = parseDate($(xml).find('closes').text());
   result.description = $(xml).find('description').text();
-  result.domain = $(xml).find('domain').text();
+  result.tags = [];
+  $(xml).find('tags').find('tag').each(function() {
+    result.tags.push($(this).text());
+  });
   result.maxstake = parseFloat($(xml).find('maxstake').text());
   result.owner = $(xml).find('owner').text();
   result.promoted = ($(xml).find('promoted').text() == '1');
@@ -1182,7 +1187,7 @@ function signup(name, email, password){
 
 function logout() {
   user = newUser();
-  delete cache.userdomains;
+  delete cache.usertags;
   saveUserState();
   $(window).trigger('hashchange');
 }
@@ -1330,46 +1335,46 @@ function submitClaim(claim) {
     }
   }
 
-  var domains = $('#domain').tagit('assignedTags');
-  for (var i = 0; i < domains.length; i++) {
-    var domain = domains[i].replace(/ /g, '_');
-    if (RESTRICTED_DOMAINS.indexOf(domain) > -1) {
-      setClaimError("The domain '" + domain + "' is reserved.");
-    } else if (domain.length < 4) {
-      setClaimError("The domain '" + domain + "' is too short.");
+  var tags = $('#tags').tagit('assignedTags');
+  for (var i = 0; i < tags.length; i++) {
+    var tag = tags[i].replace(/ /g, '_');
+    if (RESTRICTED_TAGS.indexOf(tag) > -1) {
+      setClaimError("The tag '" + tag + "' is reserved.");
+    } else if (tag.length < 4) {
+      setClaimError("The tag '" + tag + "' is too short.");
       return;
-    } else if (domain.length > 16) {
-      setClaimError("The domain '" + domain + "' is too long.");
+    } else if (tag.length > 16) {
+      setClaimError("The tag '" + tag + "' is too long.");
       return;
-    } else if (domain.match(/^[a-z_]+$/) == null) {
-      setClaimError("The domain '" + domain + "' should only contain lowercase characters or spaces.");
+    } else if (tag.match(/^[a-z_]+$/) == null) {
+      setClaimError("The tag '" + tag + "' should only contain lowercase characters or spaces.");
       return;
-    } else if (domain[domain.length - 1] == '_') {
-      setClaimError("The domain '" + domain + "' has trailing spaces.");
+    } else if (tag[tag.length - 1] == '_') {
+      setClaimError("The tag '" + tag + "' has trailing spaces.");
       return;
     }
-    domains[i] = domain;
+    tags[i] = tag;
   }
-  if (!domains.length) {
-    setClaimError('You must enter a domain for this claim.');
+  if (!tags.length) {
+    setClaimError('You must enter a tag for this claim.');
     return;
-  } else if (domains.length > 1) {
-    setClaimError('We currently do not support multiple tags for a claim.');
+  } else if (tags.length > 16) {
+    setClaimError('You cannot assign that many tags to one claim.');
     return;
   }
-  var domain = domains[1];
+  tags = JSON.stringify(tags);
 
   clearClaimError();
   $('#submitclaimbutton').click(function() {});
   if (typeof claim == 'undefined') {
     var update = {'submitclaim':1, 'description':description, 'definition':definition,
         'bet':bet, 'bounty':bounty, 'maxstake':maxstake, 'closes':serverDate(closes),
-        'domain':domain};
+        'tags':tags};
     var updateType = 'submitclaim';
     var newDisplay = DEFAULT_DISPLAY;
   } else {
     var update = {'editclaim':1, 'id':claim.id, 'description':description, 'definition':definition,
-        'closes':serverDate(closes), 'domain':domain};
+        'closes':serverDate(closes), 'tags':tags};
     var updateType = 'editclaim';
     var newDisplay = new DisplayClaim(claim.id);
   }
@@ -1421,28 +1426,28 @@ function padInt(x, len){
   return x;
 }
 
-function domainToggler(domain) {
+function tagToggler(tag) {
   return function() {
-    if (!('alldomains' in cache) || !('userdomains' in cache) ||
-        cache.alldomains.indexOf(domain) == -1) {
+    if (!('alltags' in cache) || !('usertags' in cache) ||
+        cache.alltags.indexOf(tag) == -1) {
       return;
     }
 
-    var index = cache.userdomains.indexOf(domain);
+    var index = cache.usertags.indexOf(tag);
     if (index > -1) {
-      cache.userdomains.splice(index, 1);
+      cache.usertags.splice(index, 1);
     } else {
-      cache.userdomains.push(domain);
+      cache.usertags.push(tag);
     }
 
-    updateServer({'newdomains':cache.userdomains.join(' ')});
+    updateServer({'newtags':cache.usertags.join(' ')});
     if (index > -1) {
-      $('#domain' + domain).css("color","gray");
-      $('#domain' + domain).animate({"font-size":"1.5em",
+      $('#tag' + tag).css("color","gray");
+      $('#tag' + tag).animate({"font-size":"1.5em",
           "paddingBottom":"0.5em", "paddingTop":"0.5em"}, 200);
     } else {
-      $('#domain' + domain).css("color","rgb(235,143,0)");
-      $('#domain' + domain).animate({"font-size":"2.5em", "paddingTop":"0em",
+      $('#tag' + tag).css("color","rgb(235,143,0)");
+      $('#tag' + tag).animate({"font-size":"2.5em", "paddingTop":"0em",
           "paddingTop":"0em"} ,200);
     }
   }

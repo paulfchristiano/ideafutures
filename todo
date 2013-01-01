@@ -8,7 +8,7 @@ x     Restrict slider to allowed range
       Show the amount risked as a function of the initial prob.
 x   Use datetimepicker instead of two fields for date and time
 x   Remove multiplier, max bet fields
-  Claims details page:
+x Claims details page:
 x   Change bet grid to outcomes table:
 x     Title: "Outcomes"
 x     Check and X for True or False
@@ -17,27 +17,26 @@ x   Show domain under claim, not sidebar
 x   Move confirm/deny to center of page
 x     Change to Mark True Check, Mark False X
 x   Restrict slider to allowed range
-      Show bounds on the slider?
-  General:
+      (Show bounds on the slider)
+x General:
 x   Floating sidebar and topbar
 x   Show points free instead of committed
 x   Nice modal for signup - name, email, pwd, retype pwd
 x   Nice modal for resolve bet
 
 Tags:
-  Change "domains" to "tags" everywhere
-  Multiple tags per bet
+x Change "domains" to "tags" everywhere
+x Multiple tags per bet
 x Create widget for selecting a subet of tags:
-    Two tag clouds - public and private
-    Selected tags grow in place
+x   Use tagit multi-tag text box
+x   On submit claims page, add options for creating new tags
     Use widget on submit claim + manage tags page
-    On submit claims page, add options for creating new tags
   Add "search by tag" bar to main page
     (Incremental search)
 
-Private tags:
-  For each private tag you are a part of, add row on manage tags:
-    Header: tag name
+Groups and privacy controls:
+  For each group you are a part of, add row on account settings:
+    Header: group name
     Table mapping user -> email and status (invite sent, accepted)
     If owner, two-four buttons on the right:
       Add user:
@@ -48,7 +47,7 @@ Private tags:
       (Delete)
     If member, Leave button on the right
   Search semantics:
-    Users only see claims they have access to ALL private tags for
+    Users only see claims they have access to ANY private group for
 
 Backend/scaling:
 x Don't take bounty or maxstake from the client

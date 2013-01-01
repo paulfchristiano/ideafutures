@@ -256,19 +256,16 @@ a.currentbet:hover, a.currentbet:active {
   opacity: 0;
 }
 
-.activedomain{
+.activetag {
   font-size: 2.5em;
 }
 
-.inactivedomain{
+.inactivetag {
   font-size: 1.5em;
-  color:gray;
+  color: gray;
 }
 
-.inactivedomain{
-}
-
-.domainholder{
+.tagholder {
   text-align: center;
   width: 200px;
 }
@@ -615,7 +612,7 @@ h3.short {
   width: 6%;
 }
 
-#submitclaim-form #domain {
+#submitclaim-form #tags {
   border-color: #8A8A8B;
   float: left;
   font-size: 11px;
