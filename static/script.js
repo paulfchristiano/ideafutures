@@ -282,9 +282,7 @@ function updateDisplay(displayState) {
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
 
-    if (!displayState.search) {
-      $('#search').val('');
-    }
+    $('#search').val(displayState.search || '');
     displayState.draw();
   }
 }
@@ -620,7 +618,7 @@ function isOpen(claim) {
 
 function descriptionBox(claim) {
   var result = "<div class='header'><h1>\"" + claim.description + "\"</h1>";
-  result += "<div class='row'>Tags: " + claim.tags.join(', ') + "</div></div>";
+  result += "<div class='row'>Tags: " + claim.tags.map(drawTag).join(', ') + "</div></div>";
   return result;
 }
 
@@ -907,7 +905,7 @@ function setSubmitClaimInputHandlers(claim) {
   }
   if (typeof claim != 'undefined') {
     for (var i = 0; i < claim.tags.length; i++) {
-      $('#tags').append('<li>' + claim.tags[i] + '</li>');
+      $('#tags').append('<li>' + drawTag(claim.tags[i]) + '</li>');
     }
   }
   $('#tags').tagit({
@@ -948,7 +946,8 @@ function drawTags(alltags, usertags) {
 function tagPicker(tag, usertags) {
   var type = (usertags.indexOf(tag) > -1) ? "activetag" : 'inactivetag';
   result = "<div class='row'><div class='left tagholder'><a id='tag" + tag + "' class='" + type + "'>";
-  result += drawTag(tag) + "</a></div><div class='right'> <a href='#listclaims+" + encodeURIComponent(tag) + "'>";
+  var href = '#listclaims+' + encodeURIComponent('"' + drawTag(tag) + '"');
+  result += drawTag(tag) + '</a></div><div class="right"> <a href="' + href + '">';
   result += "(view " + drawTag(tag) + ")</a></div> </div>";
   return result;
 }
@@ -1479,7 +1478,7 @@ function tagToggler(tag) {
  * -------------------------------------------------------------------------- */
 
 function setSearchInputHandlers() {
-  onchange = function() {
+  var onchange = function() {
     var search = $('#search').val();
     var displayState = (search ? new ListClaims(search) : DEFAULT_DISPLAY);
     if (!isCurrentDisplay(displayState)) {
