@@ -226,6 +226,24 @@ tr.even {
   color:rgb(0,0,0);
 }
 
+#navlinks .right-li {
+  float: right;
+  border-left: none;
+  padding: 0px;
+}
+
+#navlinks #searchbox {
+  margin: -1px 16px -4px 1px;
+}
+
+#searchbox input {
+  font-size: 12px;
+  height: 12px;
+  resize: none;
+  padding: 2px 1px;
+  width: 200px;
+}
+
 h2 a:link, h2 a:visited {
   color:black;
 }
@@ -582,7 +600,7 @@ h3.short {
   margin-right: -4px;
 }
 
-#submitclaim-form textarea {
+#submitclaim-form textarea, {
   width: 64%;
   height: 14px;
   resize: none;
