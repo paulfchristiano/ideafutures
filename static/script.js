@@ -18,7 +18,7 @@ function ListClaims(search) {
   this.type = 'listclaims';
   this.search = search;
   this.setDisplayState = function() {
-    window.location.hash = this.type + '+' + this.search;
+    window.location.hash = this.type + '+' + encodeURIComponent(this.search);
   };
   this.isForbidden = function() {
     if (this.search == 'my_bets' && !loggedIn()) {
@@ -53,7 +53,7 @@ function DisplayClaim(id) {
   this.type = 'displayclaim';
   this.id = id;
   this.setDisplayState = function() {
-    window.location.hash = this.type + '+' + this.id;
+    window.location.hash = this.type + '+' + encodeURIComponent(this.id);
   };
   this.isForbidden = function() {
     return false;
@@ -102,7 +102,7 @@ function EditClaim(id) {
   this.type = 'editclaim';
   this.id = id;
   this.setDisplayState = function() {
-    window.location.hash = this.type + '+' + this.id;
+    window.location.hash = this.type + '+' + encodeURIComponent(this.id);
   };
   this.isForbidden = function() {
     return (!isAdmin() && "You must be an admin to edit a claim.");
@@ -215,13 +215,13 @@ function getDisplayState() {
   } else {
     var params  = paramFragment.split("+");
     if (params[0] == 'listclaims') {
-      return new ListClaims(params[1]);
+      return new ListClaims(decodeURIComponent(params[1]));
     } else if (params[0]  == 'displayclaim') {
-      return new DisplayClaim(parseInt(params[1]));
+      return new DisplayClaim(parseInt(decodeURIComponent(params[1]), 10));
     } else if (params[0] == 'submitclaim') {
       return new SubmitClaim();
     } else if (params[0] == 'editclaim') {
-      return new EditClaim(parseInt(params[1]));
+      return new EditClaim(parseInt(decodeURIComponent(params[1]), 10));
     } else if (params[0] == 'listtags') {
       return new ListTags();
     } else {
@@ -401,7 +401,7 @@ function adminSidebarBlock(claim) {
     result += "<div class='row'><a id='reopen'>Re-open this claim.</a></div>";
     result += "</div><div class='sidebarblock'>";
   }
-  result += "<div class='row'><a href='#editclaim+" + claim.id + "'>";
+  result += "<div class='row'><a href='#editclaim+" + encodeURIComponent(claim.id) + "'>";
   if (isOpen(claim)) {
     result += "Edit this claim.</a></div>";
   }
@@ -507,7 +507,7 @@ function drawClaims(results) {
 
 function topicBox(claim) {
   var lastBet = claim.history[claim.history.length - 1];
-  var href = "#displayclaim+" + claim.id;
+  var href = "#displayclaim+" + encodeURIComponent(claim.id);
   var result = "<div class='topicbox'><h2>";
   if (claim.resolved == 1) {
     result += "<span class='ui-icon left-align ui-icon-check'/>"
@@ -932,7 +932,7 @@ function drawTags(alltags, usertags) {
 function tagPicker(tag, usertags) {
   var type = (usertags.indexOf(tag) > -1) ? "activetag" : 'inactivetag';
   result = "<div class='row'><div class='left tagholder'><a id='tag" + tag + "' class='" + type + "'>";
-  result += drawTag(tag) + "</a></div><div class='right'> <a href='#listclaims+" + tag + "'>";
+  result += drawTag(tag) + "</a></div><div class='right'> <a href='#listclaims+" + encodeURIComponent(tag) + "'>";
   result += "(view " + drawTag(tag) + ")</a></div> </div>";
   return result;
 }
