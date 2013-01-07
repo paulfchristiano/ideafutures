@@ -282,6 +282,9 @@ function updateDisplay(displayState) {
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
 
+    if (!displayState.hasOwnProperty('search')) {
+      $('#search').val('');
+    }
     displayState.draw();
   }
 }
@@ -1469,6 +1472,22 @@ function tagToggler(tag) {
           "paddingTop":"0em"} ,200);
     }
   }
+}
+
+/* -------------------------------------------------------------------------- *
+ * Static input handlers for the navbar!                                      *
+ * -------------------------------------------------------------------------- */
+
+function setSearchInputHandlers() {
+  onchange = function() {
+    var displayState = new ListClaims($('#search').val());
+    if (!isCurrentDisplay(displayState)) {
+      displayState.setDisplayState();
+    }
+  }
+
+  $('#search').keyup(onchange);
+  $('#search').blur(onchange);
 }
 
 /* -------------------------------------------------------------------------- *

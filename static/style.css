@@ -241,7 +241,7 @@ tr.even {
   height: 12px;
   resize: none;
   padding: 2px 1px;
-  width: 200px;
+  width: 160px;
 }
 
 h2 a:link, h2 a:visited {
@@ -600,7 +600,7 @@ h3.short {
   margin-right: -4px;
 }
 
-#submitclaim-form textarea, {
+#submitclaim-form textarea {
   width: 64%;
   height: 14px;
   resize: none;
