@@ -26,13 +26,14 @@ x   Nice modal for resolve bet
 
 Tags:
 x Change "domains" to "tags" everywhere
+  Allow tag input to take uppercase characters - lower on server
 x Multiple tags per bet
 x Create widget for selecting a subet of tags:
 x   Use tagit multi-tag text box
 x   On submit claims page, add options for creating new tags
     Use widget on submit claim + manage tags page
-  Add "search by tag" bar to main page
-    (Incremental search)
+x Add "search by tag" bar to main page
+x   (Incremental search)
 
 Groups and privacy controls:
   For each group you are a part of, add row on account settings:
