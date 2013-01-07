@@ -14,40 +14,49 @@
 //   isCached and isDirty:
 //     Checks the condition of the required data in the cache.
 // The default page is a search with the user's default tags.
-function ListClaims(search) {
+function ListClaims(search, extra) {
   this.type = 'listclaims';
   this.search = search;
+  this.extra = extra;
+  this.query = encodeURIComponent(this.search);
+  if (extra) {
+    this.query += '+' + encodeURIComponent(this.extra);
+  }
   this.setDisplayState = function() {
-    window.location.hash = this.type + '+' + encodeURIComponent(this.search);
+    window.location.hash = this.type + '+' + this.query;
   };
   this.isForbidden = function() {
-    if (this.search == 'my_bets' && !loggedIn()) {
+    if (this.extra == 'my_bets' && !loggedIn()) {
       return 'You must be logged in to see claims you have bet on.';
     }
     return false;
   };
   this.draw = function() {
-    drawClaims(cache.searches[this.search]);
+    drawClaims(cache.searches[this.query]);
   };
   this.updateActiveLink = function() {
-    if (this.search == 'my_bets') {
+    if (this.extra == 'my_bets') {
       $('#mybetsnavlink').addClass('activeLink');
     } else {
       $('#recentclaimsnavlink').addClass('activeLink');
     }
   };
   this.getDisplayData = function(returnCall) {
-    queryServer({'search':this.search}, returnCall);
+    if (extra) {
+      queryServer({'search':this.search, 'extra':this.extra}, returnCall);
+    } else {
+      queryServer({'search':this.search}, returnCall);
+    }
   };
   this.isCached = function() {
-    return this.search in cache.searches;
+    return this.query in cache.searches;
   };
   this.isDirty = function() {
-    return this.search in dirty.searches;
+    return this.query in dirty.searches;
   };
 }
 
-var DEFAULT_DISPLAY = new ListClaims('user_default');
+var DEFAULT_DISPLAY = new ListClaims('', 'user_default');
 
 function DisplayClaim(id) {
   this.type = 'displayclaim';
@@ -160,7 +169,7 @@ function loggedIn() {
 
 var DEFAULT_BOUNTY = 1.44;
 var DEFAULT_MAXSTAKE = 0.1;
-var RESTRICTED_TAGS = ['all', 'active', 'promoted'];
+var RESTRICTED_TAGS = [];
 
 var alertNum = 0;
 var currentTime = new Date();
@@ -215,7 +224,11 @@ function getDisplayState() {
   } else {
     var params  = paramFragment.split("+");
     if (params[0] == 'listclaims') {
-      return new ListClaims(decodeURIComponent(params[1]));
+      if (params.length > 2) {
+        return new ListClaims(decodeURIComponent(params[1]), decodeURIComponent(params[2]));
+      } else {
+        return new ListClaims(decodeURIComponent(params[1]));
+      }
     } else if (params[0]  == 'displayclaim') {
       return new DisplayClaim(parseInt(decodeURIComponent(params[1]), 10));
     } else if (params[0] == 'submitclaim') {
@@ -235,7 +248,7 @@ function getDisplayState() {
 function isCurrentDisplay(displayState) {
   var newDisplayState = getDisplayState();
   return displayState.type == newDisplayState.type &&
-      displayState.search == newDisplayState.search &&
+      displayState.query == newDisplayState.query &&
       displayState.id == newDisplayState.id;
 }
 
@@ -1003,7 +1016,7 @@ function autoParseXML(xml) {
     cacheClaim(parseClaimFromXML(this));
   });
 
-  $(xml).find('search').each(function() {
+  $(xml).find('search_result').each(function() {
     var result = [];
     $(this).find('uid').each(function() {
       var id = parseInt($(this).text());
@@ -1013,7 +1026,12 @@ function autoParseXML(xml) {
     });
     // Only cache the search if all of the relevant claims have been cached.
     if (result.length == $(this).find('uid').length) {
-      cacheSearch($(this).find('query').text(), result);
+      var query = encodeURIComponent($(this).find('search').text());
+      var extra = $(this).find('extra');
+      if (extra.length) {
+        query += '+' + encodeURIComponent(extra.text());
+      }
+      cacheSearch(query, result);
     }
   });
 

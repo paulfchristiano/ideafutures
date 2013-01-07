@@ -20,13 +20,8 @@ invalid_query_error = ('error', \
 authentication_failed_error = ('error', \
     'Authentication failed. Username or password incorrect.')
 
-# The default tags are the tags which logged out users see.
-# The restricted tags are not allowed to be the tags of any claim.
-# The special tags are always included in the set of all tags, even
-# though they are not the tags of any claim.
-DEFAULT_TAGS = ['general', 'promoted']
-SPECIAL_TAGS = ['all', 'active', 'promoted']
-RESTRICTED_TAGS = SPECIAL_TAGS + ['my_bets', 'user_default']
+# The DEFAULT_TAGS are the tags that always exist, even when no claims have them.
+DEFAULT_TAGS = ['general']
 DEFAULT_REPUTATION = 100.0
 
 def is_admin(user):
@@ -136,38 +131,61 @@ def login_query(name, password):
   else:
     return [('login', 'success')]
 
-def search_query(user, search):
-  if search == 'user_default':
-    if user is None or len(user.tags) == 0:
-      vals = execute_searches(DEFAULT_TAGS)
+def search_query(user, search, extra=None):
+  searches = parse_search(search)
+  vals = execute_searches(user, searches, extra)
+  query = [('search', search), ('extra', extra)] if extra else [('search', search)]
+  result = [('search_result', wrap(query + [('uid', claim.uid) for claim in vals]))]
+  result.extend(('claim', wrap(claim)) for claim in vals)
+  return result
+
+# Parses a search string into a list of normalized search tokens.
+# Returns a MongoDB query object to filter the 'tags' list of a claim.
+def parse_search(search):
+  if not search:
+    return []
+  tokens = re.sub('[ ,]', '_', search.lower()).split('"')
+  exact_searches = []
+  searches = []
+  for i, token in enumerate(tokens):
+    if i % 2:
+      exact_searches.append(normalize(token))
     else:
-      vals = execute_searches(user.tags)
-  else:
-    vals = execute_searches([search], user)
-  result = [('claim', wrap(claim)) for claim in vals]
-  return result + [('search', \
-      wrap([('uid', claim.uid) for claim in vals] + [('query', search)]))]
+      searches.extend(normalize(part) for part in token.split('_'))
+  exact_searches = list(set(token for token in exact_searches if token))
+  searches = list(set(token for token in searches if token))
+  searches = [re.compile(token) for token in searches]
+  searches.extend(token for token in exact_searches)
+  return searches
+
+def normalize(token):
+  return ''.join(c for c in token if c.isalpha() or c == '_').strip('_')
 
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
-def execute_searches(searches, user=None):
-  if 'all' in searches:
+def execute_searches(user, searches, extra=None):
+  tags = user.tags if user else []
+  if extra == 'all' or (extra == 'user_default' and not tags):
     vals = Claim.find(uses_key_fields=False)
-  elif 'active' in searches:
-    vals = Claim.find({'resolved':0})
-  elif 'my_bets' in searches:
-    vals = []
-    if user is not None:
-      vals = Claim.find({'uid':{'$in':map(int, user.committed.keys())}})
-  elif 'promoted' in searches:
-    if len(searches) > 1:
-      searches = tuple(search for search in searches if search != 'promoted')
-      vals = Claim.find({'$or':[{'promoted':1}, {'tags':{'$in':searches}}]}, \
-            uses_key_fields=False)
-    else:
-      vals = Claim.find({'promoted':1}, uses_key_fields=False)
+    return sorted(vals, key=lambda claim: claim.age, reverse=True)
+
+  clauses = {}
+  if extra == 'user_default':
+    searches = [{'$regex': '^%s$' % tag} for tag in user.tags]
+  elif extra == 'active':
+    vals = clauses['resolved'] = 0
+  elif extra == 'my_bets' and user:
+    clauses['uid'] = {'$in': map(int, user.committed.keys())}
+  elif extra == 'promoted':
+    clauses['promoted'] = 1
+
+  if searches:
+    clauses['tags'] = {'$all': searches}
+  if not clauses:
+    vals = Claim.find(uses_key_fields=False)
   else:
-    vals = Claim.find({'tags':{'$in':searches}}, uses_key_fields=False)
+    uses_key_fields = 'uid' in clauses
+    vals = Claim.find(clauses, uses_key_fields=uses_key_fields)
   return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
 def claim_query(uid):
@@ -179,10 +197,8 @@ def claim_query(uid):
   return [('claim', wrap(claim))]
 
 def alltags_query():
-  tags = set(Claim.distinct('tags') + DEFAULT_TAGS \
-      ).difference(SPECIAL_TAGS)
-  return [('alltags', wrap(('tag', tag) \
-      for tag in SPECIAL_TAGS + sorted(tags)))]
+  tags = set(Claim.distinct('tags') + DEFAULT_TAGS)
+  return [('alltags', wrap(('tag', tag) for tag in sorted(tags)))]
 
 def usertags_query(user):
   if user is None:
@@ -209,7 +225,7 @@ def signup_post(name, email, password):
       'pwd_hash':pwd_hash,
       'reputation':DEFAULT_REPUTATION,
       'committed':{},
-      'tags':DEFAULT_TAGS
+      'tags':[]
   })
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
@@ -453,7 +469,7 @@ def newtags_post(user, newtags):
   if newtags is None:
     return [invalid_query_error]
   newtags = newtags.split(' ') if len(newtags) else []
-  tags = set(Claim.distinct('tags') + DEFAULT_TAGS + SPECIAL_TAGS)
+  tags = set(Claim.distinct('tags') + DEFAULT_TAGS)
   newtags = [tag for tag in newtags if tag in tags]
   User.atomic_update(user.name, {'$set':{'tags':newtags}})
   return [('usertags', wrap(('tag', tag) for tag in sorted(newtags)))]
@@ -462,7 +478,7 @@ class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
-  def query(self, login=None, search=None, claim=None, \
+  def query(self, login=None, search=None, extra=None, claim=None, \
       alltags=None,  usertags=None, name=None, password=None):
     results = []
     try:
@@ -472,7 +488,7 @@ class IdeaFuturesServer:
       if login is not None:
         results.extend(login_query(name, password))
       if search is not None:
-        results.extend(search_query(user, search))
+        results.extend(search_query(user, search, extra))
       if claim is not None:
         results.extend(claim_query(claim))
       if alltags is not None:
