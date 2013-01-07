@@ -164,6 +164,10 @@ def normalize(token):
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
 def execute_searches(user, searches, extra=None):
+  # TODO: This is a hack to make blank incremental searches show the default
+  # view for a user, instead of all claims. It should be handled by the client.
+  if extra == 'incremental' and not searches:
+    extra = 'user_default'
   tags = user.tags if user else []
   if extra == 'all' or (extra == 'user_default' and not tags):
     vals = Claim.find(uses_key_fields=False)

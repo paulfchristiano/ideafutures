@@ -57,6 +57,7 @@ function ListClaims(search, extra) {
 }
 
 var DEFAULT_DISPLAY = new ListClaims('', 'user_default');
+var TITLE = 'Reputation-based prediction market';
 
 function DisplayClaim(id) {
   this.type = 'displayclaim';
@@ -1480,9 +1481,16 @@ function tagToggler(tag) {
 function setSearchInputHandlers() {
   var onchange = function() {
     var search = $('#search').val();
-    var displayState = (search ? new ListClaims(search) : DEFAULT_DISPLAY);
+    var displayState = new ListClaims(search, 'incremental');
     if (!isCurrentDisplay(displayState)) {
-      displayState.setDisplayState();
+      var oldDisplayState = getDisplayState();
+      if (oldDisplayState.extra != 'incremental') {
+        history.pushState({}, TITLE, '#listclaims+' + displayState.query);
+      } else {
+        history.replaceState({}, TITLE, '#listclaims+' + displayState.query);
+      }
+      updateDisplay(displayState);
+      getDisplayData(displayState);
     }
   }
 
