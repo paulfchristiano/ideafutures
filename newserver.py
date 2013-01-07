@@ -457,7 +457,7 @@ def is_valid_desc_def_tags(description, definition, tags):
   if (tags is None or not type(tags) == list
       or len(tags) > 16 or tags != deduplicate(tags)):
     return False
-  if any(type(tag) != unicode or tag in RESTRICTED_TAGS
+  if any(type(tag) != unicode
          or len(tag) < 4 or len(tag) > 16
          or not tag.replace('_', '').isalpha()
          or tag != tag.lower() or tag[-1] == '_'
