@@ -37,7 +37,7 @@ function ListClaims(search, extra) {
   this.updateActiveLink = function() {
     if (this.extra == 'my_bets') {
       $('#mybetsnavlink').addClass('activeLink');
-    } else {
+    } else if (this.extra == 'user_default') {
       $('#recentclaimsnavlink').addClass('activeLink');
     }
   };
@@ -282,7 +282,7 @@ function updateDisplay(displayState) {
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
 
-    if (!displayState.hasOwnProperty('search')) {
+    if (!displayState.search) {
       $('#search').val('');
     }
     displayState.draw();
@@ -1480,7 +1480,8 @@ function tagToggler(tag) {
 
 function setSearchInputHandlers() {
   onchange = function() {
-    var displayState = new ListClaims($('#search').val());
+    var search = $('#search').val();
+    var displayState = (search ? new ListClaims(search) : DEFAULT_DISPLAY);
     if (!isCurrentDisplay(displayState)) {
       displayState.setDisplayState();
     }
