@@ -513,8 +513,8 @@ class IdeaFuturesServer:
         results.extend(alltags_query())
       if usertags is not None:
         results.extend(usertags_query(user))
-    except Exception, e:
-      results.append(('error', str(e)))
+    except Exception:
+      raise
     results.append(('currenttime', now()))
     return '<body>%s</body>' % (wrap(results),)
 
@@ -556,8 +556,8 @@ class IdeaFuturesServer:
         results.append(('user', wrap(user)))
       else:
         results.append(authentication_failed_error)
-    except Exception, e:
-      results.append(('error', str(e)))
+    except Exception:
+      raise
     results.append(('currenttime', now()))
     return '<body>%s</body>' % (wrap(results),)
 
