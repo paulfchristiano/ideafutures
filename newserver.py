@@ -148,7 +148,7 @@ def parse_search(search):
   if not search:
     return ([], [], [])
   elif search == 'incremental! ':
-    return ([], [], ['userdefault'])
+    return ([], [], ['default'])
   tokens = re.sub('[ ,]', '_', search.lower()).split('"')
   tokens = chain(*(normalize(token, i % 2) for (i, token) in enumerate(tokens)))
   tokens = [token for token in tokens if token not in ('', '""')]
@@ -183,7 +183,7 @@ def normalize(token, quoted=True):
 # claims in those tags, ordered from newest to oldest.
 def execute_searches(user, parsed_search):
   (searches, tag_searches, extras) = parsed_search
-  if 'userdefault' in extras:
+  if 'default' in extras:
     tags = user.tags if user else []
     clause = {'tags': {'$all': tags}} if tags else {}
     vals = Claim.find(clause, uses_key_fields=False)
@@ -425,7 +425,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     if claim.save():
       User.atomic_update(user.name, \
           {'$inc':{'committed.%s' % claim.uid:stake}})
-      return [('submitclaim', 'success')] + search_query(user, '', 'user_default')
+      return [('submitclaim', 'success')] + search_query(user, '', 'default')
     claim.uid = randint(0, MAX_UID)
   return [('submitclaim', 'conflict')]
 

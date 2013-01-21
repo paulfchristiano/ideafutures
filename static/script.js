@@ -37,7 +37,7 @@ function ListClaims(search, extra) {
   this.updateActiveLink = function() {
     if (this.extra == 'my_bets') {
       $('#mybetsnavlink').addClass('activeLink');
-    } else if (this.extra == 'user_default') {
+    } else if (this.extra == 'default') {
       $('#recentclaimsnavlink').addClass('activeLink');
     }
   };
@@ -56,7 +56,7 @@ function ListClaims(search, extra) {
   };
 }
 
-var DEFAULT_DISPLAY = new ListClaims('', 'user_default');
+var DEFAULT_DISPLAY = new ListClaims('', 'default');
 var TITLE = 'Reputation-based prediction market';
 
 function DisplayClaim(id) {
@@ -947,7 +947,7 @@ function drawTags(alltags, usertags) {
 function tagPicker(tag, usertags) {
   var type = (usertags.indexOf(tag) > -1) ? "activetag" : 'inactivetag';
   result = "<div class='row'><div class='left tagholder'><a id='tag" + tag + "' class='" + type + "'>";
-  var href = '#listclaims+' + encodeURIComponent('"' + drawTag(tag) + '"');
+  var href = '#listclaims+' + encodeURIComponent('tag:"' + drawTag(tag) + '"');
   result += drawTag(tag) + '</a></div><div class="right"> <a href="' + href + '">';
   result += "(view " + drawTag(tag) + ")</a></div> </div>";
   return result;
