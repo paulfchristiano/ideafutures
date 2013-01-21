@@ -26,7 +26,7 @@ x   Nice modal for resolve bet
 
 Tags:
 x Change "domains" to "tags" everywhere
-  Allow tag input to take uppercase characters - lower on server
+x Allow tag input to take uppercase characters - lower on server
 x Multiple tags per bet
 x Create widget for selecting a subet of tags:
 x   Use tagit multi-tag text box
@@ -34,6 +34,7 @@ x   On submit claims page, add options for creating new tags
     Use widget on submit claim + manage tags page
 x Add "search by tag" bar to main page
 x   (Incremental search)
+x   (Full text search)
 
 Groups and privacy controls:
   For each group you are a part of, add row on account settings:
@@ -55,5 +56,5 @@ x Don't take bounty or maxstake from the client
 x Store pwd hashes at the server
     Salt hashes w/ salt stored outside repo
   Pagination on main page
-  Fixed-size LRU cache for claims
+  Fixed-size LRU cache for searches / claims
   Use JSON for transport from the server to the client
