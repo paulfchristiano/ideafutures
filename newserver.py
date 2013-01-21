@@ -136,10 +136,39 @@ def login_query(name, password):
 def search_query(user, search, extra):
   full_search = '%s! %s' % (extra.replace('_', ''), search) if extra else search
   query = [('search', search), ('extra', extra)] if extra else [('search', search)]
-  vals = execute_searches(user, full_search)
+  vals = execute_search(user, full_search)
   result = [('search_result', wrap(query + [('uid', claim.uid) for claim in vals]))]
   result.extend(('claim', wrap(claim)) for claim in vals)
   return result
+
+# Executes searches for the tags in the list 'searches'. Returns a list of
+# claims in those tags, ordered from newest to oldest.
+def execute_search(user, search):
+  (searches, tag_searches, extras) = parse_search(search)
+  if 'default' in extras:
+    tags = user.tags if user else []
+    clause = {'tags': {'$all': tags}} if tags else {}
+    vals = Claim.find(clause, uses_key_fields=False)
+    return sorted(vals, key=lambda claim: claim.age, reverse=True)
+
+  clauses = {}
+  if 'active' in extras:
+    clauses['resolved'] = 0
+  if 'mybets' in extras and user:
+    clauses['uid'] = {'$in': map(int, user.committed.keys())}
+  if 'promoted' in extras:
+    clauses['promoted'] = 1
+
+  if searches:
+    clauses['index'] = {'$all': [re.compile(search) for search in searches]}
+  if tag_searches:
+    clauses['tags'] = {'$all': tag_searches}
+  if not clauses:
+    vals = Claim.find(uses_key_fields=False)
+  else:
+    uses_key_fields = 'uid' in clauses
+    vals = Claim.find(clauses, uses_key_fields=uses_key_fields)
+  return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
 # Parses a search string into a list of normalized search tokens.
 # Returns a triple: a list of full-text searches, a list of tag searches,
@@ -183,35 +212,6 @@ def compute_index(description, tags):
   description = ''.join(c for c in description if c.isalnum() or c == '_')
   description = re.sub('_+', '_', description).strip('_')
   return ' '.join([description] + tags)
-
-# Executes searches for the tags in the list 'searches'. Returns a list of
-# claims in those tags, ordered from newest to oldest.
-def execute_searches(user, search):
-  (searches, tag_searches, extras) = parse_search(search)
-  if 'default' in extras:
-    tags = user.tags if user else []
-    clause = {'tags': {'$all': tags}} if tags else {}
-    vals = Claim.find(clause, uses_key_fields=False)
-    return sorted(vals, key=lambda claim: claim.age, reverse=True)
-
-  clauses = {}
-  if 'active' in extras:
-    clauses['resolved'] = 0
-  if 'mybets' in extras and user:
-    clauses['uid'] = {'$in': map(int, user.committed.keys())}
-  if 'promoted' in extras:
-    clauses['promoted'] = 1
-
-  if searches:
-    clauses['index'] = {'$all': [re.compile(search) for search in searches]}
-  if tag_searches:
-    clauses['tags'] = {'$all': tag_searches}
-  if not clauses:
-    vals = Claim.find(uses_key_fields=False)
-  else:
-    uses_key_fields = 'uid' in clauses
-    vals = Claim.find(clauses, uses_key_fields=uses_key_fields)
-  return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
 def claim_query(uid):
   if uid is None or not uid.isdecimal():
