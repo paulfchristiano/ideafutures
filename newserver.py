@@ -144,6 +144,9 @@ def search_query(user, search, extra):
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
 def execute_search(user, search):
+  # Truncate the search to avoid it getting out of hand.
+  search = search[:64]
+
   (searches, tag_searches, extras) = parse_search(search)
   if 'default' in extras:
     tags = user.tags if user else []
@@ -236,9 +239,9 @@ def signup_post(name, email, password):
     return [invalid_query_error]
   elif len(name) < 4 or len(name) > 16:
     return [('signup', 'usernamesize')]
-  elif len(password) < 8 or len(password) > 32:
+  elif len(password) < 4 or len(password) > 256:
     return [('signup', 'passwordsize')]
-  elif not name.isalnum() or not password.isalnum():
+  elif not name.isalnum():
     return [('signup', 'notalnum')]
   elif not re.sub('[_@.]', '', email).isalnum():
     return [('signup', 'invalidemail')]

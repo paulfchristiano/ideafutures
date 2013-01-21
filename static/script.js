@@ -1194,11 +1194,11 @@ function signup(name, email, password){
       } else if (result == 'usernametaken') {
         setSignupError('That username is taken.');
       } else if (result == 'usernamesize') {
-        setSignupError('Enter a username and password above.\nYour username must be between 4 and 16 characters.');
+        setSignupError('Enter a username and password above. Your username must be between 4 and 16 characters.');
       } else if (result == 'passwordsize') {
-        setSignupError('Your password must be between 8 and 32 characters.');
+        setSignupError('Your password must be between 4 and 256 characters.');
       } else if (result == 'notalnum') {
-        setSignupError('Your username and password must be alphanumeric.');
+        setSignupError('Your username must be alphanumeric.');
       } else if (result == 'invalidemail') {
         setSignupError('Your email cannot be recognized.');
       }
