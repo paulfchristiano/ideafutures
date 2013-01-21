@@ -47,8 +47,8 @@ class User(Data):
 
 class Claim(Data):
   collection = 'claims'
-  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'tags', \
-      'maxstake', 'owner', 'promoted', 'resolved', 'definition', 'history')
+  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'tags', 'maxstake',
+            'owner', 'promoted', 'resolved', 'definition', 'index', 'history')
   num_key_fields = 1
 
   def wrap(self):
@@ -56,6 +56,7 @@ class Claim(Data):
     results['tags'] = wrap(('tag', tag) for tag in results['tags'])
     results['history'] = wrap(('bet', wrap(bet)) for bet in results['history'])
     results['version'] = self.version_
+    results.pop('index')
     return wrap(results.items())
 
 def deduplicate(l):
@@ -135,8 +136,7 @@ def login_query(name, password):
 def search_query(user, search, extra):
   full_search = '%s! %s' % (extra.replace('_', ''), search) if extra else search
   query = [('search', search), ('extra', extra)] if extra else [('search', search)]
-
-  vals = execute_searches(user, parse_search(full_search))
+  vals = execute_searches(user, full_search)
   result = [('search_result', wrap(query + [('uid', claim.uid) for claim in vals]))]
   result.extend(('claim', wrap(claim)) for claim in vals)
   return result
@@ -151,7 +151,7 @@ def parse_search(search):
     return ([], [], ['default'])
   tokens = re.sub('[ ,]', '_', search.lower()).split('"')
   tokens = chain(*(normalize(token, i % 2) for (i, token) in enumerate(tokens)))
-  tokens = [token for token in tokens if token not in ('', '""')]
+  tokens = [token for token in tokens if token not in ('', '!', ':')]
 
   searches = []
   tag_searches = []
@@ -163,8 +163,7 @@ def parse_search(search):
       extras.append(token[:-1])
     elif token[-1] == ':':
       if token == 'tag:' and i + 1 < len(tokens):
-        tag = tokens[i + 1]
-        tag_searches.append(tag[1:-1] if tag[0] == '"' else tag)
+        tag_searches.append(tokens[i + 1])
         i += 1
     else:
       searches.append(token)
@@ -173,16 +172,22 @@ def parse_search(search):
 
 def normalize(token, quoted=True):
   if quoted:
-    token = ''.join(c for c in token if c.isalpha() or c == '_')
-    return ['"%s"' % (token.strip('_'),)]
+    return [''.join(c for c in token if c.isalnum() or c == '_').strip('_')]
   token = re.sub('_*!_*', '!_', re.sub('_*:_*', ':_', token))
-  token = ''.join(c for c in token if c.isalpha() or c in  ('_', '!', ':'))
+  token = ''.join(c for c in token if c.isalnum() or c in  ('_', '!', ':'))
   return token.strip('_').split('_')
+
+# Returns an index for full-text search combining description and tags.
+def compute_index(description, tags):
+  description = description.lower().replace(' ', '_')
+  description = ''.join(c for c in description if c.isalnum() or c == '_')
+  description = re.sub('_+', '_', description).strip('_')
+  return ' '.join([description] + tags)
 
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
-def execute_searches(user, parsed_search):
-  (searches, tag_searches, extras) = parsed_search
+def execute_searches(user, search):
+  (searches, tag_searches, extras) = parse_search(search)
   if 'default' in extras:
     tags = user.tags if user else []
     clause = {'tags': {'$all': tags}} if tags else {}
@@ -197,6 +202,8 @@ def execute_searches(user, parsed_search):
   if 'promoted' in extras:
     clauses['promoted'] = 1
 
+  if searches:
+    clauses['index'] = {'$all': [re.compile(search) for search in searches]}
   if tag_searches:
     clauses['tags'] = {'$all': tag_searches}
   if not clauses:
@@ -418,7 +425,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
       'closes':closes, 'description':description, 'tags':tags, \
       'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
-      'definition':definition, \
+      'definition':definition, 'index':compute_index(description, tags), \
       'history':[{'user':user.name, 'probability':bet, 'time':age}]})
   # Try to insert this claim. After 10 conflicts, fail.
   for i in range(10):
@@ -462,6 +469,7 @@ def editclaim_post(user, uid, description, definition, closes, tags):
     claim.definition = definition
     claim.closes = closes
     claim.tags = tags
+    claim.index = compute_index(claim.description, claim.tags)
 
     if claim.save():
       return [('editclaim', 'success')]
