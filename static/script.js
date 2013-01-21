@@ -1358,7 +1358,7 @@ function submitClaim(claim) {
 
   var tags = $('#tags').tagit('assignedTags');
   for (var i = 0; i < tags.length; i++) {
-    var tag = tags[i].replace(/ /g, '_');
+    var tag = tags[i].replace(/ /g, '_').toLowerCase();
     if (RESTRICTED_TAGS.indexOf(tag) > -1) {
       setClaimError("The tag '" + tag + "' is reserved.");
     } else if (tag.length < 4) {
@@ -1368,7 +1368,7 @@ function submitClaim(claim) {
       setClaimError("The tag '" + tag + "' is too long.");
       return;
     } else if (tag.match(/^[a-z_]+$/) == null) {
-      setClaimError("The tag '" + tag + "' should only contain lowercase characters or spaces.");
+      setClaimError("The tag '" + tag + "' should only contain alphabetic characters or spaces.");
       return;
     } else if (tag[tag.length - 1] == '_') {
       setClaimError("The tag '" + tag + "' has trailing spaces.");
