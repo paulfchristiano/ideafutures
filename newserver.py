@@ -2,6 +2,7 @@
 import cherrypy
 from data import Data
 from datetime import datetime
+from itertools import chain
 import json
 from math import log
 import md5
@@ -131,60 +132,73 @@ def login_query(name, password):
   else:
     return [('login', 'success')]
 
-def search_query(user, search, extra=None):
-  searches = parse_search(search)
-  vals = execute_searches(user, searches, extra)
+def search_query(user, search, extra):
+  full_search = '%s! %s' % (extra.replace('_', ''), search) if extra else search
   query = [('search', search), ('extra', extra)] if extra else [('search', search)]
+
+  vals = execute_searches(user, parse_search(full_search))
   result = [('search_result', wrap(query + [('uid', claim.uid) for claim in vals]))]
   result.extend(('claim', wrap(claim)) for claim in vals)
   return result
 
 # Parses a search string into a list of normalized search tokens.
-# Returns a MongoDB query object to filter the 'tags' list of a claim.
+# Returns a triple: a list of full-text searches, a list of tag searches,
+# and a list of extra filters.
 def parse_search(search):
   if not search:
-    return []
+    return ([], [], [])
+  elif search == 'incremental! ':
+    return ([], [], ['userdefault'])
   tokens = re.sub('[ ,]', '_', search.lower()).split('"')
-  exact_searches = []
-  searches = []
-  for i, token in enumerate(tokens):
-    if i % 2:
-      exact_searches.append(normalize(token))
-    else:
-      searches.extend(normalize(part) for part in token.split('_'))
-  exact_searches = list(set(token for token in exact_searches if token))
-  searches = list(set(token for token in searches if token))
-  searches = [re.compile(token) for token in searches]
-  searches.extend(token for token in exact_searches)
-  return searches
+  tokens = chain(*(normalize(token, i % 2) for (i, token) in enumerate(tokens)))
+  tokens = [token for token in tokens if token not in ('', '""')]
 
-def normalize(token):
-  return ''.join(c for c in token if c.isalpha() or c == '_').strip('_')
+  searches = []
+  tag_searches = []
+  extras = []
+  i = 0
+  while i < len(tokens):
+    token = tokens[i]
+    if token[-1] == '!':
+      extras.append(token[:-1])
+    elif token[-1] == ':':
+      if token == 'tag:' and i + 1 < len(tokens):
+        tag = tokens[i + 1]
+        tag_searches.append(tag[1:-1] if tag[0] == '"' else tag)
+        i += 1
+    else:
+      searches.append(token)
+    i += 1
+  return (list(set(searches)), list(set(tag_searches)), list(set(extras)))
+
+def normalize(token, quoted=True):
+  if quoted:
+    token = ''.join(c for c in token if c.isalpha() or c == '_')
+    return ['"%s"' % (token.strip('_'),)]
+  token = re.sub('_*!_*', '!_', re.sub('_*:_*', ':_', token))
+  token = ''.join(c for c in token if c.isalpha() or c in  ('_', '!', ':'))
+  return token.strip('_').split('_')
 
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
-def execute_searches(user, searches, extra=None):
-  # TODO: This is a hack to make blank incremental searches show the default
-  # view for a user, instead of all claims. It should be handled by the client.
-  if extra == 'incremental' and not searches:
-    extra = 'user_default'
-  tags = user.tags if user else []
-  if extra == 'all' or (extra == 'user_default' and not tags):
-    vals = Claim.find(uses_key_fields=False)
+def execute_searches(user, parsed_search):
+  (searches, tag_searches, extras) = parsed_search
+  if 'userdefault' in extras:
+    tags = user.tags if user else []
+    clause = {'tags': {'$all': tags}} if tags else {}
+    vals = Claim.find(clause, uses_key_fields=False)
     return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
   clauses = {}
-  if extra == 'user_default':
-    searches = [{'$regex': '^%s$' % tag} for tag in user.tags]
-  elif extra == 'active':
-    vals = clauses['resolved'] = 0
-  elif extra == 'my_bets' and user:
+  if 'active' in extras:
+    clauses['resolved'] = 0
+  if 'mybets' in extras and user:
     clauses['uid'] = {'$in': map(int, user.committed.keys())}
-  elif extra == 'promoted':
+  if 'promoted' in extras:
     clauses['promoted'] = 1
 
-  if searches:
-    clauses['tags'] = {'$all': searches}
+  if tag_searches:
+    clauses['tags'] = {'$all': tag_searches}
   if not clauses:
     vals = Claim.find(uses_key_fields=False)
   else:
@@ -411,7 +425,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     if claim.save():
       User.atomic_update(user.name, \
           {'$inc':{'committed.%s' % claim.uid:stake}})
-      return [('submitclaim', 'success')] + search_query(user, 'user_default')
+      return [('submitclaim', 'success')] + search_query(user, '', 'user_default')
     claim.uid = randint(0, MAX_UID)
   return [('submitclaim', 'conflict')]
 
