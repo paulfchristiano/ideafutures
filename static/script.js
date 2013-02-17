@@ -802,7 +802,7 @@ function setClaimInputHandlers(claim) {
         html: "<span>Mark true</span><span class='ui-icon right-align ui-icon-check'/>",
         tabIndex: -1,
         click: function() {
-          resolveClaim(claim.id, true);
+          resolveClaim(getDisplayState().id, true);
           $(this).dialog('close');
         },
       },
@@ -810,7 +810,7 @@ function setClaimInputHandlers(claim) {
         html: "<span>Mark false</span><span class='ui-icon right-align ui-icon-close'/>",
         tabIndex: -1,
         click: function() {
-          resolveClaim(claim.id, false);
+          resolveClaim(getDisplayState().id, false);
           $(this).dialog('close');
         },
       },
