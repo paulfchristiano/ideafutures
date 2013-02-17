@@ -369,6 +369,10 @@ function drawReputation(reputation) {
   return reputation.toFixed(2);
 }
 
+function html_encode(str) {
+  return $('<div/>').text(str).html();
+}
+
 // TODO: Move this code (and similar functions) to a new file. Use string
 // formatting to build the HTML instead of string concatenations.
 function loginSidebarBlock(){
@@ -530,7 +534,7 @@ function topicBox(claim) {
     result += "<span class='ui-icon left-align ui-icon-close'/>"
   }
   result += "<a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
-  result += claim.description + "</a></h2>";
+  result += html_encode(claim.description) + "</a></h2>";
   result += "<a href='" + href + "' class='currentbet'>" + drawBet(claim.currentbet) + "%</a>";
   if (isOpen(claim)) {
     result += "<a class='thick orange right' href='" + href + "' id='displaybutton" + claim.id + "'>Bet on it!</a>";
@@ -618,7 +622,7 @@ function isOpen(claim) {
 }
 
 function descriptionBox(claim) {
-  var result = "<div class='header'><h1>\"" + claim.description + "\"</h1>";
+  var result = "<div class='header'><h1>\"" + html_encode(claim.description) + "\"</h1>";
   result += "<div class='row'>Tags: " + claim.tags.map(drawTag).join(', ') + "</div></div>";
   return result;
 }
@@ -715,7 +719,7 @@ function historyBox(claim) {
 function definitionBox(claim) {
   if (claim.definition) {
     return "<div class='farleft' id='definitionbox'>" +
-        "<h3 class='short'>Precise definition</h3>" + claim.definition + "</div>";
+        "<h3 class='short'>Precise definition</h3>" + html_encode(claim.definition) + "</div>";
   }
   return "";
 }
@@ -883,8 +887,8 @@ function setSubmitClaimInputHandlers(claim) {
     setBetSliderInputHandlers(bounds, 0.5);
     // TODO: Create a div that shows the amount currently staked on this bet.
   } else {
-    $('#description').val(html_entity_decode(claim.description));
-    $('#definition').val(html_entity_decode(claim.definition || ''));
+    $('#description').val(claim.description);
+    $('#definition').val(claim.definition);
   }
 
   $('#close-date').datepicker();
@@ -1098,7 +1102,7 @@ function parseClaimFromXML(xml) {
   result.age = parseDate($(xml).find('age').text());
   result.bounty = parseFloat($(xml).find('bounty').text());
   result.closes = parseDate($(xml).find('closes').text());
-  result.description = html_entity_encode($(xml).find('description').text());
+  result.description = $(xml).find('description').text();
   result.tags = [];
   $(xml).find('tags').find('tag').each(function() {
     result.tags.push($(this).text());
@@ -1109,7 +1113,7 @@ function parseClaimFromXML(xml) {
   result.resolved = parseInt($(xml).find('resolved').text());
 
   definition = $(xml).find('definition').text();
-  result.definition = (definition == '') ? null : html_entity_encode(definition);
+  result.definition = (definition == '') ? null : definition;
 
   result.history = []
   $(xml).find('history').find('bet').each(function() {
