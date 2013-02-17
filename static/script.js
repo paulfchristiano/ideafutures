@@ -418,18 +418,10 @@ function adminSidebarBlock(claim) {
   var result = "<div class='sidebarblock'>";
   if (claim.resolved) {
     result += "<div class='row'><a id='reopen'>Re-open this claim.</a></div>";
-    result += "</div><div class='sidebarblock'>";
-  }
-  result += "<div class='row'><a href='#editclaim+" + encodeURIComponent(claim.id) + "'>";
-  if (isOpen(claim)) {
-    result += "Edit this claim.</a></div>";
-  }
-  if (claim.promoted) {
-    result += "<div class='row'><a id='unpromote'>Un-promote this claim.</a></div>";
-  } else{
-    result += "<div class='row'><a id='promote'>Promote this claim.</a></div>";
-  }
-  if (isOpen(claim)) {
+  } else {
+    result += '<div class="row">';
+    result += '<a href="#editclaim+' + encodeURIComponent(claim.id) + '">Edit this claim.</a>';
+    result += '</div>';
     result += "<div class='row'><a id='delete'>Delete this claim.</a></div>";
   }
   result += "</div>";
