@@ -883,8 +883,8 @@ function setSubmitClaimInputHandlers(claim) {
     setBetSliderInputHandlers(bounds, 0.5);
     // TODO: Create a div that shows the amount currently staked on this bet.
   } else {
-    $('#description').val(claim.description);
-    $('#definition').val(claim.definition);
+    $('#description').val(html_entity_decode(claim.description));
+    $('#definition').val(html_entity_decode(claim.definition || ''));
   }
 
   $('#close-date').datepicker();
@@ -1098,7 +1098,7 @@ function parseClaimFromXML(xml) {
   result.age = parseDate($(xml).find('age').text());
   result.bounty = parseFloat($(xml).find('bounty').text());
   result.closes = parseDate($(xml).find('closes').text());
-  result.description = $(xml).find('description').text();
+  result.description = html_entity_encode($(xml).find('description').text());
   result.tags = [];
   $(xml).find('tags').find('tag').each(function() {
     result.tags.push($(this).text());
@@ -1109,7 +1109,7 @@ function parseClaimFromXML(xml) {
   result.resolved = parseInt($(xml).find('resolved').text());
 
   definition = $(xml).find('definition').text();
-  result.definition = (definition == '') ? null : definition;
+  result.definition = (definition == '') ? null : html_entity_encode(definition);
 
   result.history = []
   $(xml).find('history').find('bet').each(function() {

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from cgi import escape
 import cherrypy
 from data import Data
 from datetime import datetime
@@ -391,8 +392,8 @@ def deleteclaim_post(user, uid):
 
 def submitclaim_post(user, description, definition, bet, bounty, \
     maxstake, closes, tags):
-  if definition is None:
-    definition = ''
+  description = '' if not description else escape(description)
+  definition = '' if not definition else escape(definition)
   try:
     tags = deduplicate(json.loads(tags))
   except Exception, e:
@@ -445,8 +446,8 @@ def editclaim_post(user, uid, description, definition, closes, tags):
     uid = int(uid)
   except Exception, e:
     return [invalid_query_error]
-  if definition is None:
-    definition = ''
+  description = '' if not description else escape(description)
+  definition = '' if not definition else escape(definition)
   try:
     tags = deduplicate(json.loads(tags))
   except Exception, e:
