@@ -835,7 +835,8 @@ function drawSubmitClaim(claim) {
 // When this function is called with a claim, generate an edit claim box.
 // (The edit claim box is missing the ability to set some fields, like the multiplier.)
 function submitClaimBox(claim) {
-  var result = '<div class="header"><h1>Submit a new claim</h1>';
+  var header = (claim ? 'Edit an existing claim' : 'Submit a new claim');
+  var result = '<div class="header"><h1>' + header + '</h1>';
   result += '<div class="row">Starred fields are required.</div></div>';
   result += '<fieldset id="submitclaim-form">';
   result += '<p><label for="description">*Short description: </label>';
