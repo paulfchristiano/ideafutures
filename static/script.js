@@ -360,7 +360,7 @@ function clearClaimError(str) {
 function updateActiveLink(displayState) {
   $('#recentclaimsnavlink').removeClass('activeLink');
   $('#submitclaimnavlink').removeClass('activeLink');
-  $('#tagsnavlink').removeClass('activeLink');
+  $('#settingsnavlink').removeClass('activeLink');
   $('#mybetsnavlink').removeClass('activeLink');
   displayState.updateActiveLink();
 }
@@ -502,9 +502,10 @@ function drawClaims(results) {
     var mainFrame = "<div class='header'><h1>No claims found.</h1>";
     mainFrame += "<div class='row'>No claims match your current search.";
     if (loggedIn()) {
-      mainFrame += " Try another search, change your default search on the"
+      mainFrame += " Try another search, ";
+      mainFrame += " <a href=\"#submitclaim\">submit a claim</a>,";
+      mainFrame += " or change your defaults on the";
       mainFrame += " <a href=\"#settings\">account settings</a> page";
-      mainFrame += " or <a href=\"#submitclaim\">submit a claim</a>.";
     } else {
       mainFrame += " Try another search, or log in to set your defaults.";
     }
@@ -592,9 +593,9 @@ function drawDate(d) {
 }
 
 function prepareLoader(id) {
-  return function(){
+  return function() {
     $('#betloader' + id).css("visibility", "visible");
-   }
+  }
 }
 
 function drawClaim(claim) {
@@ -645,7 +646,7 @@ function betBox(claim) {
   if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
     result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
   }
-  result += '<img id="betloader" class="loading left" src="ajax-loader.gif"></img></div>';
+  result += '<img id="betloader" class="loading left spaced" src="ajax-loader.gif"></img></div>';
   result += '<div class="clear error" id="beterror"></div>';
   result += "</div>";
   return result;
@@ -865,6 +866,7 @@ function submitClaimBox(claim) {
   } else {
     result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Edit</a></div>";
   }
+  result += '<img id="betloader" class="loading left" src="ajax-loader.gif"></img></div>';
   result += "<div class='error row' id='submitclaimerror'></div>";
   return result;
 }
@@ -936,7 +938,10 @@ function setSubmitClaimInputHandlers(claim) {
 
 function drawSettings(alltags, usertags) {
   var mainFrame = "<div class='header'><h1>Manage your groups</h1>";
-  mainFrame += '<div class="row">Add or remove users from groups you own.</div></div>';
+  mainFrame += '<div class="row">';
+  mainFrame += 'Add or remove users from groups you own or ';
+  mainFrame += '<a>create a new group</a>';
+  mainFrame += '.</div></div>';
 
   var group = {
     'name': 'Jeff &lt;3 food',
@@ -1250,6 +1255,7 @@ function submitBet(claim, bet) {
     return;
   }
 
+  $('#submitbet').click(function() {});
   $('#betloader').css("visibility", "visible");
   updateServer({'makebet':1, 'id':claim.id, 'bet':bet, 'version':claim.version},
     function(claim) {return function(xml) {
@@ -1258,6 +1264,10 @@ function submitBet(claim, bet) {
       if (isCurrentDisplay(displayState) &&
           cache.claims[claim.id].version != claim.version) {
         updateDisplay(displayState);
+      } else {
+        $('#submitbet').click(function() {
+          submitBet(claim, $('#betinput').val()/100);
+        });
       }
 
       var result = $(xml).find('makebet').text();
@@ -1431,8 +1441,10 @@ function submitClaim(claim) {
     var updateType = 'editclaim';
     var newDisplay = new DisplayClaim(claim.id);
   }
+  $('#betloader').css('visibility', 'visible');
   updateServer(update,
     function(claim, updateType, newDisplay) {return function(xml) {
+      $('#betloader').css('visibility', 'hidden');
       var result = $(xml).find(updateType).text();
       if (result == 'success') {
         newDisplay.setDisplayState();

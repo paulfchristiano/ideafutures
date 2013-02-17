@@ -296,10 +296,10 @@ a.currentbet:hover, a.currentbet:active {
 }
 
 .loading {
-  margin-left:10px;
-  height:25px;
-  width:25px;
-  visibility:hidden;
+  margin: -6px 12px 0px 0px;
+  height: 25px;
+  width: 25px;
+  visibility: hidden;
 }
 
 a, a:link, a:visited, a:hover, a:active {
@@ -422,6 +422,10 @@ table.members-list {
 table.members-list tr th {
   border: solid black;
   border-width: 0px 0px 1px;
+}
+
+table.members-list tr td {
+  width: 50%;
 }
 
 table.members-list tr.alt td {
@@ -689,6 +693,10 @@ h3.short {
 
 #submitclaim-spacer {
   height: 26px;
+}
+
+#betloader.spaced {
+  margin-top: 6px;
 }
 
 /* This is dangerous! It may affect jQueryUI */
