@@ -389,11 +389,14 @@ def deleteclaim_post(user, uid):
   except Exception, e:
     return [invalid_query_error]
   claim = Claim.get(uid)
-  if claim is None:
+  if claim is None or claim.resolved:
+    return [('deleteclaim', 'conflict')]
+  # Resolve this claim, without changing users' reputations, then delete it.
+  claim.resolved = 1
+  claim.closes = now()
+  if not claim.save():
     return [('deleteclaim', 'conflict')]
 
-  # Resolve this claim, without changing users' reputations, then delete it.
-  Claim.atomic_update(uid, {'$set':{'resolved':1, 'closes':now()}})
   claim = Claim.get(uid)
   if claim is not None:
     affected_names = set(bet['user'] for bet in claim.history)

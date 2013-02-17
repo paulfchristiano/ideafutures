@@ -429,7 +429,9 @@ function adminSidebarBlock(claim) {
   } else{
     result += "<div class='row'><a id='promote'>Promote this claim.</a></div>";
   }
-  result += "<div class='row'><a id='delete'>Delete this claim.</a></div>";
+  if (isOpen(claim)) {
+    result += "<div class='row'><a id='delete'>Delete this claim.</a></div>";
+  }
   result += "</div>";
   return result;
 }
@@ -663,7 +665,9 @@ function closedBetBox(claim) {
   result += "<tr><td colspan='2'>The market consensus at that time: </td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "% </div></td></tr>";
-  result += "</table></div>";
+  result += "</table>";
+  result += '<div class="clear error" id="beterror"></div>';
+  result += "</div>";
   return result;
 }
 
@@ -703,7 +707,7 @@ function redrawStake(stake_id, stake, stake_only) {
 }
 
 function historyBox(claim) {
-  var result = "<table id='historybox' class='center'>";
+  var result = "<table id='historybox' class='center" + (claim.resolved ? " resolved" : "") + "'>";
   result += "<tr><th colspan='3'><h3 class='short'>History:</h3></th></tr>";
   result += "<tr class='underline'><th>Estimate</th><th>User</th><th>Time</th></tr>";
 

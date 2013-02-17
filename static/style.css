@@ -699,6 +699,10 @@ h3.short {
   margin-top: 6px;
 }
 
+#historybox.resolved {
+  margin-top: 0px;
+}
+
 /* This is dangerous! It may affect jQueryUI */
 /* elements other than the tag inputs.       */
 .ui-autocomplete {
