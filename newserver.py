@@ -43,8 +43,10 @@ class User(Data):
   num_key_fields = 1
 
   def wrap(self):
-    return wrap((('reputation', self.reputation),
-        ('committed', sum(self.committed.values()))))
+    return wrap((
+        ('reputation', self.reputation),
+        ('committed', sum(self.committed.values()))
+        ))
 
 class Claim(Data):
   collection = 'claims'
@@ -58,6 +60,17 @@ class Claim(Data):
     results['history'] = wrap(('bet', wrap(bet)) for bet in results['history'])
     results['version'] = self.version_
     results.pop('index')
+    return wrap(results.items())
+
+class Group(Data):
+  collection = 'groups'
+  fields = ('name', 'label', 'owner', 'members', 'salt')
+  num_key_fields = 1
+
+  def wrap(self):
+    results = self.to_dict()
+    results['members'] = wrap(('member', wrap(member)) for member in results['members'])
+    results.pop('salt')
     return wrap(results.items())
 
 def deduplicate(l):

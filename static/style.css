@@ -123,6 +123,13 @@ div.topicbox {
   border-collapse: collapse;
   border-width: 0px;
   font-size:1.2em;
+  width: 90%;
+  text-align: left;
+  margin-left: 7%;
+}
+
+#historybox h3.short {
+  padding-right: 4%;
 }
 
 td.title{
@@ -363,7 +370,7 @@ a.gray:hover, a.gray:active {
   background-color: #AAA;
 }
 
-a.thick {
+a.thick, a.long {
   display: block;
   cursor:pointer;
   font-size: 14px;
@@ -376,9 +383,49 @@ a.thick {
   width: 80px;
 }
 
-div.betdescription {
+a.long {
+  margin-top: 2px;
+  width: 120px;
+}
+
+a.boot-button {
+  clear: right;
+  margin-top: 8px;
+}
+
+div.betdescription, .group-header {
   float:left;
   clear:both;
+}
+
+.group-header {
+  margin: 0px 0px 8px;
+}
+
+.group-box {
+  margin: 22px 0px;
+  overflow: hidden;
+  clear:both;
+}
+
+.members-list {
+  clear: left;
+  float: left;
+}
+
+table.members-list {
+  border-collapse: collapse;
+  min-width: 50%;
+  text-align: left;
+}
+
+table.members-list tr th {
+  border: solid black;
+  border-width: 0px 0px 1px;
+}
+
+table.members-list tr.alt td {
+  background-color: rgb(255, 235, 205);
 }
 
 .submitbetbox input, .submitbetbox textarea{

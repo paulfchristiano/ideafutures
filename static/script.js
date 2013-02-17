@@ -1,5 +1,5 @@
 // A display state is a object mapping 'type' to one of 'listclaims',
-// 'displayclaim', 'submitclaim' or 'listtags'.
+// 'displayclaim', 'submitclaim' or 'settings'.
 // It must provide the following methods:
 //   setDisplayState:
 //     Sets the window hash appropriately.
@@ -27,7 +27,7 @@ function ListClaims(search, extra) {
   };
   this.isForbidden = function() {
     if (this.extra == 'my_bets' && !loggedIn()) {
-      return 'You must be logged in to see claims you have bet on.';
+      return 'You must log in to see claims you have bet on.';
     }
     return false;
   };
@@ -132,19 +132,19 @@ function EditClaim(id) {
   };
 }
 
-function ListTags() {
-  this.type = 'listtags';
+function Settings() {
+  this.type = 'settings';
   this.setDisplayState = function() {
     window.location.hash = this.type;
   };
   this.isForbidden = function() {
-    return (!isAdmin() && "You must be logged in to manage tags.");
+    return (!loggedIn() && "You must log in to change your account settings.");
   };
   this.draw = function() {
-    drawTags(cache.alltags, cache.usertags);
+    drawSettings(cache.alltags, cache.usertags);
   };
   this.updateActiveLink = function() {
-    $('#tagsnavlink').addClass('activeLink');
+    $('#settingsnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
     queryServer({'alltags':1, 'usertags':1}, returnCall);
@@ -236,8 +236,8 @@ function getDisplayState() {
       return new SubmitClaim();
     } else if (params[0] == 'editclaim') {
       return new EditClaim(parseInt(decodeURIComponent(params[1]), 10));
-    } else if (params[0] == 'listtags') {
-      return new ListTags();
+    } else if (params[0] == 'settings') {
+      return new Settings();
     } else {
       // Unknown state type. Show the home page.
       return DEFAULT_DISPLAY;
@@ -502,10 +502,11 @@ function drawClaims(results) {
     var mainFrame = "<div class='header'><h1>No claims found.</h1>";
     mainFrame += "<div class='row'>No claims match your current search.";
     if (loggedIn()) {
-      mainFrame += " Change your search on the <a href=\"#listtags\">tags</a> page";
+      mainFrame += " Try another search, change your default search on the"
+      mainFrame += " <a href=\"#settings\">account settings</a> page";
       mainFrame += " or <a href=\"#submitclaim\">submit a claim</a>.";
     } else {
-      mainFrame += " Log in to change your search on the <a href=\"#listtags\">tags</a> page.";
+      mainFrame += " Try another search, or log in to set your defaults.";
     }
     mainFrame += "</div></div>";
     $('#mainframe').html(mainFrame);
@@ -702,8 +703,8 @@ function redrawStake(stake_id, stake, stake_only) {
 
 function historyBox(claim) {
   var result = "<table id='historybox' class='center'>";
-  result += "<tr><th colspan='3'><h3 class='short'>History</h3></th></tr>";
-  result += "<tr class='underline'><td>Estimate</td><td>User</td><td>Time</td></tr>";
+  result += "<tr><th colspan='3'><h3 class='short'>History:</h3></th></tr>";
+  result += "<tr class='underline'><th>Estimate</th><th>User</th><th>Time</th></tr>";
 
   for (var i = claim.history.length - 1; i >= claim.history.length - 10 && i >= 0; i--) {
     result += (i % 2) ? "<tr class='odd'>" : "<tr class='even'>";
@@ -933,27 +934,54 @@ function setSubmitClaimInputHandlers(claim) {
   });
 }
 
-function drawTags(alltags, usertags) {
-  var mainFrame = "<div class='header'><h1>Manage tags</h1>";
-  mainFrame += "<div class='row'>Choose which tags to display by default, ";
-  mainFrame += "or view recent claims within a tags.</div></div>";
-  mainFrame += "<div>";
-  for (var i = 0; i < alltags.length; i++) {
-    mainFrame += tagPicker(alltags[i], usertags);
-  }
-  mainFrame += "</div>";
+function drawSettings(alltags, usertags) {
+  var mainFrame = "<div class='header'><h1>Manage your groups</h1>";
+  mainFrame += '<div class="row">Add or remove users from groups you own.</div></div>';
+
+  var group = {
+    'name': 'Jeff &lt;3 food',
+    'label': 'Jeff <3 food',
+    'owner': 'skishore',
+    'members': [
+      {name: 'skishore', email: ''},
+      {name: 'paulfc', email: 'paulfc@mit.edu'},
+      {name: 'wuthefwasthat', email: 'jeffwu@mit.edu'},
+    ],
+  };
+  mainFrame += groupBox(group, true);
+  group.members.length = 1;
+  mainFrame += groupBox(group, true);
+
+  mainFrame += "<div class='header'><h1>Manage other groups</h1>";
+  mainFrame += ('<div class="row">Choose whether or not to stay in other users\' groups.</div></div>');
+  mainFrame += groupBox(group);
   $('#mainframe').html(mainFrame);
-  for (var i = 0; i < alltags.length; i++) {
-    $('#tag' + alltags[i]).click(tagToggler(alltags[i]));
-  }
 }
 
-function tagPicker(tag, usertags) {
-  var type = (usertags.indexOf(tag) > -1) ? "activetag" : 'inactivetag';
-  result = "<div class='row'><div class='left tagholder'><a id='tag" + tag + "' class='" + type + "'>";
-  var href = '#listclaims+' + encodeURIComponent('tag:"' + drawTag(tag) + '"');
-  result += drawTag(tag) + '</a></div><div class="right"> <a href="' + href + '">';
-  result += "(view " + drawTag(tag) + ")</a></div> </div>";
+function groupBox(group, owner) {
+  var result = '<div class="group-box">';
+  result += '<h2 class="group-header">' + html_encode(group.label) + "</h2>";
+  if (owner) {
+    var button_margin = 8*group.members.length - 6;
+    var table_margin = button_margin - 2;
+    result += '<a class="long orange right" style="margin-top: ' + button_margin + 'px;">Send invites</a>';
+    result += '<a class="long gray right boot-button">Boot members</a>';
+  } else {
+    var button_margin = 8*group.members.length + 11;
+    var table_margin = button_margin - 31;
+    result += '<a class="long gray right boot-button" style="margin-top: ' + button_margin + 'px;">Leave group</a>';
+  }
+  result += '<table class="members-list" style="margin-top: -' + table_margin + 'px;">';
+  result += '<tr><th>Member:</th><th>Email:</th></tr>';
+  for (i = 0; i < group.members.length; i++) {
+    var member = group.members[i];
+    var email = member.email || '(owner)';
+    var tr = (i % 2 ? '<tr>' : '<tr class="alt">');
+    result += tr + '<td>' + member.name + '</td><td>' + email + '</td></tr>';
+  }
+  result += '</table>';
+  result += '</div>';
+  result += '<hr>';
   return result;
 }
 
@@ -1307,7 +1335,7 @@ function deleteClaim(id) {
 // If 'claim' is undefined, submits a new claim. Otherwise, edits 'claim'.
 function submitClaim(claim) {
   if (typeof claim == 'undefined' && !loggedIn()) {
-    setClaimError("You must be logged in to submit a claim.");
+    setClaimError("You must log in to submit a claim.");
     return;
   } else if (typeof claim != 'undefined' && !isAdmin()) {
     setClaimError("You must be an admin to edit a claim.");
@@ -1451,33 +1479,6 @@ function padInt(x, len){
   return x;
 }
 
-function tagToggler(tag) {
-  return function() {
-    if (!('alltags' in cache) || !('usertags' in cache) ||
-        cache.alltags.indexOf(tag) == -1) {
-      return;
-    }
-
-    var index = cache.usertags.indexOf(tag);
-    if (index > -1) {
-      cache.usertags.splice(index, 1);
-    } else {
-      cache.usertags.push(tag);
-    }
-
-    updateServer({'newtags':cache.usertags.join(' ')});
-    if (index > -1) {
-      $('#tag' + tag).css("color","gray");
-      $('#tag' + tag).animate({"font-size":"1.5em",
-          "paddingBottom":"0.5em", "paddingTop":"0.5em"}, 200);
-    } else {
-      $('#tag' + tag).css("color","rgb(235,143,0)");
-      $('#tag' + tag).animate({"font-size":"2.5em", "paddingTop":"0em",
-          "paddingTop":"0em"} ,200);
-    }
-  }
-}
-
 /* -------------------------------------------------------------------------- *
  * Static input handlers for the navbar!                                      *
  * -------------------------------------------------------------------------- */
@@ -1617,7 +1618,7 @@ function getBetRisk(bet, bounty) {
 // Returns true if the user can place this bet, and false otherwise.
 function validateBet(claim, bet) {
   if (!loggedIn()) {
-    setBetError('You must be logged in to bet.');
+    setBetError('You must log in to bet.');
     return false;
   } else if (isNaN(bet) || bet <= 0 || bet >= 1) {
     setBetError('Your new estimate must be a number between 0 and 1.');
