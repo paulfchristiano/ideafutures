@@ -1276,7 +1276,9 @@ function submitBet(claim, bet) {
       } else if (result == 'samebet') {
         setBetError('You must change the estimate to bet.');
       } else if (result == 'conflict') {
-        setBetError('This view is no longer up-to-date, because someone else bet on this claim.');
+        setBetError('This view is no longer up-to-date. ' +
+                    'Someone else bet on this claim while you were on this page. ' +
+                    'Refresh to see changes.');
       }
     };} (claim)
   );
