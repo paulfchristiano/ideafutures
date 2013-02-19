@@ -425,7 +425,13 @@ table.members-list tr th {
 }
 
 table.members-list tr td {
-  width: 50%;
+  width: 45%;
+}
+
+table.members-list tr td.checkbox-column {
+  font-size: 10px;
+  text-align: center;
+  width: 10%;
 }
 
 table.members-list tr.alt td {
@@ -691,7 +697,7 @@ h3.short {
   width: 64%;
 }
 
-#group-dialog #invites {
+#invites, #new-invites {
   font-size: 11px;
   margin-top: 0px;
   margin-left: 0px;

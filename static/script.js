@@ -153,7 +153,7 @@ function Settings() {
     return 'alltags' in cache && 'settings' in cache;
   };
   this.isDirty = function() {
-    return 'alltags' in dirty || 'settings' in cache;
+    return 'alltags' in dirty || 'settings' in dirty;
   };
 }
 
@@ -466,9 +466,9 @@ function drawClaims(results) {
       mainFrame += " Try another search, ";
       mainFrame += " <a href=\"#submitclaim\">submit a claim</a>,";
       mainFrame += " or change your defaults on the";
-      mainFrame += " <a href=\"#settings\">account settings</a> page";
+      mainFrame += " <a href=\"#settings\">account settings</a> page.";
     } else {
-      mainFrame += " Try another search, or log in to set your defaults.";
+      mainFrame += " Try another search or log in to submit a claim.";
     }
     mainFrame += "</div></div>";
     $('#mainframe').html(mainFrame);
@@ -893,6 +893,33 @@ function drawSettings(alltags, settings) {
     clearGroupError();
     $('#group-dialog').dialog('open');
   });
+  $('.invite-button').click(function() {
+    $('#invites-name').val($(this).attr('data-name'));
+    $('#new-invites').tagit('removeAll');
+    $('#invites-dialog').dialog('open');
+  });
+  $('table.members-list tr').click(function() {
+    if (window.event.target.type != 'checkbox') {
+      var checkbox = $(this).find('input[type="checkbox"]');
+      if (checkbox.attr('checked')) {
+        checkbox.attr('checked', '');
+      } else {
+        checkbox.attr('checked', 'checked');
+      }
+    }
+  });
+  $('.boot-button').click(function() {
+    var emails = [];
+    $(this.parentElement).find('input[type="checkbox"]').each(
+      function() {
+        if ($(this).attr('checked')) {
+          var member_elt = $(this.parentElement.parentElement).find('.member-email');
+          emails.push(member_elt.text().replace('.', '(dot)'));
+        }
+      }
+    );
+    boot_members($(this).attr('data-name'), emails);
+  });
 }
 
 function groupBox(group, owner) {
@@ -901,19 +928,26 @@ function groupBox(group, owner) {
   if (owner) {
     var button_margin = 8*group.members.length - 6;
     var table_margin = button_margin - 2;
-    result += '<a class="long orange right" style="margin-top: ' + button_margin + 'px;">Invite members</a>';
-    result += '<a class="long gray right boot-button">Boot members</a>';
+    result += '<a class="long orange right invite-button" data-name="' + group.name + '"';
+    result += ' style="margin-top: ' + button_margin + 'px;">Invite members</a>';
+    result += '<a class="long gray right boot-button" data-name="' + group.name + '">Boot members</a>';
   } else {
     var button_margin = 8*group.members.length + 11;
     var table_margin = button_margin - 31;
-    result += '<a class="long gray right boot-button" style="margin-top: ' + button_margin + 'px;">Leave group</a>';
+    result += '<a class="long gray right boot-button" data-name="' + group.name + '"';
+    result += ' style="margin-top: ' + button_margin + 'px;">Leave group</a>';
   }
   result += '<table class="members-list" style="margin-top: -' + table_margin + 'px;">';
-  result += '<tr><th>Member:</th><th>Email:</th></tr>';
+  result += '<tr><th></th><th>Member:</th><th>Email:</th></tr>';
   for (i = 0; i < group.members.length; i++) {
     var member = group.members[i];
     var tr = (i % 2 ? '<tr>' : '<tr class="alt">');
-    result += tr + '<td>' + member.name + '</td><td>' + member.email + '</td></tr>';
+    result += tr + '<td class="checkbox-column">';
+    if (member.email != '(owner)') {
+      result += '<input type="checkbox">';
+    }
+    result += '</td><td>' + member.name + '</td>';
+    result += '<td class="member-email">' + member.email + '</td></tr>';
   }
   result += '</table>';
   result += '</div>';
@@ -1049,7 +1083,7 @@ function autoParseXML(xml) {
     });
 
     if (!('settings' in cache) ||
-        !(arrayEquals(cache.settings, settings)) ||
+        !(arrayEquals(cache.settings.tags, settings.tags)) ||
         cache.settings.groups_version != settings.groups_version) {
       dirty.settings = true;
     }
@@ -1204,7 +1238,11 @@ function logout() {
   user = newUser();
   delete cache.settings;
   saveUserState();
-  $(window).trigger('hashchange');
+  if (getDisplayState().isForbidden()) {
+    DEFAULT_DISPLAY.setDisplayState();
+  } else {
+    $(window).trigger('hashchange');
+  }
 }
 
 function submitBet(claim, bet) {
@@ -1436,6 +1474,36 @@ function create_group(label, invites) {
       }
     }
   );
+}
+
+function send_invites(name, invites) {
+  invites = JSON.stringify(invites);
+  updateServer({'send_invites':1, 'group_name':name, 'invites':invites},
+    function(xml) {
+      $('#invites-dialog').dialog('close');
+      $(window).trigger('hashchange');
+    }
+  );
+}
+
+function boot_members(name, boots) {
+  if (boots.length) {
+    boots = JSON.stringify(boots);
+    updateServer({'boot_members':boots, 'group_name':name},
+      function(xml) {
+        var result = $(xml).find('boot_members').text();
+        if (result == 'success') {
+          $(window).trigger('hashchange');
+        } else {
+          $('#boot-result').html(result);
+          $('#boot-dialog').dialog('open');
+        }
+      }
+    );
+  } else {
+    $('#boot-result').html('Use the checkboxes to choose members to boot.');
+    $('#boot-dialog').dialog('open');
+  }
 }
 
 function jQueryDateTime(d) {
@@ -1712,6 +1780,43 @@ function initializeDialogs() {
       },
       "Cancel": function() {
         $('#group-dialog').dialog('close');
+      },
+    },
+  });
+
+  $('#new-invites').tagit({
+    animate: false,
+    autocomplete: {
+        delay: 0,
+        source: [],
+      },
+    removeConfirmation: true,
+    sortable: true,
+    showAutocompleteOnFocus: true,
+  });
+  $('#invites-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 300,
+    buttons: {
+      "Submit": function() {
+        send_invites($('#invites-name').val(), $('#new-invites').tagit('assignedTags'));
+      },
+      "Cancel": function() {
+        $('#invites-dialog').dialog('close');
+      },
+    },
+  });
+
+  $('#boot-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 450,
+    buttons: {
+      "Close": function() {
+        $('#boot-dialog').dialog('close');
       },
     },
   });

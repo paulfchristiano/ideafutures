@@ -560,7 +560,8 @@ def send_invites_post(user, group_name, invites):
     return [invalid_query_error]
   emails = set(invite for invite in invites
                if '@' in invite and re.sub('[_@.]', '', invite).isalnum())
-  usernames = list(set(invite for invite in invites if invite not in emails))
+  usernames = list(set(invite for invite in invites
+                       if invite not in emails and invite != user.name))
   for email in emails:
     send_invite(group, email, email)
   for user in User.find({'name': {'$in': usernames}}):
@@ -572,6 +573,32 @@ def send_invite(group, email, invite):
     field = 'invites.%s' % (invite,)
     Group.atomic_update(group.name, {'$set': {field: ''}}, clause={field: None})
     group.invites[invite] = ''
+
+def boot_members_post(user, group_name, boots):
+  try:
+    boots = json.loads(boots)
+  except ValueError:
+    return [invalid_query_error]
+  if (type(boots) != list or
+      any(not isinstance(boot, basestring) for boot in boots)):
+    return [invalid_query_error]
+  boots = set(boots)
+
+  for i in range(10):
+    group = Group.get(group_name)
+    if not group or group.owner != user.name:
+      return [invalid_query_error]
+    users_booted = [group.invites.get(boot) for boot in boots]
+    users_booted = [name for name in users_booted if name]
+    if user.name in users_booted:
+      return [invalid_query_error]
+
+    group.invites = dict(item for item in group.invites.iteritems() if item[0] not in boots)
+    if group.save():
+      for name in users_booted:
+        User.atomic_update(name, {'$unset': {'groups.%s' % (group.name,): 1}})
+      return [('boot_members', 'success')]
+  return [('boot_members', 'A conflict prevented the update. Try again.')]
 
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
@@ -608,7 +635,8 @@ class IdeaFuturesServer:
       name=None, email=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
       maxstake=None, closes=None, tags=None,
-      create_group=None, label=None, invites=None):
+      create_group=None, send_invites=None, boot_members=None,
+      group_name=None, label=None, invites=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -633,6 +661,10 @@ class IdeaFuturesServer:
               definition, closes, tags))
         elif create_group is not None:
           results.extend(create_group_post(user, label, invites))
+        elif send_invites is not None:
+          send_invites_post(user, group_name, invites)
+        elif boot_members is not None:
+          results.extend(boot_members_post(user, group_name, boot_members))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))

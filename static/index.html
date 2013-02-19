@@ -64,13 +64,32 @@
       <fieldset>
         <label for="group-label">Group name:</label>
         <input type="text" id="group-label" class="text-input ui-widget-content ui-corner-all" />
-        <label for="invites">Initial invites:</label>
+        <label for="invites">Members (enter usernames or emails):</label>
         <ul id="invites" data-name="invites"></ul>
         <div class="row">
           <span class="error" id="group-error"></span>
         </div>
       </fieldset>
     </form>
+  </div>
+
+  <div id="invites-dialog" title="Invite new members">
+    <form>
+      <fieldset>
+        <input type="text" id="invites-name" style="display: none;" />
+        <label for="new-invites">Enter usernames or emails:</label>
+        <ul id="new-invites" data-name="new-invites"></ul>
+        <div class="row">
+          <span id="invites-error"></span>
+        </div>
+      </fieldset>
+    </form>
+  </div>
+
+  <div id="boot-dialog" title="Boot members">
+    <div class="row">
+      <span id="boot-result"></span>
+    </div>
   </div>
 
   <script>
