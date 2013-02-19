@@ -23,7 +23,7 @@
           <li><a href="#" id="recentclaimsnavlink" >Recent claims</a></li>
           <li><a href="#submitclaim" id="submitclaimnavlink">Submit claim</a></li>
           <li><a href="#settings" id="settingsnavlink">Account settings</a></li>
-          <li><a href="#listclaims++my_bets" id="mybetsnavlink">See my bets</a></li>
+          <li><a href="#listclaims++my_bets" id="mybetsnavlink">See your bets</a></li>
           <li id='searchbox' class='right-li'><input type='text' id='search'></li>
           <li class='right-li'><span>Search:</span></li>
         </ul>
@@ -37,7 +37,44 @@
       </div>
     </div>
   </body>
+
+  <div id="signup-dialog" title="Sign up">
+    <form>
+      <fieldset>
+        <label for="signup-username">Username:</label>
+        <input type="text" id="signup-username" class="text-input ui-widget-content ui-corner-all" />
+        <label for="signup-email">Email:</label>
+        <input type="text" id="signup-email" value="" class="text-input ui-widget-content ui-corner-all" />
+        <label for="signup-password">Password:</label>
+        <input type="password" id="signup-password" value="" class="text-input ui-widget-content ui-corner-all" />
+        <label for="retype-password">Retype password:</label>
+        <input type="password" id="retype-password" value="" class="text-input ui-widget-content ui-corner-all" />
+        <br/><div class='row'><span class='error' id='signuperror'></span></div>
+      </fieldset>
+    </form>
+  </div>
+
+  <div id="resolve-dialog" title="Resolve claim">
+    <div id="resolve-spacer"/>
+    <span>Mark this claim true or false when its status is known.</span>
+  </div>
+
+  <div id="group-dialog" title="Create group">
+    <form>
+      <fieldset>
+        <label for="group-label">Group name:</label>
+        <input type="text" id="group-label" class="text-input ui-widget-content ui-corner-all" />
+        <label for="invites">Initial invites:</label>
+        <ul id="invites" data-name="invites"></ul>
+        <div class="row">
+          <span class="error" id="group-error"></span>
+        </div>
+      </fieldset>
+    </form>
+  </div>
+
   <script>
+    initializeDialogs();
     setSearchInputHandlers();
   </script>
 </html>

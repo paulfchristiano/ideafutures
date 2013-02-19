@@ -136,10 +136,12 @@ class Data(object):
   # Atomically updates the value of an object in the database. The update should
   # not affect the key fields of the object.
   @classmethod
-  def atomic_update(cls, keys, update):
+  def atomic_update(cls, keys, update, clause=None):
     if type(keys) not in (list, tuple, dict):
       keys = (keys,)
     keys_dict = cls.internalize(convert_to_dict(cls.keys, keys))
+    if clause:
+      keys_dict.update(clause)
     if '$set' not in update:
       update['$set'] = {}
     update['$set']['_version'] = randint(0, MAX_VERSION)

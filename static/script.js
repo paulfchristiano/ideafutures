@@ -141,19 +141,19 @@ function Settings() {
     return (!loggedIn() && "You must log in to change your account settings.");
   };
   this.draw = function() {
-    drawSettings(cache.alltags, cache.usertags);
+    drawSettings(cache.alltags, cache.settings);
   };
   this.updateActiveLink = function() {
     $('#settingsnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
-    queryServer({'alltags':1, 'usertags':1}, returnCall);
+    queryServer({'alltags':1, 'settings': 1}, returnCall);
   };
   this.isCached = function() {
-    return 'alltags' in cache && 'usertags' in cache;
+    return 'alltags' in cache && 'settings' in cache;
   };
   this.isDirty = function() {
-    return 'alltags' in dirty || 'usertags' in dirty;
+    return 'alltags' in dirty || 'settings' in cache;
   };
 }
 
@@ -267,12 +267,9 @@ function updateDisplay(displayState) {
     return;
   }
 
-  updateActiveLink(displayState);
-
-  $('#sidebar').html(loginSidebarBlock);
-  setSidebarInputHandlers(DEFAULT_DISPLAY);
-
   if (displayState.isCached()) {
+    updateActiveLink(displayState);
+
     var newSidebar = loginSidebarBlock();
     if (displayState.type == 'displayclaim') {
       var claim = cache.claims[displayState.id];
@@ -337,7 +334,7 @@ function setSignupError(message) {
   $('#signuperror').html(message);
 }
 
-function clearSignupError(message) {
+function clearSignupError() {
   $('#signuperror').html('');
 }
 
@@ -355,6 +352,14 @@ function setClaimError(message) {
 
 function clearClaimError(str) {
   $('#submitclaimerror').html('');
+}
+
+function setGroupError(message) {
+  $('#group-error').html(message);
+}
+
+function clearGroupError() {
+  $('#group-error').html('');
 }
 
 function updateActiveLink(displayState) {
@@ -390,24 +395,8 @@ function loginSidebarBlock(){
     result += "<div class='row'><input type='submit' class='left' value='Log in' id='loginbutton'></intput>";
     result += "<input type='submit' class='right' value='Sign up' id='signupbutton'></intput></div>";
     result += "<div class='row'><span class='error' id='loginerror'></span></div>";
-    result += signupDialog();
   }
   return result + "</div>";
-}
-
-function signupDialog() {
-  result = '<div id="signup-dialog" title="Sign up"><form><fieldset';
-  result += '<label for="signup-username">Username:</label>';
-  result += '<input type="text" id="signup-username" class="text-input ui-widget-content ui-corner-all" />'
-  result += '<label for="signup-email">Email:</label>';
-  result += '<input type="text" id="signup-email" value="" class="text-input ui-widget-content ui-corner-all" />'
-  result += '<label for="signup-password">Password:</label>'
-  result += '<input type="password" id="signup-password" value="" class="text-input ui-widget-content ui-corner-all" />'
-  result += '<label for="retype-password">Retype password:</label>'
-  result += '<input type="password" id="retype-password" value="" class="text-input ui-widget-content ui-corner-all" />'
-  result += "<br/><div class='row'><span class='error' id='signuperror'></span></div>";
-  result += '</fieldset></form></div>';
-  return result;
 }
 
 function isAdmin() {
@@ -443,33 +432,11 @@ function setSidebarInputHandlers(displayState) {
       login($('#login-username').val(), $('#login-password').val());
     });
 
-    $('#signup-dialog').dialog({
-      autoOpen: false,
-      resizable: false,
-      modal: true,
-      width: 300,
-      buttons: {
-        "Submit": function() {
-          if ($('#signup-password').val() != $('#retype-password').val()) {
-            setSignupError('The passwords you entered do not match.');
-          } else {
-            signup(
-              $('#signup-username').val(),
-              $('#signup-email').val(),
-              $('#signup-password').val()
-            );
-          }
-        },
-        "Cancel": function() {
-          $('#signup-dialog').dialog('close');
-        },
-      },
-    });
     $('#signupbutton').click(function() {
       $('#signup-dialog').find('form').find('input').each(function() {
         $(this).val('');
       });
-      clearSignupError('');
+      clearSignupError();
       $('#signup-dialog').dialog('open');
     });
   }
@@ -608,7 +575,6 @@ function drawClaim(claim) {
   mainFrame += "</div>";
 
   mainFrame += definitionBox(claim);
-  mainFrame += resolveDialog(claim);
   $('#mainframe').html(mainFrame);
   setClaimInputHandlers(claim);
 }
@@ -722,14 +688,6 @@ function definitionBox(claim) {
   return "";
 }
 
-function resolveDialog(claim) {
-  result = '<div id="resolve-dialog" title="Resolve claim">';
-  result += '<div id="resolve-spacer"/>';
-  result += '<span>Mark this claim true or false when its status is known.</span>';
-  result += '</div>';
-  return result;
-}
-
 // TODO: This code could be refactored a bit. Some betslider
 // initialization still occurs in setClaimInputHandlers().
 function setBetSliderInputHandlers(bounds, defaultBet, claim) {
@@ -783,37 +741,6 @@ function setClaimInputHandlers(claim) {
     submitBet(claim, $('#betinput').val()/100);
   });
 
-  $('#resolve-dialog').dialog({
-    autoOpen: false,
-    resizable: false,
-    modal: true,
-    height: 108,
-    width: 360,
-    buttons: [
-      {
-        html: "<span>Mark true</span><span class='ui-icon right-align ui-icon-check'/>",
-        tabIndex: -1,
-        click: function() {
-          resolveClaim(getDisplayState().id, true);
-          $(this).dialog('close');
-        },
-      },
-      {
-        html: "<span>Mark false</span><span class='ui-icon right-align ui-icon-close'/>",
-        tabIndex: -1,
-        click: function() {
-          resolveClaim(getDisplayState().id, false);
-          $(this).dialog('close');
-        },
-      },
-      {
-        text: 'Cancel',
-        click: function() {
-          $(this).dialog('close');
-        },
-      },
-    ],
-  });
   $('#resolve').click(function() {
     $('#resolve-dialog').dialog('open');
   });
@@ -933,31 +860,39 @@ function setSubmitClaimInputHandlers(claim) {
   });
 }
 
-function drawSettings(alltags, usertags) {
+function drawSettings(alltags, settings) {
   var mainFrame = "<div class='header'><h1>Manage your groups</h1>";
-  mainFrame += '<div class="row">';
-  mainFrame += 'Add or remove users from groups you own or ';
-  mainFrame += '<a>create a new group</a>';
-  mainFrame += '.</div></div>';
-
-  var group = {
-    'name': 'Jeff &lt;3 food',
-    'label': 'Jeff <3 food',
-    'owner': 'skishore',
-    'members': [
-      {name: 'skishore', email: ''},
-      {name: 'paulfc', email: 'paulfc@mit.edu'},
-      {name: 'wuthefwasthat', email: 'jeffwu@mit.edu'},
-    ],
-  };
-  mainFrame += groupBox(group, true);
-  group.members.length = 1;
-  mainFrame += groupBox(group, true);
-
-  mainFrame += "<div class='header'><h1>Manage other groups</h1>";
-  mainFrame += ('<div class="row">Choose whether or not to stay in other users\' groups.</div></div>');
-  mainFrame += groupBox(group);
+  if (settings.my_groups.length) {
+    mainFrame += '<div class="row">';
+    mainFrame += 'Add or remove users from groups you own or ';
+    mainFrame += '<a id="create-group-link">create a new group</a>';
+    mainFrame += '.</div></div>';
+    for (var i = 0; i < settings.my_groups.length; i++) {
+      mainFrame += groupBox(settings.my_groups[i], true);
+    }
+  } else {
+    mainFrame += '<div class="row">';
+    mainFrame += 'You do not own any groups. You can ';
+    mainFrame += '<a id="create-group-link">create a new group</a>';
+    mainFrame += '.</div></div>';
+  }
+  if (settings.other_groups.length) {
+    mainFrame += "<div class='header'><h1>Manage other groups</h1>";
+    mainFrame += ('<div class="row">Choose whether or not to stay in other users\' groups.</div></div>');
+    for (var i = 0; i < settings.other_groups.length; i++) {
+      mainFrame += groupBox(settings.other_groups[i]);
+    }
+  }
   $('#mainframe').html(mainFrame);
+
+  $('#create-group-link').click(function() {
+    $('#group-dialog').find('form').find('input').each(function() {
+      $(this).val('');
+    });
+    $('#invites').tagit('removeAll');
+    clearGroupError();
+    $('#group-dialog').dialog('open');
+  });
 }
 
 function groupBox(group, owner) {
@@ -966,7 +901,7 @@ function groupBox(group, owner) {
   if (owner) {
     var button_margin = 8*group.members.length - 6;
     var table_margin = button_margin - 2;
-    result += '<a class="long orange right" style="margin-top: ' + button_margin + 'px;">Send invites</a>';
+    result += '<a class="long orange right" style="margin-top: ' + button_margin + 'px;">Invite members</a>';
     result += '<a class="long gray right boot-button">Boot members</a>';
   } else {
     var button_margin = 8*group.members.length + 11;
@@ -977,9 +912,8 @@ function groupBox(group, owner) {
   result += '<tr><th>Member:</th><th>Email:</th></tr>';
   for (i = 0; i < group.members.length; i++) {
     var member = group.members[i];
-    var email = member.email || '(owner)';
     var tr = (i % 2 ? '<tr>' : '<tr class="alt">');
-    result += tr + '<td>' + member.name + '</td><td>' + email + '</td></tr>';
+    result += tr + '<td>' + member.name + '</td><td>' + member.email + '</td></tr>';
   }
   result += '</table>';
   result += '</div>';
@@ -1084,16 +1018,42 @@ function autoParseXML(xml) {
     cache.alltags = alltags;
   }
 
-  if ($(xml).find('usertags').length > 0) {
-    var usertags = [];
-    $(xml).find('usertags').find('tag').each(function() {
-      usertags.push($(this).text());
+  if ($(xml).find('settings').length > 0) {
+    var settings = {
+      tags: [],
+      my_groups: [],
+      other_groups: [],
+      groups_version: 0,
+    };
+    $(xml).find('settings').find('tags').find('tag').each(function() {
+      settings.tags.push($(this).text());
     });
-    if (!('usertags' in cache) ||
-        !(arrayEquals(cache.usertags, usertags))) {
-      dirty.usertags = true;
+    $(xml).find('settings').find('groups').find('group').each(function() {
+      var group = {};
+      group.name = $(this).find('group_name').text();
+      group.label = $(this).find('label').text();
+      group.owner = $(this).find('owner').text();
+      group.members = [];
+      $(this).find('members').find('member').each(function() {
+        var member = {};
+        member.name = $(this).find('name').text() || '-';
+        member.email = $(this).find('email').text().replace(/\(dot\)/g, '.');
+        group.members.push(member);
+      });
+      if (group.owner == user.name) {
+        settings.my_groups.push(group);
+      } else {
+        settings.other_groups.push(group);
+      }
+      settings.groups_version += parseInt($(this).find('version').text());
+    });
+
+    if (!('settings' in cache) ||
+        !(arrayEquals(cache.settings, settings)) ||
+        cache.settings.groups_version != settings.groups_version) {
+      dirty.settings = true;
     }
-    cache.usertags = usertags;
+    cache.settings = settings;
   }
 }
 
@@ -1242,7 +1202,7 @@ function signup(name, email, password){
 
 function logout() {
   user = newUser();
-  delete cache.usertags;
+  delete cache.settings;
   saveUserState();
   $(window).trigger('hashchange');
 }
@@ -1463,6 +1423,21 @@ function submitClaim(claim) {
   );
 }
 
+function create_group(label, invites) {
+  invites = JSON.stringify(invites);
+  updateServer({'create_group':1, 'label':label, 'invites':invites},
+    function(xml) {
+      var result = $(xml).find('create_group').text();
+      if (result == 'success') {
+        $('#group-dialog').dialog('close');
+        $(window).trigger('hashchange');
+      } else {
+        setGroupError(result);
+      }
+    }
+  );
+}
+
 function jQueryDateTime(d) {
   return {
     date: "" + padInt(d.getMonth() + 1) + "/" + padInt(d.getDate()) + "/" + d.getFullYear(),
@@ -1650,4 +1625,94 @@ function validateBet(claim, bet) {
 
   clearBetError();
   return true;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Called once to initialize the dialogs after the HTML is loaded.            *
+ * -------------------------------------------------------------------------- */
+
+function initializeDialogs() {
+  $('#signup-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 300,
+    buttons: {
+      "Submit": function() {
+        if ($('#signup-password').val() != $('#retype-password').val()) {
+          setSignupError('The passwords you entered do not match.');
+        } else {
+          signup(
+            $('#signup-username').val(),
+            $('#signup-email').val(),
+            $('#signup-password').val()
+          );
+        }
+      },
+      "Cancel": function() {
+        $('#signup-dialog').dialog('close');
+      },
+    },
+  });
+
+  $('#resolve-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    height: 108,
+    width: 360,
+    buttons: [
+      {
+        html: "<span>Mark true</span><span class='ui-icon right-align ui-icon-check'/>",
+        tabIndex: -1,
+        click: function() {
+          resolveClaim(getDisplayState().id, true);
+          $(this).dialog('close');
+        },
+      },
+      {
+        html: "<span>Mark false</span><span class='ui-icon right-align ui-icon-close'/>",
+        tabIndex: -1,
+        click: function() {
+          resolveClaim(getDisplayState().id, false);
+          $(this).dialog('close');
+        },
+      },
+      {
+        text: 'Cancel',
+        click: function() {
+          $(this).dialog('close');
+        },
+      },
+    ],
+  });
+
+  $('#invites').tagit({
+    animate: false,
+    autocomplete: {
+        delay: 0,
+        source: [],
+      },
+    removeConfirmation: true,
+    sortable: true,
+    showAutocompleteOnFocus: true,
+  });
+  $('#group-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 300,
+    buttons: {
+      "Submit": function() {
+        if (!$('#group-label').val()) {
+          setGroupError('You must enter a group name.');
+        } else {
+          create_group($('#group-label').val(), $('#invites').tagit('assignedTags'));
+        }
+      },
+      "Cancel": function() {
+        $('#group-dialog').dialog('close');
+      },
+    },
+  });
 }

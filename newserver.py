@@ -11,6 +11,8 @@ from random import randint
 import re
 import sys
 
+from mail import send_mail_async
+
 # TODO: We need to store a secret salt on the server itself to protect
 # people with weaker passwords. This salt shouldn't be committed the repo.
 def hash_password(password):
@@ -26,6 +28,8 @@ authentication_failed_error = ('error', \
 DEFAULT_TAGS = ['general']
 DEFAULT_REPUTATION = 100.0
 
+MAX_UID = (1 << 31) - 1
+
 def is_admin(user):
   return user is not None and user.name in ('paulfc', 'skishore')
 
@@ -39,7 +43,7 @@ def admin_only(f):
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'email', 'pwd_hash', 'reputation', 'committed', 'tags')
+  fields = ('name', 'email', 'pwd_hash', 'reputation', 'committed', 'tags', 'groups')
   num_key_fields = 1
 
   def wrap(self):
@@ -64,12 +68,17 @@ class Claim(Data):
 
 class Group(Data):
   collection = 'groups'
-  fields = ('name', 'label', 'owner', 'members', 'salt')
+  fields = ('name', 'label', 'owner', 'invites', 'salt')
   num_key_fields = 1
 
   def wrap(self):
     results = self.to_dict()
-    results['members'] = wrap(('member', wrap(member)) for member in results['members'])
+    results['group_name'] = results.pop('name')
+    results['members'] = wrap(('member', wrap({
+      'email': key,
+      'name': value,
+    })) for (key, value) in results.pop('invites').iteritems())
+    results['version'] = self.version_
     results.pop('salt')
     return wrap(results.items())
 
@@ -242,11 +251,15 @@ def alltags_query():
   tags = set(Claim.distinct('tags') + DEFAULT_TAGS)
   return [('alltags', wrap(('tag', tag) for tag in sorted(tags)))]
 
-def usertags_query(user):
+def settings_query(user):
   if user is None:
     return [authentication_failed_error]
-  return [('usertags', wrap(('tag', tag) \
-      for tag in sorted(user.tags)))]
+  # TODO: The wrap function should handle serialization. In fact, we should use JSON.
+  result = {}
+  result['tags'] = wrap(('tag', tag) for tag in sorted(user.tags))
+  groups = Group.find({'name': {'$in': user.groups.keys()}})
+  result['groups'] = wrap(('group', wrap(group)) for group in groups)
+  return [('settings', wrap(result))]
 
 def signup_post(name, email, password):
   if name is None or email is None or password is None:
@@ -267,7 +280,8 @@ def signup_post(name, email, password):
       'pwd_hash':pwd_hash,
       'reputation':DEFAULT_REPUTATION,
       'committed':{},
-      'tags':[]
+      'tags':[],
+      'groups':{},
   })
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
@@ -441,7 +455,6 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   if closes != '' and closes < age:
     return [('submitclaim', 'baddata')]
 
-  MAX_UID = (1 << 31) - 1
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
       'closes':closes, 'description':description, 'tags':tags, \
       'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
@@ -511,21 +524,61 @@ def is_valid_desc_def_tags(description, definition, tags):
     return False
   return True
 
-def newtags_post(user, newtags):
-  if newtags is None:
+def create_group_post(user, label, invites):
+  if not label:
     return [invalid_query_error]
-  newtags = newtags.split(' ') if len(newtags) else []
-  tags = set(Claim.distinct('tags') + DEFAULT_TAGS)
-  newtags = [tag for tag in newtags if tag in tags]
-  User.atomic_update(user.name, {'$set':{'tags':newtags}})
-  return [('usertags', wrap(('tag', tag) for tag in sorted(newtags)))]
+  group_name = label.lower().strip().replace(' ', '_')
+  group_name = ''.join(c for c in group_name if c.isalnum() or c == '_')
+  if len(group_name) < 4 or len(group_name) > 32:
+    return [('create_group', "Your group's name must be between 4 and 32 characters.")]
+  label = escape(label)
+  group = Group({
+    'name': group_name,
+    'label': label,
+    'owner': user.name,
+    'invites': {
+      '(owner)': user.name,
+    },
+    'salt': randint(0, MAX_UID),
+  })
+  if group.save():
+    User.atomic_update(user.name, {'$set': {'groups.%s' % (group_name,): 1}})
+    send_invites_post(user, group_name, invites)
+    return [('create_group', 'success')]
+  return [('create_group', 'A group with that name already exists.')]
+
+def send_invites_post(user, group_name, invites):
+  group = Group.get(group_name)
+  if not group or group.owner != user.name:
+    return [invalid_query_error]
+  try:
+    invites = json.loads(invites)
+  except ValueError:
+    return [invalid_query_error]
+  if (type(invites) != list or
+      any(not isinstance(invite, basestring) for invite in invites)):
+    return [invalid_query_error]
+  emails = set(invite for invite in invites
+               if '@' in invite and re.sub('[_@.]', '', invite).isalnum())
+  usernames = list(set(invite for invite in invites if invite not in emails))
+  for email in emails:
+    send_invite(group, email, email)
+  for user in User.find({'name': {'$in': usernames}}):
+    send_invite(group, user.email, "(%s's email)" % (user.name,))
+
+def send_invite(group, email, invite):
+  invite = invite.replace('.', '(dot)')
+  if invite not in group.invites:
+    field = 'invites.%s' % (invite,)
+    Group.atomic_update(group.name, {'$set': {field: ''}}, clause={field: None})
+    group.invites[invite] = ''
 
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
   def query(self, login=None, search=None, extra=None, claim=None, \
-      alltags=None,  usertags=None, name=None, password=None):
+      alltags=None,  settings=None, name=None, password=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -539,8 +592,8 @@ class IdeaFuturesServer:
         results.extend(claim_query(claim))
       if alltags is not None:
         results.extend(alltags_query())
-      if usertags is not None:
-        results.extend(usertags_query(user))
+      if settings is not None:
+        results.extend(settings_query(user))
     except Exception:
       raise
     results.append(('currenttime', now()))
@@ -554,7 +607,8 @@ class IdeaFuturesServer:
       submitclaim = None, editclaim=None, \
       name=None, email=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
-      maxstake=None, closes=None, tags=None, newtags=None):
+      maxstake=None, closes=None, tags=None,
+      create_group=None, label=None, invites=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -577,8 +631,8 @@ class IdeaFuturesServer:
         elif editclaim is not None:
           results.extend(editclaim_post(user, id, description, \
               definition, closes, tags))
-        elif newtags is not None:
-          results.extend(newtags_post(user, newtags))
+        elif create_group is not None:
+          results.extend(create_group_post(user, label, invites))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))

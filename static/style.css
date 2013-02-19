@@ -691,6 +691,13 @@ h3.short {
   width: 64%;
 }
 
+#group-dialog #invites {
+  font-size: 11px;
+  margin-top: 0px;
+  margin-left: 0px;
+  width: 227px;
+}
+
 #submitclaim-spacer {
   height: 26px;
 }

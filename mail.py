@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from threading import Thread
 
 user = 'kshaunak@gmail.com'
 # Temporary application-specific password which will be revoked soon.
@@ -14,7 +15,10 @@ def connect_to_mail_server():
   smtp.starttls()
   smtp.login(user, password)
 
-# Sends an HTML email.
+def send_mail_async(to, subject, text, html=None):
+  thread = Thread(target=lambda: send_mail(to, subject, text, html))
+  thread.start()
+
 def send_mail(to, subject, text, html=None):
   global smtp
   if not smtp:
