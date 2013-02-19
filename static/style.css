@@ -388,7 +388,7 @@ a.long {
   width: 120px;
 }
 
-a.boot-button {
+a.boot-button, a.resolve-invite {
   clear: right;
   margin-top: 8px;
 }
@@ -415,7 +415,7 @@ div.betdescription, .group-header {
 
 table.members-list {
   border-collapse: collapse;
-  min-width: 50%;
+  min-width: 60%;
   text-align: left;
 }
 

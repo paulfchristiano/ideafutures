@@ -10,6 +10,7 @@ import md5
 from random import randint
 import re
 import sys
+import urllib
 
 from mail import send_mail_async
 
@@ -17,6 +18,16 @@ from mail import send_mail_async
 # people with weaker passwords. This salt shouldn't be committed the repo.
 def hash_password(password):
   return md5.new(password).hexdigest()
+
+def hash_group_invite(group, invite):
+  return md5.new('group_name: %s; invite: %s; salt: %s;' % (
+    group.name,
+    invite,
+    group.salt,
+  )).hexdigest()
+
+def encodeURIComponent(uri):
+  return urllib.quote(uri, safe='~()*!.\'')
 
 # Errors returned by the server if queried incorrectly.
 invalid_query_error = ('error', \
@@ -260,6 +271,43 @@ def settings_query(user):
   groups = Group.find({'name': {'$in': user.groups.keys()}})
   result['groups'] = wrap(('group', wrap(group)) for group in groups)
   return [('settings', wrap(result))]
+
+def group_query(user, group_name, invite, group_hash):
+  group = Group.get(group_name)
+  if not group or invite not in group.invites:
+    return [authentication_failed_error]
+  if hash_group_invite(group, invite) != group_hash:
+    return [authentication_failed_error]
+  return [
+      ('group_query', wrap(group)),
+      ('invite_state', group.invites[invite])
+      ]
+
+def resolve_invite_post(user, group_name, invite, group_hash, choice):
+  if choice not in ('accept', 'decline'):
+    return [invalid_query_error]
+  if user and invite and invite[0] == '(' and invite[1:len(user.name) + 1] != user.name:
+    return [('resolve_invite', 'This invite was meant for another user.')]
+
+  for i in range(10):
+    group = Group.get(group_name)
+    if not user or not group or invite not in group.invites:
+      return [authentication_failed_error]
+    if hash_group_invite(group, invite) != group_hash:
+      return [authentication_failed_error]
+
+    if group.invites[invite]:
+      return [('resolve_invite', 'This invite has already been resolved.')]
+    if any(name == user.name for name in group.invites.values()):
+      choice = 'decline'
+    if choice == 'decline':
+      del group.invites[invite]
+    else:
+      group.invites[invite] = user.name
+    if group.save():
+      User.atomic_update(user.name, {'$set': {'groups.%s' % (group_name,): 1}})
+      return [('resolve_invite', 'success')]
+  return [('resolve_invite', 'There was a conflicting update that prevented yours.')]
 
 def signup_post(name, email, password):
   if name is None or email is None or password is None:
@@ -574,6 +622,34 @@ def send_invite(group, email, invite):
     Group.atomic_update(group.name, {'$set': {field: ''}}, clause={field: None})
     group.invites[invite] = ''
 
+    group_hash = hash_group_invite(group, invite)
+    link = '127.0.0.1:1619/#invite+%s+%s+%s' % (
+      encodeURIComponent(group.name),
+      encodeURIComponent(invite),
+      encodeURIComponent(group_hash),
+    )
+    text = (
+      '%s has invited you to join "%s" at the '
+      'reputation-based prediction market, predictionbazaar.com.'
+      '\n\n'
+      'View or accept your invite here:\n%s' % (
+        group.owner, group.name, link
+      )
+    )
+    html = (
+      '%s has invited you to join "%s" at the '
+      'reputation-based prediction market, predictionbazaar.com.'
+      '<br><br>'
+      '<a href="%s">View or accept your invite.</a>' % (
+        group.owner, group.name, link
+      )
+    )
+    # This is a hack to send text emails. It's necessary because Gmail sanitizes
+    # HTML emails with anchors pointing to localhost in them, for security reasons.
+    # We can remove this hack when we deploy.
+    html = None
+    send_mail_async(email, 'predictionbazaar.com - group invitation', text, html)
+
 def boot_members_post(user, group_name, boots):
   try:
     boots = json.loads(boots)
@@ -600,12 +676,25 @@ def boot_members_post(user, group_name, boots):
       return [('boot_members', 'success')]
   return [('boot_members', 'A conflict prevented the update. Try again.')]
 
+def leave_group_post(user, group_name):
+  for i in range(10):
+    group = Group.get(group_name)
+    if not user or not group:
+      return [invalid_query_error]
+
+    group.invites = dict(item for item in group.invites.iteritems() if item[1] != user.name)
+    if group.save():
+      User.atomic_update(user.name, {'$unset': {'groups.%s' % (group.name,): 1}})
+      return [('leave_group', 'success')]
+  return [('leave_group', 'A conflict prevented the update. Try again.')]
+
 class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
   def query(self, login=None, search=None, extra=None, claim=None, \
-      alltags=None,  settings=None, name=None, password=None):
+      alltags=None,  settings=None, name=None, password=None,
+      group_name=None, invite=None, group_hash=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -621,6 +710,8 @@ class IdeaFuturesServer:
         results.extend(alltags_query())
       if settings is not None:
         results.extend(settings_query(user))
+      if group_name is not None:
+        results.extend(group_query(user, group_name, invite, group_hash))
     except Exception:
       raise
     results.append(('currenttime', now()))
@@ -635,8 +726,9 @@ class IdeaFuturesServer:
       name=None, email=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
       maxstake=None, closes=None, tags=None,
-      create_group=None, send_invites=None, boot_members=None,
-      group_name=None, label=None, invites=None):
+      create_group=None, send_invites=None, boot_members=None, leave_group=None,
+      group_name=None, label=None, invites=None,
+      resolve_invite=None, invite=None, group_hash=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -665,6 +757,11 @@ class IdeaFuturesServer:
           send_invites_post(user, group_name, invites)
         elif boot_members is not None:
           results.extend(boot_members_post(user, group_name, boot_members))
+        elif leave_group is not None:
+          results.extend(leave_group_post(user, group_name))
+        elif resolve_invite is not None:
+          results.extend(resolve_invite_post(
+              user, group_name, invite, group_hash, resolve_invite))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
         results.append(('user', wrap(user)))

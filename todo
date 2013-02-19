@@ -37,17 +37,17 @@ x   (Incremental search)
 x   (Full text search)
 
 Groups and privacy controls:
-  For each group you are a part of, add row on account settings:
-    Header: group name
-    Table mapping user -> email and status (invite sent, accepted)
-    If owner, two-four buttons on the right:
-      Add user:
-        Sends email
-        Email acceptance associates userid with email
-      Kick user - when users are selected
+x For each group you are a part of, add row on account settings:
+x   Header: group name
+x   Table mapping user -> email and status (invite sent, accepted)
+x   If owner, two-four buttons on the right:
+x     Add user:
+x       Sends email
+x       Email acceptance associates userid with email
+x     Kick user - when users are selected
       (Promote - if admin)
       (Delete)
-    If member, Leave button on the right
+x   If member, Leave button on the right
   Search semantics:
     Users only see claims they have access to ANY private group for
 

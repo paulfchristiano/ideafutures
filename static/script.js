@@ -1,5 +1,5 @@
 // A display state is a object mapping 'type' to one of 'listclaims',
-// 'displayclaim', 'submitclaim' or 'settings'.
+// 'displayclaim', 'submitclaim' or 'settings', or 'invite'.
 // It must provide the following methods:
 //   setDisplayState:
 //     Sets the window hash appropriately.
@@ -157,6 +157,42 @@ function Settings() {
   };
 }
 
+function Invite(group_name, invite, hash) {
+  this.type = 'invite';
+  this.group_name = group_name;
+  this.invite = invite;
+  this.hash = hash;
+  this.setDisplayState = function() {
+    window.location.hash = (
+      this.type + '+' +
+      encodeURIComponent(this.group_name) + '+' +
+      encodeURIComponent(this.invite) + '+' +
+      encodeURIComponent(this.hash)
+    );
+  };
+  this.isForbidden = function() {
+    return false;
+  };
+  this.draw = function() {
+    drawInvite(cache.invites[this.group_name]);
+  };
+  this.updateActiveLink = function() {
+  };
+  this.getDisplayData = function(returnCall) {
+    queryServer({
+      'group_name': this.group_name,
+      'invite': this.invite,
+      'group_hash': this.hash,
+    }, returnCall);
+  };
+  this.isCached = function() {
+    return this.group_name in cache.invites;
+  };
+  this.isDirty = function() {
+    return this.group_name in dirty.invites;
+  };
+}
+
 // The user is a dict which stores a 'name', 'password', and 'reputation'.
 // These values are not null if and only if the user is logged in.
 // TODO: Replace user passwords with MD5 hashes or the equivalent.
@@ -175,7 +211,7 @@ var RESTRICTED_TAGS = [];
 var alertNum = 0;
 var currentTime = new Date();
 function newCache() {
-  return {'claims':{}, 'searches':{}};
+  return {'claims':{}, 'searches':{}, 'invites':{}};
 }
 var cache = newCache();
 var dirty = newCache();
@@ -238,6 +274,12 @@ function getDisplayState() {
       return new EditClaim(parseInt(decodeURIComponent(params[1]), 10));
     } else if (params[0] == 'settings') {
       return new Settings();
+    } else if (params[0] == 'invite') {
+      return new Invite(
+        decodeURIComponent(params[1]),
+        decodeURIComponent(params[2]),
+        decodeURIComponent(params[3])
+      );
     } else {
       // Unknown state type. Show the home page.
       return DEFAULT_DISPLAY;
@@ -360,6 +402,14 @@ function setGroupError(message) {
 
 function clearGroupError() {
   $('#group-error').html('');
+}
+
+function setInviteError(message) {
+  $('#resolve-invite-error').html(message);
+}
+
+function clearInviteError() {
+  $('#resolve-invite-error').html('');
 }
 
 function updateActiveLink(displayState) {
@@ -851,7 +901,7 @@ function setSubmitClaimInputHandlers(claim) {
     sortable: true,
     showAutocompleteOnFocus: true,
   });
-  var padding = parseInt($('#tags').css('padding-left'));
+  var padding = parseInt($('#tags').css('padding-left'), 10);
   $('#tags').width($('#description').width() - padding - 2);
   $('#tags').find('input').attr('maxlength', 16);
 
@@ -868,7 +918,7 @@ function drawSettings(alltags, settings) {
     mainFrame += '<a id="create-group-link">create a new group</a>';
     mainFrame += '.</div></div>';
     for (var i = 0; i < settings.my_groups.length; i++) {
-      mainFrame += groupBox(settings.my_groups[i], true);
+      mainFrame += groupBox(settings.my_groups[i]);
     }
   } else {
     mainFrame += '<div class="row">';
@@ -920,21 +970,39 @@ function drawSettings(alltags, settings) {
     );
     boot_members($(this).attr('data-name'), emails);
   });
+  $('.leave-button').click(function() {
+    leave_group($(this).attr('data-name'));
+  });
 }
 
-function groupBox(group, owner) {
+function groupBox(group, show_invite) {
+  var status = getGroupStatus(group);
   var result = '<div class="group-box">';
   result += '<h2 class="group-header">' + html_encode(group.label) + "</h2>";
-  if (owner) {
+  if (show_invite) {
+    if (status) {
+      var button_margin = 8*group.members.length + 11;
+      var table_margin = button_margin - 31;
+      result += '<a class="long orange right resolve-invite" data-name="' + group.name + '"';
+      result += ' data-choice="decline" style="margin-top: ' + button_margin + 'px;">Cancel invite</a>';
+    } else {
+      var button_margin = 8*group.members.length - 6;
+      var table_margin = button_margin - 2;
+      result += '<a class="long orange right resolve-invite" data-name="' + group.name + '"';
+      result += ' data-choice="accept" style="margin-top: ' + button_margin + 'px;">Accept invite</a>';
+      result += '<a class="long gray right resolve-invite" data-name="' + group.name + '"';
+      result += ' data-choice="decline">Decline invite</a>';
+    }
+  } else if (status == 'owner') {
     var button_margin = 8*group.members.length - 6;
     var table_margin = button_margin - 2;
     result += '<a class="long orange right invite-button" data-name="' + group.name + '"';
     result += ' style="margin-top: ' + button_margin + 'px;">Invite members</a>';
     result += '<a class="long gray right boot-button" data-name="' + group.name + '">Boot members</a>';
-  } else {
+  } else if (status == 'member') {
     var button_margin = 8*group.members.length + 11;
     var table_margin = button_margin - 31;
-    result += '<a class="long gray right boot-button" data-name="' + group.name + '"';
+    result += '<a class="long gray right leave-button" data-name="' + group.name + '"';
     result += ' style="margin-top: ' + button_margin + 'px;">Leave group</a>';
   }
   result += '<table class="members-list" style="margin-top: -' + table_margin + 'px;">';
@@ -943,7 +1011,7 @@ function groupBox(group, owner) {
     var member = group.members[i];
     var tr = (i % 2 ? '<tr>' : '<tr class="alt">');
     result += tr + '<td class="checkbox-column">';
-    if (member.email != '(owner)') {
+    if (!show_invite && status == 'owner' && member.email != '(owner)') {
       result += '<input type="checkbox">';
     }
     result += '</td><td>' + member.name + '</td>';
@@ -954,6 +1022,66 @@ function groupBox(group, owner) {
   result += '<hr>';
   return result;
 }
+
+// Returns 'owner', 'member' or ''.
+function getGroupStatus(group) {
+  if (!loggedIn()) {
+    return '';
+  } else if (group.owner == user.name) {
+    return 'owner';
+  }
+  for (var i = 0; i < group.members.length; i++) {
+    if (group.members[i].name == user.name) {
+      return 'member';
+    }
+  }
+  return '';
+}
+
+function drawInvite(group) {
+  if (group.invite_state) {
+    var mainFrame = "<div class='header'>";
+    if (group.invite_state == user.name) {
+      mainFrame += '<h1>You are now a member of "' + html_encode(group.label) + '".</h1>';
+    } else {
+      mainFrame += '<h1>' + group.invite_state + ' already accepted this invite.</h1>';
+    }
+    mainFrame += '</div>';
+  } else {
+    var status = getGroupStatus(group);
+    if (status == 'owner') {
+      var mainFrame = "<div class='header'><h1>";
+      mainFrame += "<h1>Uh oh. It looks like you sent yourself an invite!</h1>";
+      mainFrame += '</div>';
+    } else if (status == 'member') {
+      var mainFrame = "<div class='header'><h1>";
+      mainFrame += "<h1>Uh oh. It looks like you got invited to this group again!</h1>";
+      mainFrame += '</div>';
+    } else {
+      var mainFrame = "<div class='header'>";
+      mainFrame += '<h1>' + group.owner + ' invited you to join "' + html_encode(group.label) + '".</h1>';
+      mainFrame += '</div>';
+    }
+  }
+  mainFrame += groupBox(group, !(group.invite_state));
+  mainFrame += '<div class="row"><span class="error" id="resolve-invite-error"/></div>';
+  $('#mainframe').html(mainFrame);
+
+  $('.resolve-invite').click(
+    function() {
+      var choice = $(this).attr('data-choice');
+      if (!loggedIn()) {
+        setInviteError('You must log in or sign up to ' + choice + ' this invite.');
+      } else {
+        resolve_invite($(this).attr('data-name'), choice);
+      }
+    }
+  );
+  $('.leave-button').click(function() {
+    leave_group($(this).attr('data-name'));
+  });
+}
+
 
 function drawTag(tag) {
   return tag.replace(/_/g, ' ');
@@ -1024,7 +1152,7 @@ function autoParseXML(xml) {
   $(xml).find('search_result').each(function() {
     var result = [];
     $(this).find('uid').each(function() {
-      var id = parseInt($(this).text());
+      var id = parseInt($(this).text(), 10);
       if (id in cache.claims) {
         result.push(cache.claims[id]);
       }
@@ -1063,23 +1191,13 @@ function autoParseXML(xml) {
       settings.tags.push($(this).text());
     });
     $(xml).find('settings').find('groups').find('group').each(function() {
-      var group = {};
-      group.name = $(this).find('group_name').text();
-      group.label = $(this).find('label').text();
-      group.owner = $(this).find('owner').text();
-      group.members = [];
-      $(this).find('members').find('member').each(function() {
-        var member = {};
-        member.name = $(this).find('name').text() || '-';
-        member.email = $(this).find('email').text().replace(/\(dot\)/g, '.');
-        group.members.push(member);
-      });
+      var group = parseGroupFromXML(this);
       if (group.owner == user.name) {
         settings.my_groups.push(group);
       } else {
         settings.other_groups.push(group);
       }
-      settings.groups_version += parseInt($(this).find('version').text());
+      settings.groups_version += group.version;
     });
 
     if (!('settings' in cache) ||
@@ -1088,6 +1206,13 @@ function autoParseXML(xml) {
       dirty.settings = true;
     }
     cache.settings = settings;
+  }
+
+  if ($(xml).find('group_query').length > 0) {
+    cacheInvite(
+      parseGroupFromXML($(xml).find('group_query')),
+      $(xml).find('invite_state').text()
+    );
   }
 }
 
@@ -1122,7 +1247,7 @@ function parseUserFromXML(xml) {
 function parseClaimFromXML(xml) {
   var result = {};
 
-  result.id = parseInt($(xml).find('uid').text());
+  result.id = parseInt($(xml).find('uid').text(), 10);
   result.age = parseDate($(xml).find('age').text());
   result.bounty = parseFloat($(xml).find('bounty').text());
   result.closes = parseDate($(xml).find('closes').text());
@@ -1134,7 +1259,7 @@ function parseClaimFromXML(xml) {
   result.maxstake = parseFloat($(xml).find('maxstake').text());
   result.owner = $(xml).find('owner').text();
   result.promoted = ($(xml).find('promoted').text() == '1');
-  result.resolved = parseInt($(xml).find('resolved').text());
+  result.resolved = parseInt($(xml).find('resolved').text(), 10);
 
   definition = $(xml).find('definition').text();
   result.definition = (definition == '') ? null : definition;
@@ -1148,8 +1273,25 @@ function parseClaimFromXML(xml) {
   });
   result.currentbet = result.history[result.history.length - 1].probability;
 
-  result.version = parseInt($(xml).find('version').text());
+  result.version = parseInt($(xml).find('version').text(), 10);
 
+  return result;
+}
+
+// Returns a group object, with all the relevant fields (listed below) set.
+function parseGroupFromXML(xml) {
+  var result = {};
+  result.name = $(xml).find('group_name').text();
+  result.label = $(xml).find('label').text();
+  result.owner = $(xml).find('owner').text();
+  result.members = [];
+  $(xml).find('members').find('member').each(function() {
+    var member = {};
+    member.name = $(this).find('name').text() || '-';
+    member.email = $(this).find('email').text().replace(/\(dot\)/g, '.');
+    result.members.push(member);
+  });
+  result.version = parseInt($(this).find('version').text(), 10);
   return result;
 }
 
@@ -1185,6 +1327,16 @@ function cacheSearch(query, results) {
     }
   }
   cache.searches[query] = results;
+}
+
+function cacheInvite(group, invite_state) {
+  group.invite_state = invite_state;
+  if (!(group.name in cache.invites) ||
+      group.version != cache.invites[group.name].version ||
+      group.invite_state != cache.invites[group.name].invite_state) {
+    dirty.invites[group.name] = true;
+  }
+  cache.invites[group.name] = group;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -1495,15 +1647,58 @@ function boot_members(name, boots) {
         if (result == 'success') {
           $(window).trigger('hashchange');
         } else {
-          $('#boot-result').html(result);
-          $('#boot-dialog').dialog('open');
+          show_general_dialog('Boot members', result);
         }
       }
     );
   } else {
-    $('#boot-result').html('Use the checkboxes to choose members to boot.');
-    $('#boot-dialog').dialog('open');
+    show_general_dialog('Boot members', 'Select 1 or more members to boot using the checkboxes.');
   }
+}
+
+function leave_group(name) {
+  updateServer({'leave_group':1, 'group_name':name},
+    function(xml) {
+      var result = $(xml).find('leave_group').text();
+      if (result == 'success') {
+        if (getDisplayState().type == 'invite') {
+          DEFAULT_DISPLAY.setDisplayState();
+          setAlert('Successfully left group.');
+        } else {
+          $(window).trigger('hashchange');
+        }
+      } else {
+        show_general_dialog('Leave group', result);
+      }
+    }
+  );
+}
+
+function show_general_dialog(title, html) {
+  $($('#general-dialog').parent()).find('.ui-dialog-titlebar').html(title);
+  $('#general-html').html(html);
+  $('#general-dialog').dialog('open');
+}
+
+function resolve_invite(name, choice) {
+  var displayState = getDisplayState();
+  var invite = getDisplayState().invite;
+  var hash = getDisplayState().hash;
+  updateServer({'resolve_invite':choice, 'group_name':name, 'invite':invite, 'group_hash':hash},
+    function(xml) {
+      var result = $(xml).find('resolve_invite').text();
+      if (result == 'success') {
+        if (choice == 'decline') {
+          DEFAULT_DISPLAY.setDisplayState();
+          setAlert('Canceled invite.');
+        } else {
+          $(window).trigger('hashchange');
+        }
+      } else {
+        setInviteError(result);
+      }
+    }
+  );
 }
 
 function jQueryDateTime(d) {
@@ -1809,14 +2004,14 @@ function initializeDialogs() {
     },
   });
 
-  $('#boot-dialog').dialog({
+  $('#general-dialog').dialog({
     autoOpen: false,
     resizable: false,
     modal: true,
     width: 450,
     buttons: {
       "Close": function() {
-        $('#boot-dialog').dialog('close');
+        $('#general-dialog').dialog('close');
       },
     },
   });
