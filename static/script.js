@@ -1120,13 +1120,7 @@ function pingServer(query, queryType, returnCall) {
     query['password'] = user.password;
   }
 
-  // Use a GET to do 'query' requests and a POST to do 'update's.
-  var request = $.get;
-  if (queryType == 'update') {
-    request = $.post;
-  }
-
-  request(queryType, query, function(xml) {
+  $.post(queryType, query, function(xml) {
     autoParseXML(xml);
     returnCall(xml);
   }, 'xml');
