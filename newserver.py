@@ -662,7 +662,7 @@ def send_invite(group, email, invite):
       '%s has invited you to join "%s" at the '
       'reputation-based prediction market, predictionbazaar.com.'
       '\n\n'
-      'View or accept your invite here:\n%s' % (
+      'View or accept the invite here:\n%s' % (
         group.owner, group.name, link
       )
     )
@@ -670,7 +670,7 @@ def send_invite(group, email, invite):
       '%s has invited you to join "%s" at the '
       'reputation-based prediction market, predictionbazaar.com.'
       '<br><br>'
-      '<a href="%s">View or accept your invite.</a>' % (
+      'Click to <a href="%s">view or accept the invite</a>.' % (
         group.owner, group.name, link
       )
     )
