@@ -48,8 +48,17 @@ x     Kick user - when users are selected
       (Promote - if admin)
       (Delete)
 x   If member, Leave button on the right
-  Search semantics:
-    Users only see claims they have access to ANY private group for
+x Search semantics:
+x   Users only see claims they have access to ANY private group for
+
+Remaining UI issues:
+  Account settings page:
+    Allow users to see / modify their email
+    Bring back the "default search" functionality
+  High scores page
+  Groups:
+    Let users delete groups
+    Include a list of users in the invites dropdown
 
 Backend/scaling and other issues:
 x Don't take bounty or maxstake from the client

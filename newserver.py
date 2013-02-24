@@ -65,13 +65,14 @@ class User(Data):
 
 class Claim(Data):
   collection = 'claims'
-  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'tags', 'maxstake',
+  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'tags', 'groups', 'maxstake',
             'owner', 'promoted', 'resolved', 'definition', 'index', 'history')
   num_key_fields = 1
 
   def wrap(self):
     results = self.to_dict()
     results['tags'] = wrap(('tag', tag) for tag in results['tags'])
+    results['groups'] = wrap(('group', group) for group in results['groups'])
     results['history'] = wrap(('bet', wrap(bet)) for bet in results['history'])
     results['version'] = self.version_
     results.pop('index')
@@ -180,19 +181,28 @@ def search_query(user, search, extra):
 def execute_search(user, search):
   # Truncate the search to avoid it getting out of hand.
   search = search[:64]
+  if user:
+    clauses = {
+      '$or': [
+        {'groups': {'$in': ['all'] + user.groups.keys()}},
+        {'uid_': {'$in': map(int, user.committed.keys())}},
+      ]
+    }
+  else:
+    clauses = {'groups': {'$in': ['all']}}
 
   (searches, tag_searches, extras) = parse_search(search)
   if 'default' in extras:
     tags = user.tags if user else []
-    clause = {'tags': {'$all': tags}} if tags else {}
-    vals = Claim.find(clause, uses_key_fields=False)
+    if tags:
+      clauses['tags'] = {'$all': tags}
+    vals = Claim.find(clauses, uses_key_fields=False)
     return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
-  clauses = {}
   if 'active' in extras:
     clauses['resolved'] = 0
   if 'mybets' in extras and user:
-    clauses['uid'] = {'$in': map(int, user.committed.keys())}
+    clauses['uid_'] = {'$in': map(int, user.committed.keys())}
   if 'promoted' in extras:
     clauses['promoted'] = 1
 
@@ -200,11 +210,7 @@ def execute_search(user, search):
     clauses['index'] = {'$all': [re.compile(search) for search in searches]}
   if tag_searches:
     clauses['tags'] = {'$all': tag_searches}
-  if not clauses:
-    vals = Claim.find(uses_key_fields=False)
-  else:
-    uses_key_fields = 'uid' in clauses
-    vals = Claim.find(clauses, uses_key_fields=uses_key_fields)
+  vals = Claim.find(clauses, uses_key_fields=False)
   return sorted(vals, key=lambda claim: claim.age, reverse=True)
 
 # Parses a search string into a list of normalized search tokens.
@@ -244,17 +250,20 @@ def normalize(token, quoted=True):
   return token.strip('_').split('_')
 
 # Returns an index for full-text search combining description and tags.
-def compute_index(description, tags):
+def compute_index(description, tags, groups):
   description = description.lower().replace(' ', '_')
   description = ''.join(c for c in description if c.isalnum() or c == '_')
   description = re.sub('_+', '_', description).strip('_')
-  return ' '.join([description] + tags)
+  return ' '.join([description] + tags + groups)
 
-def claim_query(uid):
+def claim_query(user, uid):
   if uid is None or not uid.isdecimal():
     return [invalid_query_error]
   claim = Claim.get(int(uid))
   if claim is None:
+    return []
+  groups = set(['all'] + (user.groups.keys() if user else []))
+  if not any(group in groups for group in claim.groups):
     return []
   return [('claim', wrap(claim))]
 
@@ -469,7 +478,7 @@ def deleteclaim_post(user, uid):
   return [('deleteclaim', 'conflict')]
 
 def submitclaim_post(user, description, definition, bet, bounty, \
-    maxstake, closes, tags):
+    maxstake, closes, tags, groups):
   description = '' if not description else escape(description)
   definition = '' if not definition else escape(definition)
   try:
@@ -478,6 +487,12 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
   if not is_valid_desc_def_tags(description, definition, tags):
     return [('submitclaim', 'baddata')]
+  try:
+    groups = deduplicate(json.loads(groups))
+    groups = [group_name_from_label(group) for group in groups]
+    assert(groups and (groups == ['all'] or (group in user.groups for group in groups)))
+  except Exception, e:
+    return [('editclaim', 'baddata')]
 
   try:
     bet = float(bet)
@@ -504,9 +519,9 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     return [('submitclaim', 'baddata')]
 
   claim = Claim({'uid':randint(0, MAX_UID), 'age':age, 'bounty':bounty, \
-      'closes':closes, 'description':description, 'tags':tags, \
+      'closes':closes, 'description':description, 'tags':tags, 'groups': groups, \
       'maxstake':maxstake, 'owner':user.name, 'promoted':0, 'resolved':0, \
-      'definition':definition, 'index':compute_index(description, tags), \
+      'definition':definition, 'index':compute_index(description, tags, groups), \
       'history':[{'user':user.name, 'probability':bet, 'time':age}]})
   # Try to insert this claim. After 10 conflicts, fail.
   for i in range(10):
@@ -518,7 +533,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   return [('submitclaim', 'conflict')]
 
 @admin_only
-def editclaim_post(user, uid, description, definition, closes, tags):
+def editclaim_post(user, uid, description, definition, closes, tags, groups):
   try:
     uid = int(uid)
   except Exception, e:
@@ -530,6 +545,14 @@ def editclaim_post(user, uid, description, definition, closes, tags):
   except Exception, e:
     return [('editclaim', 'baddata')]
   if not is_valid_desc_def_tags(description, definition, tags):
+    return [('editclaim', 'baddata')]
+  try:
+    # TODO: We should do some more validation on the groups here. However, it's not
+    # urgent - this is an admin-only route.
+    groups = deduplicate(json.loads(groups))
+    groups = [group_name_from_label(group) for group in groups]
+    assert(groups and (groups == ['all'] or 'all' not in groups))
+  except Exception, e:
     return [('editclaim', 'baddata')]
 
   try:
@@ -550,7 +573,8 @@ def editclaim_post(user, uid, description, definition, closes, tags):
     claim.definition = definition
     claim.closes = closes
     claim.tags = tags
-    claim.index = compute_index(claim.description, claim.tags)
+    claim.groups = groups
+    claim.index = compute_index(description, tags, groups)
 
     if claim.save():
       return [('editclaim', 'success')]
@@ -572,11 +596,17 @@ def is_valid_desc_def_tags(description, definition, tags):
     return False
   return True
 
+def group_name_from_label(label):
+  group_name = label.lower().replace(' ', '_')
+  group_name = ''.join(c for c in group_name if c.isalnum() or c == '_')
+  return re.sub('_+', '_', group_name).strip('_')
+
 def create_group_post(user, label, invites):
   if not label:
     return [invalid_query_error]
-  group_name = label.lower().strip().replace(' ', '_')
-  group_name = ''.join(c for c in group_name if c.isalnum() or c == '_')
+  group_name = group_name_from_label(label)
+  if group_name == 'all':
+    return [('create_group', 'You cannot name a group "all".')]
   if len(group_name) < 4 or len(group_name) > 32:
     return [('create_group', "Your group's name must be between 4 and 32 characters.")]
   label = escape(label)
@@ -705,7 +735,7 @@ class IdeaFuturesServer:
       if search is not None:
         results.extend(search_query(user, search, extra))
       if claim is not None:
-        results.extend(claim_query(claim))
+        results.extend(claim_query(user, claim))
       if alltags is not None:
         results.extend(alltags_query())
       if settings is not None:
@@ -725,7 +755,7 @@ class IdeaFuturesServer:
       submitclaim = None, editclaim=None, \
       name=None, email=None, password=None, id=None, bet=None, version=None, \
       outcome=None, description=None, definition=None, bounty=None, \
-      maxstake=None, closes=None, tags=None,
+      maxstake=None, closes=None, tags=None, groups=None,
       create_group=None, send_invites=None, boot_members=None, leave_group=None,
       group_name=None, label=None, invites=None,
       resolve_invite=None, invite=None, group_hash=None):
@@ -747,10 +777,10 @@ class IdeaFuturesServer:
           results.extend(deleteclaim_post(user, id))
         elif submitclaim is not None:
           results.extend(submitclaim_post(user, description, definition, \
-              bet, bounty, maxstake, closes, tags))
+              bet, bounty, maxstake, closes, tags, groups))
         elif editclaim is not None:
           results.extend(editclaim_post(user, id, description, \
-              definition, closes, tags))
+              definition, closes, tags, groups))
         elif create_group is not None:
           results.extend(create_group_post(user, label, invites))
         elif send_invites is not None:

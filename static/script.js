@@ -66,6 +66,9 @@ function DisplayClaim(id) {
     window.location.hash = this.type + '+' + encodeURIComponent(this.id);
   };
   this.isForbidden = function() {
+    if (!loggedIn() && this.id in cache.claims) {
+      return (cache.claims[this.id].groups[0] != 'all' && 'This claim has restricted visibility.');
+    }
     return false;
   };
   this.draw = function() {
@@ -98,13 +101,13 @@ function SubmitClaim() {
     $('#submitclaimnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
-    queryServer({'alltags':1}, returnCall);
+    queryServer({'alltags':1, 'settings': 1}, returnCall);
   };
   this.isCached = function() {
-    return 'alltags' in cache;
+    return 'alltags' in cache && 'settings' in cache;
   };
   this.isDirty = function() {
-    return 'alltags' in dirty;
+    return 'alltags' in dirty || 'settings' in dirty;
   };
 }
 
@@ -513,10 +516,8 @@ function drawClaims(results) {
     var mainFrame = "<div class='header'><h1>No claims found.</h1>";
     mainFrame += "<div class='row'>No claims match your current search.";
     if (loggedIn()) {
-      mainFrame += " Try another search, ";
-      mainFrame += " <a href=\"#submitclaim\">submit a claim</a>,";
-      mainFrame += " or change your defaults on the";
-      mainFrame += " <a href=\"#settings\">account settings</a> page.";
+      mainFrame += " Try another search or ";
+      mainFrame += " <a href=\"#submitclaim\">submit a claim</a>.";
     } else {
       mainFrame += " Try another search or log in to submit a claim.";
     }
@@ -634,8 +635,9 @@ function isOpen(claim) {
 }
 
 function descriptionBox(claim) {
+  var tags = claim.tags.concat(claim.groups).map(drawTag).join(', ');
   var result = "<div class='header'><h1>\"" + html_encode(claim.description) + "\"</h1>";
-  result += "<div class='row'>Tags: " + claim.tags.map(drawTag).join(', ') + "</div></div>";
+  result += "<div class='row'>Tags: " + tags + "</div></div>";
   return result;
 }
 
@@ -834,6 +836,8 @@ function submitClaimBox(claim) {
   }
   result += '<p><label for="tags">*Subject tags: </label>';
   result += "<ul id='tags' data-name='tags'></ul></p>";
+  result += '<div id="groups-input"><label for="groups">*Visibility: </label>';
+  result += "<ul id='groups' data-name='groups'></ul></div>";
   result += '</fieldset><div id="submitclaim-spacer"/>';
   if (typeof claim == 'undefined') {
     result += "<div class='row'><a class='thick orange' id='submitclaimbutton'>Submit</a></div>";
@@ -905,6 +909,32 @@ function setSubmitClaimInputHandlers(claim) {
   $('#tags').width($('#description').width() - padding - 2);
   $('#tags').find('input').attr('maxlength', 16);
 
+  var groups = [];
+  for (var i = 0; i < cache.settings.group_names.length; i++) {
+    groups.push(drawTag(cache.settings.group_names[i]));
+  }
+  if (typeof claim != 'undefined') {
+    for (var i = 0; i < claim.groups.length; i++) {
+      $('#groups').append('<li>' + drawTag(claim.groups[i]) + '</li>');
+    }
+  } else {
+    $('#groups').append('<li>all</li>');
+  }
+  $('#groups').tagit({
+    allowSpaces: true,
+    animate: false,
+    autocomplete: {
+        delay: 0,
+        source: groups,
+      },
+    removeConfirmation: true,
+    sortable: true,
+    showAutocompleteOnFocus: true,
+  });
+  var padding = parseInt($('#groups').css('padding-left'), 10);
+  $('#groups').width($('#description').width() - padding - 2);
+  $('#groups').find('input').attr('maxlength', 32);
+
   $('#submitclaimbutton').click(function(){
     submitClaim(claim);
   });
@@ -936,9 +966,9 @@ function drawSettings(alltags, settings) {
   $('#mainframe').html(mainFrame);
 
   $('#create-group-link').click(function() {
-    $('#group-dialog').find('form').find('input').each(function() {
-      $(this).val('');
-    });
+    $('#group-help-text').html('');
+    $('#group-label, label[for="group-label"]').css('display', '');
+    $('#group-label').val('');
     $('#invites').tagit('removeAll');
     clearGroupError();
     $('#group-dialog').dialog('open');
@@ -964,7 +994,7 @@ function drawSettings(alltags, settings) {
       function() {
         if ($(this).attr('checked')) {
           var member_elt = $(this.parentElement.parentElement).find('.member-email');
-          emails.push(member_elt.text().replace('.', '(dot)'));
+          emails.push(member_elt.text().replace(/\./g, '(dot)'));
         }
       }
     );
@@ -1179,6 +1209,7 @@ function autoParseXML(xml) {
       tags: [],
       my_groups: [],
       other_groups: [],
+      group_names: [],
       groups_version: 0,
     };
     $(xml).find('settings').find('tags').find('tag').each(function() {
@@ -1191,6 +1222,7 @@ function autoParseXML(xml) {
       } else {
         settings.other_groups.push(group);
       }
+      settings.group_names.push(group.name);
       settings.groups_version += group.version;
     });
 
@@ -1250,6 +1282,10 @@ function parseClaimFromXML(xml) {
   $(xml).find('tags').find('tag').each(function() {
     result.tags.push($(this).text());
   });
+  result.groups = [];
+  $(xml).find('groups').find('group').each(function() {
+    result.groups.push($(this).text());
+  });
   result.maxstake = parseFloat($(xml).find('maxstake').text());
   result.owner = $(xml).find('owner').text();
   result.promoted = ($(xml).find('promoted').text() == '1');
@@ -1285,7 +1321,7 @@ function parseGroupFromXML(xml) {
     member.email = $(this).find('email').text().replace(/\(dot\)/g, '.');
     result.members.push(member);
   });
-  result.version = parseInt($(this).find('version').text(), 10);
+  result.version = parseInt($(xml).find('version').text(), 10);
   return result;
 }
 
@@ -1384,8 +1420,10 @@ function logout() {
   user = newUser();
   delete cache.settings;
   saveUserState();
-  if (getDisplayState().isForbidden()) {
+  isForbidden = getDisplayState().isForbidden();
+  if (isForbidden) {
     DEFAULT_DISPLAY.setDisplayState();
+    setAlert(isForbidden);
   } else {
     $(window).trigger('hashchange');
   }
@@ -1570,17 +1608,42 @@ function submitClaim(claim) {
   }
   tags = JSON.stringify(tags);
 
+  var groups = $('#groups').tagit('assignedTags');
+  if (!groups.length) {
+    setClaimError('You must make this claim visible to at least one group.');
+    return;
+  } else if (groups.length > 16) {
+    setClaimError('You cannot assign that many groups to one claim.');
+    return;
+  } else if (groups.indexOf('all') >= 0 && groups.length > 1) {
+    setClaimError('If you want to restrict the visibility of this claim, delete the group "all".');
+    return;
+  }
+  var new_groups = [];
+  for (var i = 0; i < groups.length; i++) {
+    var group = groups[i].replace(/ /g, '_').toLowerCase();
+    if (group != 'all' && cache.settings.group_names.indexOf(group) < 0) {
+      new_groups.push(groups[i]);
+    }
+    groups[i] = group;
+  }
+  if (new_groups.length) {
+    show_new_group_dialog(new_groups[0]);
+    return;
+  }
+  groups = JSON.stringify(groups);
+
   clearClaimError();
   $('#submitclaimbutton').click(function() {});
   if (typeof claim == 'undefined') {
     var update = {'submitclaim':1, 'description':description, 'definition':definition,
         'bet':bet, 'bounty':bounty, 'maxstake':maxstake, 'closes':serverDate(closes),
-        'tags':tags};
+        'tags':tags, 'groups': groups};
     var updateType = 'submitclaim';
     var newDisplay = DEFAULT_DISPLAY;
   } else {
     var update = {'editclaim':1, 'id':claim.id, 'description':description, 'definition':definition,
-        'closes':serverDate(closes), 'tags':tags};
+        'closes':serverDate(closes), 'tags':tags, 'groups': groups};
     var updateType = 'editclaim';
     var newDisplay = new DisplayClaim(claim.id);
   }
@@ -1607,18 +1670,49 @@ function submitClaim(claim) {
   );
 }
 
+function show_new_group_dialog(new_group) {
+  $('#group-help-text').html(
+    'You made this claim visible to the group "' +
+    html_encode(new_group) +
+    '", which does not exit yet. ' +
+    'Do you want to create it now?<br><br>'
+    );
+  $('#group-label, label[for="group-label"]').css('display', 'none');
+  $('#group-label').val(new_group);
+  $('#invites').tagit('removeAll');
+  clearGroupError();
+  $('#group-dialog').dialog('open');
+
+  setClaimError(
+    'Before submitting this claim you must create the group "' +
+    html_encode(new_group) + '".'
+    );
+}
+
 function create_group(label, invites) {
+  var from_submitclaim_page = ($('#group-help-text').html() ? true : false);
   invites = JSON.stringify(invites);
   updateServer({'create_group':1, 'label':label, 'invites':invites},
-    function(xml) {
-      var result = $(xml).find('create_group').text();
-      if (result == 'success') {
-        $('#group-dialog').dialog('close');
-        $(window).trigger('hashchange');
-      } else {
-        setGroupError(result);
-      }
-    }
+    function(label, from_submitclaim_page) {
+      return function(xml) {
+        var result = $(xml).find('create_group').text();
+        if (result == 'success') {
+          $('#group-dialog').dialog('close');
+          if (from_submitclaim_page) {
+            // TODO: This hack prevents the page from requesting this group multiple times.
+            // We're not computing the exact group name here, but it'll make submitClaim()
+            // recognize this group.
+            var hacky_group_name = label.replace(/ /g, '_');
+            cache.settings.group_names.push(hacky_group_name);
+            $('#submitclaimbutton').trigger('click');
+          } else {
+            $(window).trigger('hashchange');
+          }
+        } else {
+          setGroupError(result);
+        }
+      };
+    } (label, from_submitclaim_page)
   );
 }
 
