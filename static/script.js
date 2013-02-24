@@ -125,13 +125,13 @@ function EditClaim(id) {
   };
   this.updateActiveLink = function() {};
   this.getDisplayData = function(returnCall) {
-    queryServer({'alltags':1, 'claim':this.id}, returnCall);
+    queryServer({'alltags':1, 'settings': 1, 'claim':this.id}, returnCall);
   };
   this.isCached = function() {
-    return 'alltags' in cache && this.id in cache.claims;
+    return 'alltags' in cache && 'settings' in cache && this.id in cache.claims;
   };
   this.isDirty = function() {
-    return 'alltags' in dirty || this.id in cache.claims;
+    return 'alltags' in dirty || 'settings' in dirty || this.id in cache.claims;
   };
 }
 
@@ -909,7 +909,7 @@ function setSubmitClaimInputHandlers(claim) {
   $('#tags').width($('#description').width() - padding - 2);
   $('#tags').find('input').attr('maxlength', 16);
 
-  var groups = [];
+  var groups = ['all'];
   for (var i = 0; i < cache.settings.group_names.length; i++) {
     groups.push(drawTag(cache.settings.group_names[i]));
   }
