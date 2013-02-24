@@ -63,7 +63,7 @@ Remaining UI issues:
 Backend/scaling and other issues:
 x Don't take bounty or maxstake from the client
 x Store pwd hashes at the server
-    Salt hashes w/ salt stored outside repo
+x   Salt hashes w/ salt stored outside repo
   Pagination on main page
   Fixed-size LRU cache for searches / claims
   Use JSON for transport from the server to the client

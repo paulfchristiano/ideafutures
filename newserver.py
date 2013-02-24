@@ -13,11 +13,12 @@ import sys
 import urllib
 
 from mail import send_mail_async
+from secrets import salt
 
 # TODO: We need to store a secret salt on the server itself to protect
 # people with weaker passwords. This salt shouldn't be committed the repo.
 def hash_password(password):
-  return md5.new(password).hexdigest()
+  return md5.new(password + salt).hexdigest()
 
 def hash_group_invite(group, invite):
   return md5.new('group_name: %s; invite: %s; salt: %s;' % (
