@@ -3,6 +3,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from threading import Thread
 
+from secrets import (
+  user,
+  password,
+  )
+
 user = 'kshaunak@gmail.com'
 # Temporary application-specific password which will be revoked soon.
 password = 'okymnakpupxhfkjs'

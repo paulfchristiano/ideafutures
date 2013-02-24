@@ -1,0 +1,5 @@
+*.old
+*.pyc
+*.swp
+
+secrets.py

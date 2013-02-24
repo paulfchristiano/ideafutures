@@ -653,7 +653,7 @@ def send_invite(group, email, invite):
     group.invites[invite] = ''
 
     group_hash = hash_group_invite(group, invite)
-    link = '127.0.0.1:1619/#invite+%s+%s+%s' % (
+    link = 'predictionbazaar.com/#invite+%s+%s+%s' % (
       encodeURIComponent(group.name),
       encodeURIComponent(invite),
       encodeURIComponent(group_hash),
@@ -677,7 +677,7 @@ def send_invite(group, email, invite):
     # This is a hack to send text emails. It's necessary because Gmail sanitizes
     # HTML emails with anchors pointing to localhost in them, for security reasons.
     # We can remove this hack when we deploy.
-    html = None
+    #html = None
     send_mail_async(email, 'predictionbazaar.com - group invitation', text, html)
 
 def boot_members_post(user, group_name, boots):
