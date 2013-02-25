@@ -55,7 +55,16 @@ def admin_only(f):
 
 class User(Data):
   collection = 'users'
-  fields = ('name', 'email', 'pwd_hash', 'reputation', 'committed', 'tags', 'groups')
+  fields = (
+    'name',
+    'email',
+    'pwd_hash',
+    'reputation',
+    'committed',
+    'tags',
+    'groups',
+    'history',
+    )
   num_key_fields = 1
 
   def wrap(self):
@@ -340,6 +349,7 @@ def signup_post(name, email, password):
       'committed':{},
       'tags':[],
       'groups':{},
+      'history':{},
   })
   if user.save():
     return [('signup', 'success'), ('user', wrap(user))]
@@ -409,8 +419,15 @@ def resolveclaim_post(user, uid, outcome):
       affected_names = set(bet['user'] for bet in claim.history)
       for name in affected_names:
         stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
-        User.atomic_update(name, \
-            {'$unset':{'committed.%s' % uid:1}, '$inc':{'reputation':stake}})
+        User.atomic_update(name, {
+            '$unset':{'committed.%s' % uid:1},
+            '$set':{'history.%s' % uid: {
+              'description': claim.description,
+              'stake': stake,
+              'time': claim.closes,
+            }},
+            '$inc':{'reputation':stake}
+            })
       return [('resolveclaim', 'success'), ('claim', wrap(claim))]
   return [('resolveclaim', 'conflict')]
 
@@ -436,8 +453,11 @@ def reopenclaim_post(user, uid):
         stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
         maxstake = -min(get_stake(name, claim.bounty, claim.history, False),
             get_stake(name, claim.bounty, claim.history, True))
-        User.atomic_update(name, {'$set': \
-            {'committed.%s' % uid:maxstake}, '$inc':{'reputation':-stake}})
+        User.atomic_update(name, {
+            '$set': {'committed.%s' % uid:maxstake},
+            '$unset': {'history.%s' % uid:1},
+            '$inc':{'reputation':-stake},
+            })
       return [('reopenclaim', 'success'), ('claim', wrap(claim))]
   return [('reopenclaim', 'conflict')]
 
