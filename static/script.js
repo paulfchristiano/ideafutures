@@ -481,7 +481,7 @@ function loginSidebarBlock(){
 }
 
 function isAdmin() {
-  return user.name == 'paulfc' || user.name == 'skishore';
+  return user.name == 'paulfchristiano' || user.name == 'skishore';
 }
 
 function adminSidebarBlock(claim) {

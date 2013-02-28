@@ -46,7 +46,7 @@ DEFAULT_REPUTATION = 100.0
 MAX_UID = (1 << 31) - 1
 
 def is_admin(user):
-  return user is not None and user.name in ('paulfc', 'skishore')
+  return user is not None and user.name in ('paulfchristiano', 'skishore')
 
 # Decorator that tests that the first argument to f is an admin user.
 def admin_only(f):
