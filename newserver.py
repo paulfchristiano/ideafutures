@@ -1,7 +1,10 @@
 #!/usr/bin/python
 from cgi import escape
 import cherrypy
-from data import Data
+from data import (
+  Data,
+  db,
+  )
 from datetime import datetime
 from itertools import chain
 import json
@@ -186,22 +189,24 @@ def search_query(user, search, extra):
   result.extend(('claim', wrap(claim)) for claim in vals)
   return result
 
-# Executes searches for the tags in the list 'searches'. Returns a list of
-# claims in those tags, ordered from newest to oldest.
-def execute_search(user, search):
-  # Truncate the search to avoid it getting out of hand.
-  search = search[:64]
+def group_filter(user):
   if user:
-    clauses = {
+    return {
       '$or': [
         {'groups': {'$in': ['all'] + user.groups.keys()}},
         {'uid_': {'$in': map(int, user.committed.keys())}},
       ]
     }
-  else:
-    clauses = {'groups': {'$in': ['all']}}
+  return {'groups': {'$in': ['all']}}
 
+# Executes searches for the tags in the list 'searches'. Returns a list of
+# claims in those tags, ordered from newest to oldest.
+def execute_search(user, search):
+  # Truncate the search to avoid it getting out of hand.
+  search = search[:64]
   (searches, tag_searches, extras) = parse_search(search)
+
+  clauses = group_filter(user)
   if 'default' in extras:
     tags = user.tags if user else []
     if tags:
@@ -277,8 +282,8 @@ def claim_query(user, uid):
     return []
   return [('claim', wrap(claim))]
 
-def alltags_query():
-  tags = set(Claim.distinct('tags') + DEFAULT_TAGS)
+def alltags_query(user):
+  tags = set(Claim.distinct('tags', group_filter(user)) + DEFAULT_TAGS)
   return [('alltags', wrap(('tag', tag) for tag in sorted(tags)))]
 
 def settings_query(user):
@@ -290,6 +295,14 @@ def settings_query(user):
   groups = Group.find({'name': {'$in': user.groups.keys()}})
   result['groups'] = wrap(('group', wrap(group)) for group in groups)
   return [('settings', wrap(result))]
+
+def scores_query():
+  data = list({
+      'name': user['name_'],
+      'reputation': user['reputation'],
+    } for user in db.users.find({}, {'name_': 1, 'reputation': 1}))
+  data.sort(key = lambda score: -score['reputation'])
+  return [('scores', wrap(('score', wrap(score)) for score in data))]
 
 def group_query(user, group_name, invite, group_hash):
   group = Group.get(group_name)
@@ -745,7 +758,7 @@ class IdeaFuturesServer:
   @cherrypy.expose
   def query(self, login=None, search=None, extra=None, claim=None, \
       alltags=None,  settings=None, name=None, password=None,
-      group_name=None, invite=None, group_hash=None):
+      group_name=None, invite=None, group_hash=None, scores=None):
     results = []
     try:
       user = authenticate(name, password)
@@ -758,15 +771,41 @@ class IdeaFuturesServer:
       if claim is not None:
         results.extend(claim_query(user, claim))
       if alltags is not None:
-        results.extend(alltags_query())
+        results.extend(alltags_query(user))
       if settings is not None:
         results.extend(settings_query(user))
+      if scores is not None:
+        results.extend(scores_query())
       if group_name is not None:
         results.extend(group_query(user, group_name, invite, group_hash))
     except Exception:
       raise
     results.append(('currenttime', now()))
     return '<body>%s</body>' % (wrap(results),)
+
+  #TODO: Rewrite other endpoints in this style.
+  @cherrypy.expose
+  def history_query(self, name=None, password=None, other_name=None):
+    user = authenticate(name, password)
+    other = User.get(other_name)
+    if other is None:
+      return [invalid_query_error]
+
+    clauses = group_filter(user)
+    clauses['uid_'] = {'$in': map(int, other.history.keys())}
+    filtered_uids = set(Claim.distinct('uid_', group_filter(user)))
+
+    history = []
+    for (uid, row) in other.history.iteritems():
+      if int(uid) not in filtered_uids:
+        row['description'] = ''
+      else:
+        row['uid'] = uid
+      if row['stake']:
+        history.append(row)
+    history.sort(key=lambda row: row['time'])
+    [row.pop('time') for row in history]
+    return json.dumps(history)
 
   # These calls may change state at the server.
   # Only one update is allowed per message.
@@ -825,5 +864,3 @@ class IdeaFuturesServer:
 
 if not sys.flags.interactive:
   cherrypy.quickstart(IdeaFuturesServer(), "/", "newserver.conf")
-else:
-  from data import db

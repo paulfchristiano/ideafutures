@@ -408,34 +408,75 @@ div.betdescription, .group-header {
   clear:both;
 }
 
-.members-list {
+.members-list, .scores-list {
   clear: left;
   float: left;
 }
 
-table.members-list {
+table.scores-list {
+  font-size: 14px;
+}
+
+table.members-list, table.scores-list {
   border-collapse: collapse;
   min-width: 60%;
   text-align: left;
 }
 
-table.members-list tr th {
+table.members-list tr th, table.scores-list tr th {
   border: solid black;
   border-width: 0px 0px 1px;
 }
 
-table.members-list tr td {
+table.members-list tr td, table.scores-list tr td {
   width: 45%;
 }
 
-table.members-list tr td.checkbox-column {
+table.members-list tr td.checkbox-column, table.scores-list tr td.rank-column {
   font-size: 10px;
   text-align: center;
   width: 10%;
 }
 
-table.members-list tr.alt td {
+table.members-list tr.alt, table.scores-list tr.alt {
   background-color: rgb(255, 235, 205);
+}
+
+table.scores-list tr.header-row {
+  background-color: white!important;
+}
+
+table.scores-list tr:hover {
+  background-color: rgb(200, 220, 245);
+}
+
+table.scores-list td.history {
+  background-color: rgb(230, 230, 230);
+  padding: 1px;
+  font-size: 12px;
+}
+
+table.user-history {
+  width: 98%;
+}
+
+table.user-history a {
+  color: black;
+}
+
+table.user-history tr td {
+  background-color: rgb(230, 230, 230);
+  width: 90%;
+}
+
+table.user-history tr td.user-history-stake {
+  text-align: center;
+  width: 10%;
+  color: green;
+}
+
+table.user-history tr td.losing.user-history-stake {
+  color: darkred;
 }
 
 .submitbetbox input, .submitbetbox textarea{
@@ -718,6 +759,10 @@ h3.short {
 
 #historybox.resolved {
   margin-top: 0px;
+}
+
+.hidden {
+  display: none;
 }
 
 /* This is dangerous! It may affect jQueryUI */

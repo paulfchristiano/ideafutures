@@ -196,6 +196,31 @@ function Invite(group_name, invite, hash) {
   };
 }
 
+function Scores() {
+  this.type = 'scores';
+  this.setDisplayState = function() {
+    window.location.hash = this.type;
+  };
+  this.isForbidden = function() {
+    return false;
+  };
+  this.draw = function() {
+    drawScores(cache.scores);
+  };
+  this.updateActiveLink = function() {
+    $('#scoresnavlink').addClass('activeLink');
+  };
+  this.getDisplayData = function(returnCall) {
+    queryServer({'scores': 1}, returnCall);
+  };
+  this.isCached = function() {
+    return 'scores' in cache;
+  };
+  this.isDirty = function() {
+    return 'scores' in dirty;
+  };
+}
+
 // The user is a dict which stores a 'name', 'password', and 'reputation'.
 // These values are not null if and only if the user is logged in.
 // TODO: Replace user passwords with MD5 hashes or the equivalent.
@@ -283,6 +308,8 @@ function getDisplayState() {
         decodeURIComponent(params[2]),
         decodeURIComponent(params[3])
       );
+    } else if (params[0] == 'scores') {
+      return new Scores();
     } else {
       // Unknown state type. Show the home page.
       return DEFAULT_DISPLAY;
@@ -420,6 +447,7 @@ function updateActiveLink(displayState) {
   $('#submitclaimnavlink').removeClass('activeLink');
   $('#settingsnavlink').removeClass('activeLink');
   $('#mybetsnavlink').removeClass('activeLink');
+  $('#scoresnavlink').removeClass('activeLink');
   displayState.updateActiveLink();
 }
 
@@ -1112,6 +1140,72 @@ function drawInvite(group) {
   });
 }
 
+function drawScores(scores) {
+  var mainFrame = "<div class='header'>";
+  mainFrame += '<h1>High scores</h1>';
+  mainFrame += '<div class="row">Click on a user to see their betting history.</div>';
+  mainFrame += '</div>';
+
+  mainFrame += '<table class="scores-list">';
+  mainFrame += '<tr class="header-row"><th></th><th>User:</th><th>Reputation:</th></tr>';
+  for (i = 0; i < scores.users.length; i++) {
+    var username = scores.users[i];
+    var reputation = scores.reputations[i];
+    mainFrame += (i % 2 ? '<tr' : '<tr class="alt"') + ' data-name="' + username + '">';
+    mainFrame += '<td class="rank-column">' + (i + 1) + '</td>';
+    mainFrame += '<td class="username-column">' + username + '</td>';
+    mainFrame += '<td class="reputation-column">' + drawReputation(reputation) + '</td>'
+    mainFrame += '</tr>';
+    mainFrame += '<tr><td colspan=3 id="' + username + '-history-row" '
+    mainFrame += 'class="hidden history"></td></tr>'
+  }
+  mainFrame += '</table>';
+
+  $('#mainframe').html(mainFrame);
+  $('.scores-list tr').click(function() {
+    loadHistoryRow($(this).attr('data-name'));
+  });
+}
+
+function loadHistoryRow(username) {
+  var elt = $('#' + username + '-history-row');
+  if (elt.html()) {
+    elt.html('');
+    elt.addClass('hidden')
+  } else {
+    elt.html('Loading betting history for ' + username + '...');
+    elt.removeClass('hidden')
+    $.post('history_query', {
+      name: user.name,
+      password: user.password,
+      other_name: username,
+    }, function(username) {
+      return function(json) {
+        var elt = $('#' + username + '-history-row');
+        if (elt.html()) {
+          var data = JSON.parse(json);
+          if (data.length) {
+            var html = '<table class="user-history">';
+            for (var i = 0; i < data.length; i++) {
+              html += '<tr><td class="' + (data[i].stake < 0 ? 'losing ' : '') + 'user-history-stake">';
+              html += drawReputation(data[i].stake) + '</td>';
+              if (data[i].uid) {
+                html += '<td><a href="#displayclaim+' + data[i].uid;
+                html += '">' + html_encode(data[i].description) + '</a></td></tr>';
+              } else {
+                html += '<td>&lt;private claim&gt;</td>';
+              }
+            }
+            html += '</table>';
+            elt.html(html);
+          } else {
+            elt.html('This user has not yet bet on any claims.');
+          }
+        }
+      };
+    } (username));
+  }
+}
 
 function drawTag(tag) {
   return tag.replace(/_/g, ' ');
@@ -1239,6 +1333,24 @@ function autoParseXML(xml) {
       parseGroupFromXML($(xml).find('group_query')),
       $(xml).find('invite_state').text()
     );
+  }
+
+  if ($(xml).find('scores').length > 0) {
+    var users = [];
+    var reputations = [];
+    $(xml).find('scores').find('score').each(function() {
+      users.push($(this).find('name').text());
+      reputations.push(parseFloat($(this).find('reputation').text()));
+    });
+    if (!('scores' in cache) ||
+        !arrayEquals(cache.scores.users, users) ||
+        !arrayEquals(cache.scores.reputations, reputations)) {
+      cache.scores = {
+        users: users,
+        reputations: reputations,
+      }
+      dirty.scores = true;
+    }
   }
 }
 

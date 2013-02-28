@@ -55,10 +55,17 @@ Remaining UI issues:
   Account settings page:
     Allow users to see / modify their email
     Bring back the "default search" functionality
-  High scores page
+x High scores page
   Groups:
     Let users delete groups
     Include a list of users in the invites dropdown
+
+Paul's new round of requests
+  Make "accept invite" button automatically pop up create account dialog
+  Make Paul admin
+  Allow users to call bets off ("resolve undecided")
+  Time zone issues
+  ...some sort of scaling for bet multiplier
 
 Backend/scaling and other issues:
 x Don't take bounty or maxstake from the client
