@@ -131,7 +131,7 @@ class Data(object):
   # Returns the distinct values of a field. Should not be used for key fields.
   @classmethod
   def distinct(cls, field, query):
-    return db[cls.collection].distinct(field)
+    return db[cls.collection].find(query).distinct(field)
 
   # Atomically updates the value of an object in the database. The update should
   # not affect the key fields of the object.
