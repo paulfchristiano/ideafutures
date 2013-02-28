@@ -123,9 +123,9 @@ div.topicbox {
   border-collapse: collapse;
   border-width: 0px;
   font-size:1.2em;
-  width: 90%;
+  width: 100%;
   text-align: left;
-  margin-left: 7%;
+  margin-left: 4%;
 }
 
 #historybox h3.short {
