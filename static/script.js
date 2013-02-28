@@ -1520,7 +1520,7 @@ function signup(name, email, password){
       } else if (result == 'passwordsize') {
         setSignupError('Your password must be between 4 and 256 characters.');
       } else if (result == 'notalnum') {
-        setSignupError('Your username must be alphanumeric.');
+        setSignupError('Your username must be lowercase and alphanumeric.');
       } else if (result == 'invalidemail') {
         setSignupError('Your email cannot be recognized.');
       }

@@ -348,12 +348,11 @@ def signup_post(name, email, password):
     return [('signup', 'usernamesize')]
   elif len(password) < 4 or len(password) > 256:
     return [('signup', 'passwordsize')]
-  elif not name.isalnum():
+  elif not name.isalnum() or name != name.lower():
     return [('signup', 'notalnum')]
   elif not re.sub('[_@.]', '', email).isalnum():
     return [('signup', 'invalidemail')]
   # Create a new user with a reputation of 10.0.
-  name = name.lower()
   pwd_hash = hash_password(password)
   user = User({
       'name':name,
