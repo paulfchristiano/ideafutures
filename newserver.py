@@ -344,6 +344,7 @@ def resolve_invite_post(user, group_name, invite, group_hash, choice):
 def signup_post(name, email, password):
   if name is None or email is None or password is None:
     return [invalid_query_error]
+  name = name.lower()
   elif len(name) < 4 or len(name) > 16:
     return [('signup', 'usernamesize')]
   elif len(password) < 4 or len(password) > 256:
