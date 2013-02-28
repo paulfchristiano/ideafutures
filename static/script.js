@@ -683,7 +683,7 @@ function betBox(claim) {
   result += "</table>";
   result += '<div class="row">';
   result += '<a id="submitbet" class="thick orange left">Bet on it!</a>';
-  if ((user.name == claim.owner || isAdmin()) && isOpen(claim)) {
+  if ((user.name == claim.owner || isAdmin()) && !claim.resolved) {
     result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
   }
   result += '<img id="betloader" class="loading left spaced" src="ajax-loader.gif"></img></div>';
