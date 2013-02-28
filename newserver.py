@@ -526,7 +526,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     groups = [group_name_from_label(group) for group in groups]
     assert(groups and (groups == ['all'] or (group in user.groups for group in groups)))
   except Exception, e:
-    return [('editclaim', 'baddata')]
+    return [('submitclaim', 'baddata')]
 
   try:
     bet = float(bet)
