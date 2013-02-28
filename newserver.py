@@ -344,7 +344,6 @@ def resolve_invite_post(user, group_name, invite, group_hash, choice):
 def signup_post(name, email, password):
   if name is None or email is None or password is None:
     return [invalid_query_error]
-  name = name.lower()
   elif len(name) < 4 or len(name) > 16:
     return [('signup', 'usernamesize')]
   elif len(password) < 4 or len(password) > 256:
@@ -354,6 +353,7 @@ def signup_post(name, email, password):
   elif not re.sub('[_@.]', '', email).isalnum():
     return [('signup', 'invalidemail')]
   # Create a new user with a reputation of 10.0.
+  name = name.lower()
   pwd_hash = hash_password(password)
   user = User({
       'name':name,
