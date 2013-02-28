@@ -698,12 +698,17 @@ function closedBetBox(claim) {
     result += "<tr><td colspan='2'>This claim was marked <b>" + (claim.resolved == 1) + "</b>";
     result += " " + drawDate(claim.closes) + ". </td></tr>";
   } else {
-    result += "<tr><td colspan='2'>Betting was closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
+    result += "<tr><td colspan='2'>Betting closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
   }
   result += "<tr><td colspan='2'>The market consensus at that time: </td></tr>";
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "% </div></td></tr>";
   result += "</table>";
+  if ((user.name == claim.owner || isAdmin()) && !claim.resolved) {
+    result += '<div class="row">';
+    result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
+    result += '</div>';
+  }
   result += '<div class="clear error" id="beterror"></div>';
   result += "</div>";
   return result;
