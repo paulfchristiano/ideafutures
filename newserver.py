@@ -520,13 +520,13 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   except Exception, e:
     return [('submitclaim', 'Your tags field was misformatted.')]
   if not is_valid_desc_def_tags(description, definition, tags):
-    return [('submitclaim', 'Your description, definition or tags were misformatted.')
+    return [('submitclaim', 'Your description, definition or tags were misformatted.')]
   try:
     groups = deduplicate(json.loads(groups))
     groups = [group_name_from_label(group) for group in groups]
     assert(groups and (groups == ['all'] or (group in user.groups for group in groups)))
   except Exception, e:
-    return [('submitclaim', 'You can only make this claim visible to groups you are a member of.')
+    return [('submitclaim', 'You can only make this claim visible to groups you are a member of.')]
 
   try:
     bet = float(bet)
@@ -577,9 +577,9 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
   try:
     tags = deduplicate(json.loads(tags))
   except Exception, e:
-    return [('submitclaim', 'Your tags field was misformatted.')
+    return [('submitclaim', 'Your tags field was misformatted.')]
   if not is_valid_desc_def_tags(description, definition, tags):
-    return [('submitclaim', 'Your description, definition or tags were misformatted.')
+    return [('submitclaim', 'Your description, definition or tags were misformatted.')]
   try:
     # TODO: We should do some more validation on the groups here. However, it's not
     # urgent - this is an admin-only route.
@@ -587,7 +587,7 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
     groups = [group_name_from_label(group) for group in groups]
     assert(groups and (groups == ['all'] or 'all' not in groups))
   except Exception, e:
-    return [('submitclaim', 'Your groups field was misformatted.')
+    return [('submitclaim', 'Your groups field was misformatted.')]
 
   try:
     if closes is None or closes == '':
@@ -595,14 +595,14 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
     else:
       closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
   except Exception, e:
-    return [('submitclaim', 'Your closes field was misformatted.')
+    return [('submitclaim', 'Your closes field was misformatted.')]
 
   for i in range(10):
     claim = Claim.get(int(uid))
     if not claim or claim.resolved:
       return [('editclaim', 'conflict')]
     elif closes != '' and closes < claim.age:
-      return [('submitclaim', 'Your claim must close at some point in the future.')
+      return [('submitclaim', 'Your claim must close at some point in the future.')]
     claim.description = description
     claim.definition = definition
     claim.closes = closes
