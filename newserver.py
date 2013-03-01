@@ -414,7 +414,7 @@ def resolveclaim_post(user, uid, outcome):
   # Encode outcomes in the database with 1 for True and 2 for False.
   try:
     uid = int(uid)
-    outcome = {'true':1, 'false':2}[outcome]
+    outcome = {'true':1, 'false':2, 'called_off':3}[outcome]
   except Exception, e:
     return [invalid_query_error]
 
@@ -431,7 +431,9 @@ def resolveclaim_post(user, uid, outcome):
     if claim.save():
       affected_names = set(bet['user'] for bet in claim.history)
       for name in affected_names:
-        stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
+        stake = 0
+        if outcome in (1, 2):
+          stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
         User.atomic_update(name, {
             '$unset':{'committed.%s' % uid:1},
             '$set':{'history.%s' % uid: {
@@ -463,7 +465,9 @@ def reopenclaim_post(user, uid):
     if claim.save():
       affected_names = set(bet['user'] for bet in claim.history)
       for name in affected_names:
-        stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
+        stake = 0
+        if outcome in (1, 2):
+          stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
         maxstake = -min(get_stake(name, claim.bounty, claim.history, False),
             get_stake(name, claim.bounty, claim.history, True))
         User.atomic_update(name, {

@@ -580,6 +580,8 @@ function topicBox(claim) {
     result += "<span class='ui-icon left-align ui-icon-check'/>"
   } else if (claim.resolved == 2) {
     result += "<span class='ui-icon left-align ui-icon-close'/>"
+  } else if (claim.resolved == 3) {
+    result += "<span class='ui-icon left-align ui-icon-cancel'/>"
   }
   result += "<a href='" + href + "' class='betdescription' id='displaytitle" + claim.id + "'>";
   result += html_encode(claim.description) + "</a></h2>";
@@ -701,7 +703,11 @@ function betBox(claim) {
 function closedBetBox(claim) {
   var result = "<div class='betbox'><table>";
   if (claim.resolved) {
-    result += "<tr><td colspan='2'>This claim was marked <b>" + (claim.resolved == 1) + "</b>";
+    outcome = 'marked <b>' + (claim.resolved == 1) + '</b>';
+    if (claim.resolved == 3) {
+      outcome = '<b>called off</b>';
+    }
+    result += "<tr><td colspan='2'>This claim was " + outcome;
     result += " " + drawDate(claim.closes) + ". </td></tr>";
   } else {
     result += "<tr><td colspan='2'>Betting closed on this claim " + drawDate(claim.closes) + ". </td></tr>";
@@ -2136,7 +2142,7 @@ function initializeDialogs() {
     resizable: false,
     modal: true,
     height: 108,
-    width: 360,
+    width: 480,
     buttons: [
       {
         html: "<span>Mark true</span><span class='ui-icon right-align ui-icon-check'/>",
@@ -2151,6 +2157,14 @@ function initializeDialogs() {
         tabIndex: -1,
         click: function() {
           resolveClaim(getDisplayState().id, false);
+          $(this).dialog('close');
+        },
+      },
+      {
+        html: "<span>Call off</span><span class='ui-icon right-align ui-icon-cancel'/>",
+        tabIndex: -1,
+        click: function() {
+          resolveClaim(getDisplayState().id, 'called_off');
           $(this).dialog('close');
         },
       },
