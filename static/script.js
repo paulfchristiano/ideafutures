@@ -1774,10 +1774,10 @@ function submitClaim(claim) {
         var verb = (typeof claim == 'undefined' ? 'submitted' : 'edited');
         setAlert('Successfully ' + verb + ' claim.');
       } else {
-        if (result == 'baddata') {
-          setClaimError('One or more fields of your claim were incorrectly formatted.');
-        } else if (result == 'conflict') {
+        if (result == 'conflict') {
           setClaimError('Unable to save claim. Another user may have submitted at the same time.');
+        } else {
+          setClaimError(result);
         }
         $('#submitclaimbutton').click(function() {
           submitClaim(claim);
