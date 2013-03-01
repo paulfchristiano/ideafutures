@@ -144,7 +144,7 @@ def get_stake(name, bounty, history, outcome, final=False):
 #------------------------------------------------------------------------------#
 
 def now():
-  return datetime.now().replace(microsecond=0)
+  return datetime.utcnow().replace(microsecond=0)
 
 # Wraps a list, dictionary, or Data object in XML tags to return it to the user.
 def wrap(results):
@@ -535,7 +535,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     if closes is None or closes == '':
       closes = ''
     else:
-      closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
+      closes = datetime.strptime(closes, '%Y-%m-%dT%H:%M:%S')
   except Exception, e:
     return [('submitclaim', 'Your closes field was misformatted.')]
   if bet <= 0 or bet >= 1 or bounty <= 0 or maxstake <= 0 or maxstake >= 0.5:
@@ -593,7 +593,7 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
     if closes is None or closes == '':
       closes = ''
     else:
-      closes = datetime.strptime(closes, '%Y-%m-%d %H:%M:%S')
+      closes = datetime.strptime(closes, '%Y-%m-%dT%H:%M:%S')
   except Exception, e:
     return [('submitclaim', 'Your closes field was misformatted.')]
 

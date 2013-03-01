@@ -1448,9 +1448,9 @@ function parseDate(strDate, reorder) {
   }
   var parts = strDate.split(/[\.\s\/:\-T]/);
   if (reorder) {
-    return new Date(parts[2], parts[0] - 1, parts[1], parts[3], parts[4], parts[5]);
+    return new Date(Date.UTC(parts[2], parts[0] - 1, parts[1], parts[3], parts[4], parts[5]));
   }
-  return new Date(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]);
+  return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]));
 }
 
 function cacheClaim(claim) {
@@ -1914,16 +1914,7 @@ function jQueryDateTime(d) {
 }
 
 function serverDate(d) {
-  if (d == null) {
-    return '';
-  }
-  var month = padInt(d.getMonth() + 1);
-  var hour = padInt(d.getHours());
-  var minute = padInt(d.getMinutes());
-  var second = padInt(d.getSeconds());
-  var day = padInt(d.getDate());
-  return "" + (d.getFullYear()) + "-" + month + "-" + day +
-      " " + hour + ":" + minute + ":" + second;
+  return (d ? d.toISOString().substr(0, 19) : '');
 }
 
 function padInt(x, len){
