@@ -64,7 +64,7 @@ Paul's new round of requests
   Make "accept invite" button automatically pop up create account dialog
 x Make Paul admin
   Allow users to call bets off ("resolve undecided")
-  Time zone issues
+x Time zone issues
   ...some sort of scaling for bet multiplier
 
 Backend/scaling and other issues:
