@@ -413,14 +413,15 @@ div.betdescription, .group-header {
   float: left;
 }
 
-table.scores-list {
-  font-size: 14px;
-}
-
 table.members-list, table.scores-list {
   border-collapse: collapse;
   min-width: 60%;
   text-align: left;
+}
+
+table.scores-list {
+  font-size: 14px;
+  width: 70%;
 }
 
 table.members-list tr th, table.scores-list tr th {

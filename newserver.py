@@ -414,7 +414,11 @@ def resolveclaim_post(user, uid, outcome):
   # Encode outcomes in the database with 1 for True and 2 for False.
   try:
     uid = int(uid)
-    outcome = {'true':1, 'false':2, 'called_off':3}[outcome]
+    outcome = {
+      'true': 1,
+      'false': 2,
+      'called_off': 3,
+    }[outcome]
   except Exception, e:
     return [invalid_query_error]
 
@@ -435,14 +439,20 @@ def resolveclaim_post(user, uid, outcome):
         if outcome in (1, 2):
           stake = get_stake(name, claim.bounty, claim.history, outcome == 1, True)
         User.atomic_update(name, {
-            '$unset':{'committed.%s' % uid:1},
-            '$set':{'history.%s' % uid: {
-              'description': claim.description,
-              'stake': stake,
-              'time': claim.closes,
-            }},
-            '$inc':{'reputation':stake}
-            })
+            '$unset': {
+              'committed.%s' % (uid,): 1,
+            },
+            '$set': {
+              'history.%s' % (uid,): {
+                'description': claim.description,
+                'stake': stake,
+                'time': claim.closes,
+              }
+            },
+            '$inc': {
+              'reputation':stake,
+            }
+          })
       return [('resolveclaim', 'success'), ('claim', wrap(claim))]
   return [('resolveclaim', 'conflict')]
 
@@ -471,10 +481,16 @@ def reopenclaim_post(user, uid):
         maxstake = -min(get_stake(name, claim.bounty, claim.history, False),
             get_stake(name, claim.bounty, claim.history, True))
         User.atomic_update(name, {
-            '$set': {'committed.%s' % uid:maxstake},
-            '$unset': {'history.%s' % uid:1},
-            '$inc':{'reputation':-stake},
-            })
+            '$set': {
+              'committed.%s' % (uid,): maxstake,
+            },
+            '$unset': {
+              'history.%s' % (uid,): 1,
+            },
+            '$inc':{
+              'reputation': -stake,
+            },
+          })
       return [('reopenclaim', 'success'), ('claim', wrap(claim))]
   return [('reopenclaim', 'conflict')]
 
