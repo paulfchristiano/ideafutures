@@ -177,7 +177,7 @@ function Invite(group_name, invite, hash) {
     return false;
   };
   this.draw = function() {
-    drawInvite(cache.invites[this.group_name]);
+    drawInvite(this.invite, cache.invites[this.group_name]);
   };
   this.updateActiveLink = function() {
   };
@@ -1101,7 +1101,7 @@ function getGroupStatus(group) {
   return '';
 }
 
-function drawInvite(group) {
+function drawInvite(invite, group) {
   if (group.invite_state) {
     var mainFrame = "<div class='header'>";
     if (group.invite_state == user.name) {
@@ -1134,7 +1134,18 @@ function drawInvite(group) {
     function() {
       var choice = $(this).attr('data-choice');
       if (!loggedIn()) {
-        setInviteError('You must log in or sign up to ' + choice + ' this invite.');
+        if (invite[0] == '(') {
+          setInviteError('This invite was sent to ' + invite.substr(1, invite.length - 10) +
+                         '. You must log in as that user to accept it.');
+        } else {
+          setInviteError('You must log in or sign up to ' + choice + ' this invite.');
+          $('#signup-dialog').find('form').find('input').each(function() {
+            $(this).val('');
+          });
+          $('#signup-email').val(invite.replace(/\(dot\)/g, '.'));
+          clearSignupError();
+          $('#signup-dialog').dialog('open');
+        }
       } else {
         resolve_invite($(this).attr('data-name'), choice);
       }
@@ -1442,13 +1453,13 @@ function parseGroupFromXML(xml) {
   return result;
 }
 
-function parseDate(strDate, reorder) {
+function parseDate(strDate, from_jquery) {
   if (strDate == '') {
     return null;
   }
   var parts = strDate.split(/[\.\s\/:\-T]/);
-  if (reorder) {
-    return new Date(Date.UTC(parts[2], parts[0] - 1, parts[1], parts[3], parts[4], parts[5]));
+  if (from_jquery) {
+    return new Date(parts[2], parts[0] - 1, parts[1], parts[3], parts[4], parts[5]);
   }
   return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]));
 }
