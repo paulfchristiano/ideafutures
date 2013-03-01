@@ -321,8 +321,10 @@ function getDisplayState() {
 function isCurrentDisplay(displayState) {
   var newDisplayState = getDisplayState();
   return displayState.type == newDisplayState.type &&
-      displayState.query == newDisplayState.query &&
-      displayState.id == newDisplayState.id;
+      displayState.search == newDisplayState.search &&
+      displayState.extra == newDisplayState.extra &&
+      displayState.id == newDisplayState.id &&
+      displayState.hash == newDisplayState.hash;
 }
 
 /* -------------------------------------------------------------------------- *
