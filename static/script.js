@@ -320,9 +320,13 @@ function getDisplayState() {
 // Returns true if the given display state is the current state.
 function isCurrentDisplay(displayState) {
   var newDisplayState = getDisplayState();
+  if (newDisplayState.type == 'listclaims' &&
+      newDisplayState.extra == 'incremental' &&
+      newDisplayState.search != $('#search').val()) {
+    return false;
+  }
   return displayState.type == newDisplayState.type &&
-      displayState.search == newDisplayState.search &&
-      displayState.extra == newDisplayState.extra &&
+      displayState.query == newDisplayState.query &&
       displayState.id == newDisplayState.id &&
       displayState.hash == newDisplayState.hash;
 }
