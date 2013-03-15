@@ -107,6 +107,11 @@ class Group(Data):
     results.pop('salt')
     return wrap(results.items())
 
+class PasswordReset(Data):
+  collection = 'password_resets'
+  fields = ('token', 'name', 'state', 'time')
+  num_key_fields = 1
+
 def deduplicate(l):
   return [x for (i, x) in enumerate(l) if x not in l[:i]]
 
@@ -846,6 +851,49 @@ class IdeaFuturesServer:
     if len(new_password) < 4 or len(new_password) > 256:
       return 'Your new password must be between 4 and 256 characters.'
     User.atomic_update(user.name, {'$set': {'pwd_hash': hash_password(new_password)}})
+    return 'success'
+
+  @cherrypy.expose
+  def forgot_password(self, retrieval=None):
+    users = User.find({'$or': [{'name_': retrieval}, {'email': retrieval}]})
+    if not users:
+      return 'No users with that username or email were found.'
+    for user in users:
+      password_reset = PasswordReset({
+        'token': str(randint(0, MAX_UID)) + str(randint(0, MAX_UID)),
+        'name': user.name,
+        'state': 'created',
+        'time': now(),
+      })
+      if not password_reset.save():
+        return 'There was an error sending the email. Try again.'
+      link = 'predictionbazaar.com/#password_reset+%s+%s' % (
+        encodeURIComponent(password_reset.name),
+        encodeURIComponent(password_reset.token),
+      )
+      text = (
+        'Someone filled out a password reset form for you at predictionbazaar.com.\n\n'
+        'Use this link to reset it:\n%s' % (link,)
+      )
+      html = (
+        'Someone filled out a password reset form for you at predictionbazaar.com.<br><br>'
+        'Click to <a href="%s">reset your password.</a>' % (link,)
+      )
+      send_mail_async(user.email, 'predictionbazaar.com - password reset', text, html)
+    return 'success'
+
+  @cherrypy.expose
+  def reset_password(self, token=None, new_password=None):
+    password_reset = PasswordReset.get(token)
+    if not password_reset:
+      return 'Authentication failed. The password reset link you used is invalid.'
+    if password_reset.state != 'created':
+      return 'This password reset link has already been used.'
+    if len(new_password) < 4 or len(new_password) > 256:
+      return 'Your new password must be between 4 and 256 characters.'
+    name = password_reset.name
+    PasswordReset.atomic_update(token, {'$set': {'state': 'used'}})
+    User.atomic_update(name, {'$set': {'pwd_hash': hash_password(new_password)}})
     return 'success'
 
   # These calls may change state at the server.

@@ -221,6 +221,35 @@ function Scores() {
   };
 }
 
+function PasswordReset(username, token) {
+  this.type = 'password_reset';
+  this.username = username;
+  this.token = token;
+  this.setDisplayState = function() {
+    window.location.hash = (
+      this.type + '+' +
+      encodeURIComponent(this.username) + '+' +
+      encodeURIComponent(this.pid)
+    );
+  };
+  this.isForbidden = function() {
+    return false;
+  };
+  this.draw = function() {
+    drawPasswordReset(this.username, this.token);
+  };
+  this.updateActiveLink = function() {
+  };
+  this.getDisplayData = function(returnCall) {
+  };
+  this.isCached = function() {
+    return true;
+  };
+  this.isDirty = function() {
+    return false;
+  };
+}
+
 // The user is a dict which stores a 'name', 'password', and 'reputation'.
 // These values are not null if and only if the user is logged in.
 // TODO: Replace user passwords with MD5 hashes or the equivalent.
@@ -310,6 +339,11 @@ function getDisplayState() {
       );
     } else if (params[0] == 'scores') {
       return new Scores();
+    } else if (params[0] == 'password_reset') {
+      return new PasswordReset(
+        decodeURIComponent(params[1]),
+        decodeURIComponent(params[2])
+      );
     } else {
       // Unknown state type. Show the home page.
       return DEFAULT_DISPLAY;
@@ -482,6 +516,7 @@ function loginSidebarBlock(){
     result += "<div class='row'><input type='submit' class='left' value='Log in' id='loginbutton'></intput>";
     result += "<input type='submit' class='right' value='Sign up' id='signupbutton'></intput></div>";
     result += "<div class='row'><span class='error' id='loginerror'></span></div>";
+    result += '<div class="row" id="forgot-password"><a>Forgot your password?</a></div>';
   }
   return result + "</div>";
 }
@@ -525,6 +560,14 @@ function setSidebarInputHandlers(displayState) {
       });
       clearSignupError();
       $('#signup-dialog').dialog('open');
+    });
+
+    $('#forgot-password').click(function() {
+      $('#forgot-password-dialog').find('form').find('input').each(function() {
+        $(this).val('');
+      });
+      $('#forgot-password-error').text('');
+      $('#forgot-password-dialog').dialog('open');
     });
   }
 
@@ -1256,6 +1299,37 @@ function loadHistoryRow(username) {
   }
 }
 
+function drawPasswordReset(username, token) {
+  var mainFrame = "<div class='header'>";
+  mainFrame += '<h1>Reset password for ' + html_encode(username) + '</h1>';
+  mainFrame += '<div class="row">This is a one-time link to change your password.</div>';
+  mainFrame += '</div>';
+
+  mainFrame += '<fieldset id="reset-password-form">';
+  mainFrame += '<p><label for="reset-password">New password: </label>';
+  mainFrame += '<input type="password" id="reset-password"/></p>';
+  mainFrame += '<p><label for="retype-reset-password">Retype new password: </label>';
+  mainFrame += '<input type="password" id="retype-reset-password"/></p>';
+  mainFrame += '</fieldset>';
+
+  mainFrame += "<div class='row'><a class='thick orange' ";
+  mainFrame += "id='reset-password-button'>Submit</a></div>";
+
+  mainFrame += "<div class='error row' id='reset-password-error'></div>";
+
+  $('#mainframe').html(mainFrame);
+
+  $('#reset-password-button').click(function(username, token) {
+    return function() {
+      if ($('#reset-password').val() != $('#retype-reset-password').val()) {
+        $('#reset-password-error').text("The passwords you entered do not match.");
+      } else {
+        reset_password(username, token, $('#reset-password').val());
+      }
+    };
+  } (username, token));
+}
+
 function drawTag(tag) {
   return tag.replace(/_/g, ' ');
 }
@@ -1559,6 +1633,34 @@ function change_password(password, new_password) {
       setAlert('Password changed.');
     } else {
       $('#change-password-error').text(result);
+    }
+  });
+}
+
+function reset_password(username, token, new_password) {
+  $.post('reset_password', {
+    token: token,
+    new_password: new_password,
+  }, function(result) {
+    if (result == 'success') {
+      DEFAULT_DISPLAY.setDisplayState();
+      setAlert('Password changed.');
+      login(username, new_password);
+    } else {
+      $('#reset-password-error').text(result);
+    }
+  });
+}
+
+function forgot_password(retrieval) {
+  $.post('forgot_password', {
+    retrieval: retrieval,
+  }, function(result) {
+    if (result == 'success') {
+      $('#forgot-password-dialog').dialog('close');
+      setAlert("An email with a password-reset link has been sent to that user's address.");
+    } else {
+      $('#forgot-password-error').text(result);
     }
   });
 }
@@ -2172,7 +2274,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 480,
+    width: 300,
     buttons: {
       "Submit": function() {
         if ($('#signup-password').val() != $('#retype-password').val()) {
@@ -2245,7 +2347,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 480,
+    width: 300,
     buttons: {
       "Submit": function() {
         if (!$('#group-label').val()) {
@@ -2274,7 +2376,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 480,
+    width: 300,
     buttons: {
       "Submit": function() {
         send_invites($('#invites-name').val(), $('#new-invites').tagit('assignedTags'));
@@ -2289,7 +2391,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 480,
+    width: 300,
     buttons: {
       "Submit": function() {
         change_email($('#change-email-email').val(), $('#change-email-password').val());
@@ -2304,7 +2406,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 480,
+    width: 300,
     buttons: {
       "Submit": function() {
         if ($('#new-password').val() != $('#retype-new-password').val()) {
@@ -2319,11 +2421,26 @@ function initializeDialogs() {
     },
   });
 
+  $('#forgot-password-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 300,
+    buttons: {
+      "Submit": function() {
+        forgot_password($('#retrieval').val());
+      },
+      "Cancel": function() {
+        $('#forgot-password-dialog').dialog('close');
+      },
+    },
+  });
+
   $('#general-dialog').dialog({
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 480,
+    width: 300,
     buttons: {
       "Close": function() {
         $('#general-dialog').dialog('close');
