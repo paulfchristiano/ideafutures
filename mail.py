@@ -8,10 +8,6 @@ from secrets import (
   password,
   )
 
-user = 'kshaunak@gmail.com'
-# Temporary application-specific password which will be revoked soon.
-password = 'okymnakpupxhfkjs'
-
 smtp = None
 
 def connect_to_mail_server():
