@@ -240,7 +240,7 @@ tr.even {
 }
 
 #navlinks #searchbox {
-  margin: -1px 16px -4px 1px;
+  margin: -1px 4px -4px 1px;
 }
 
 #searchbox input {
@@ -249,6 +249,15 @@ tr.even {
   resize: none;
   padding: 2px 1px;
   width: 160px;
+}
+
+#active-only {
+  margin: 1px 16px -4px 0px;
+}
+
+#active-only-label {
+  cursor: pointer;
+  -webkit-user-select: none;
 }
 
 h2 a:link, h2 a:visited {

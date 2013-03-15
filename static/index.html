@@ -25,7 +25,11 @@
           <li><a href="#settings" id="settingsnavlink">Account settings</a></li>
           <li><a href="#listclaims++my_bets" id="mybetsnavlink">See your bets</a></li>
           <li><a href="#scores" id="scoresnavlink">High scores</a></li>
-          <li id='searchbox' class='right-li'><input type='text' id='search'></li>
+          <li class='right-li'>
+            <span id="active-only-label">Hide resolved:</span>
+            <input type="checkbox" id="active-only">
+          </li>
+          <li id='searchbox' class='right-li'><input type='text' id='search'></li> 
           <li class='right-li'><span>Search:</span></li>
         </ul>
       </div>
@@ -135,9 +139,4 @@
       <span id="general-html"></span>
     </div>
   </div>
-
-  <script>
-    initializeDialogs();
-    setSearchInputHandlers();
-  </script>
 </html>

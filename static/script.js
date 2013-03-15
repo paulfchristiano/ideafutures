@@ -297,13 +297,20 @@ function restoreUserState() {
 
 // Make the document change when the hash parameters do.
 $(document).ready(function() {
+  initializeDialogs();
+  restoreUserState();
+  displayState = getDisplayState();
+  if (displayState.type == 'listclaims' && displayState.extra == 'incremental') {
+    setSearch(displayState.search);
+  }
+  setSearchInputHandlers();
+
   $(window).bind('hashchange', function(e) {
     var displayState = getDisplayState();
     updateDisplay(displayState);
     getDisplayData(displayState);
   });
 
-  restoreUserState();
   $(window).trigger('hashchange');
 });
 
@@ -356,7 +363,7 @@ function isCurrentDisplay(displayState) {
   var newDisplayState = getDisplayState();
   if (newDisplayState.type == 'listclaims' &&
       newDisplayState.extra == 'incremental' &&
-      newDisplayState.search != $('#search').val()) {
+      newDisplayState.search != getSearch()) {
     return false;
   }
   return displayState.type == newDisplayState.type &&
@@ -392,7 +399,7 @@ function updateDisplay(displayState) {
     $('#sidebar').html(newSidebar);
     setSidebarInputHandlers(displayState);
 
-    $('#search').val(displayState.search || '');
+    setSearch(displayState.search || '');
     displayState.draw();
   }
 }
@@ -2107,9 +2114,26 @@ function padInt(x, len){
  * Static input handlers for the navbar!                                      *
  * -------------------------------------------------------------------------- */
 
+function getSearch() {
+  if ($('#active-only').attr('checked')) {
+    return 'active! ' + $('#search').val();
+  }
+  return $('#search').val();
+}
+
+function setSearch(search) {
+  if (search.substr(0, 8) == 'active! ') {
+    $('#active-only').attr('checked', true);
+    $('#search').val(search.substr(8));
+  } else {
+    $('#active-only').attr('checked', false);
+    $('#search').val(search);
+  }
+}
+
 function setSearchInputHandlers() {
   var onchange = function() {
-    var search = $('#search').val();
+    var search = getSearch();
     var displayState = new ListClaims(search, 'incremental');
     if (!isCurrentDisplay(displayState)) {
       var oldDisplayState = getDisplayState();
@@ -2125,6 +2149,12 @@ function setSearchInputHandlers() {
 
   $('#search').keyup(onchange);
   $('#search').blur(onchange);
+  $('#active-only').change(onchange);
+  $('#active-only-label').click(function() {
+    var new_checked = ($('#active-only').attr('checked') ? false : true);
+    $('#active-only').attr('checked', new_checked);
+    $('#active-only').trigger('change');
+  });
 }
 
 /* -------------------------------------------------------------------------- *
