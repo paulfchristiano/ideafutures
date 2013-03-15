@@ -88,6 +88,37 @@
     </form>
   </div>
 
+  <div id="change-email-dialog" title="Change your email">
+    <form>
+      <fieldset>
+        <label for="change-email-email">Email:</label>
+        <input type="text" id="change-email-email" value=""
+         class="text-input ui-widget-content ui-corner-all" />
+        <label for="change-email-password">Password:</label>
+        <input type="password" id="change-email-password" value=""
+         class="text-input ui-widget-content ui-corner-all" />
+        <br/><div class='row'><span class='error' id='change-email-error'></span></div>
+      </fieldset>
+    </form>
+  </div>
+
+  <div id="change-password-dialog" title="Change your password">
+    <form>
+      <fieldset>
+        <label for="old-password">Current password:</label>
+        <input type="password" id="old-password" value=""
+         class="text-input ui-widget-content ui-corner-all" />
+        <label for="new-password">New password:</label>
+        <input type="password" id="new-password" value=""
+         class="text-input ui-widget-content ui-corner-all" />
+        <label for="retype-new-password">Retype new password:</label>
+        <input type="password" id="retype-new-password" value=""
+         class="text-input ui-widget-content ui-corner-all" />
+        <br/><div class='row'><span class='error' id='change-password-error'></span></div>
+      </fieldset>
+    </form>
+  </div>
+
   <div id="general-dialog" title="">
     <div class="row">
       <span id="general-html"></span>

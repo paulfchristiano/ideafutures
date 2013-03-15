@@ -291,6 +291,7 @@ def settings_query(user):
     return [authentication_failed_error]
   # TODO: The wrap function should handle serialization. In fact, we should use JSON.
   result = {}
+  result['email'] = user.email
   result['tags'] = wrap(('tag', tag) for tag in sorted(user.tags))
   groups = Group.find({'name': {'$in': user.groups.keys()}})
   result['groups'] = wrap(('group', wrap(group)) for group in groups)
@@ -350,7 +351,7 @@ def signup_post(name, email, password):
     return [('signup', 'passwordsize')]
   elif not name.isalnum() or name != name.lower():
     return [('signup', 'notalnum')]
-  elif not re.sub('[_@.]', '', email).isalnum():
+  elif not re.sub('[_@.+]', '', email).isalnum():
     return [('signup', 'invalidemail')]
   # Create a new user with a reputation of 10.0.
   pwd_hash = hash_password(password)
@@ -826,6 +827,26 @@ class IdeaFuturesServer:
     history.sort(key=lambda row: row['time'])
     [row.pop('time') for row in history]
     return json.dumps(history)
+
+  @cherrypy.expose
+  def change_email(self, name=None, password=None, email=None):
+    user = authenticate(name, password)
+    if not user:
+      return 'The password you entered was not correct.'
+    elif email is None or not re.sub('[_@.+]', '', email).isalnum():
+      return 'Your email could not be recognized.'
+    User.atomic_update(user.name, {'$set': {'email': email}})
+    return 'success'
+
+  @cherrypy.expose
+  def change_password(self, name=None, password=None, new_password=None):
+    user = authenticate(name, password)
+    if not user:
+      return 'The password you entered was not correct.'
+    if len(new_password) < 4 or len(new_password) > 256:
+      return 'Your new password must be between 4 and 256 characters.'
+    User.atomic_update(user.name, {'$set': {'pwd_hash': hash_password(new_password)}})
+    return 'success'
 
   # These calls may change state at the server.
   # Only one update is allowed per message.

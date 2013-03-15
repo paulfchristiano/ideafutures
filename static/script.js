@@ -986,7 +986,13 @@ function setSubmitClaimInputHandlers(claim) {
 }
 
 function drawSettings(alltags, settings) {
-  var mainFrame = "<div class='header'><h1>Manage your groups</h1>";
+  var mainFrame = '<div class="header"><h1>Account details</h1>';
+  mainFrame += '<div class="row">Your email: ';
+  mainFrame += '<span id="your-email">' + html_encode(settings.email) + '</span>';
+  mainFrame += ' (<a id="change-email">edit</a>)</div>';
+  mainFrame += '<div class="row"><a id="change-password">Change your password.</a></div></div>';
+  mainFrame += '<div style="clear: both;"></div>';
+  mainFrame += '<div class="header"><h1>Manage your groups</h1>';
   if (settings.my_groups.length) {
     mainFrame += '<div class="row">';
     mainFrame += 'Add or remove users from groups you own or ';
@@ -1003,13 +1009,28 @@ function drawSettings(alltags, settings) {
   }
   if (settings.other_groups.length) {
     mainFrame += "<div class='header'><h1>Manage other groups</h1>";
-    mainFrame += ('<div class="row">Choose whether or not to stay in other users\' groups.</div></div>');
+    mainFrame += ('<div class="row">Choose whether or not to stay in ' +
+                  'other users\' groups.</div></div>');
     for (var i = 0; i < settings.other_groups.length; i++) {
       mainFrame += groupBox(settings.other_groups[i]);
     }
   }
   $('#mainframe').html(mainFrame);
 
+  $('#change-email').click(function() {
+    $('#change-email-dialog').find('form').find('input').each(function() {
+      $(this).val('');
+    });
+    $('#change-email-error').text('');
+    $('#change-email-dialog').dialog('open');
+  });
+  $('#change-password').click(function() {
+    $('#change-password-dialog').find('form').find('input').each(function() {
+      $(this).val('');
+    });
+    $('#change-password-error').text('');
+    $('#change-password-dialog').dialog('open');
+  });
   $('#create-group-link').click(function() {
     $('#group-help-text').html('');
     $('#group-label, label[for="group-label"]').css('display', '');
@@ -1328,12 +1349,14 @@ function autoParseXML(xml) {
 
   if ($(xml).find('settings').length > 0) {
     var settings = {
+      email: '',
       tags: [],
       my_groups: [],
       other_groups: [],
       group_names: [],
       groups_version: 0,
     };
+    settings.email = $(xml).find('settings').find('email').text();
     $(xml).find('settings').find('tags').find('tag').each(function() {
       settings.tags.push($(this).text());
     });
@@ -1507,6 +1530,37 @@ function cacheInvite(group, invite_state) {
     dirty.invites[group.name] = true;
   }
   cache.invites[group.name] = group;
+}
+
+function change_email(email, password) {
+  $.post('change_email', {
+    name: user.name,
+    password: password,
+    email: email,
+  }, function(result) {
+    if (result == 'success') {
+      $('#change-email-dialog').dialog('close');
+      $('#your-email').text(email);
+      setAlert('Email changed.');
+    } else {
+      $('#change-email-error').text(result);
+    }
+  });
+}
+
+function change_password(password, new_password) {
+  $.post('change_password', {
+    name: user.name,
+    password: password,
+    new_password: new_password,
+  }, function(result) {
+    if (result == 'success') {
+      $('#change-password-dialog').dialog('close');
+      setAlert('Password changed.');
+    } else {
+      $('#change-password-error').text(result);
+    }
+  });
 }
 
 /* -------------------------------------------------------------------------- *
@@ -2118,7 +2172,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 300,
+    width: 480,
     buttons: {
       "Submit": function() {
         if ($('#signup-password').val() != $('#retype-password').val()) {
@@ -2191,7 +2245,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 300,
+    width: 480,
     buttons: {
       "Submit": function() {
         if (!$('#group-label').val()) {
@@ -2220,7 +2274,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 300,
+    width: 480,
     buttons: {
       "Submit": function() {
         send_invites($('#invites-name').val(), $('#new-invites').tagit('assignedTags'));
@@ -2231,11 +2285,45 @@ function initializeDialogs() {
     },
   });
 
+  $('#change-email-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 480,
+    buttons: {
+      "Submit": function() {
+        change_email($('#change-email-email').val(), $('#change-email-password').val());
+      },
+      "Cancel": function() {
+        $('#change-email-dialog').dialog('close');
+      },
+    },
+  });
+
+  $('#change-password-dialog').dialog({
+    autoOpen: false,
+    resizable: false,
+    modal: true,
+    width: 480,
+    buttons: {
+      "Submit": function() {
+        if ($('#new-password').val() != $('#retype-new-password').val()) {
+          $('#change-password-error').text('The new passwords you entered do not match.');
+        } else {
+          change_password($('#old-password').val(), $('#new-password').val());
+        }
+      },
+      "Cancel": function() {
+        $('#change-password-dialog').dialog('close');
+      },
+    },
+  });
+
   $('#general-dialog').dialog({
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 450,
+    width: 480,
     buttons: {
       "Close": function() {
         $('#general-dialog').dialog('close');
