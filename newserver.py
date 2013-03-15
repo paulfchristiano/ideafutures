@@ -217,7 +217,7 @@ def execute_search(user, search):
     if tags:
       clauses['tags'] = {'$all': tags}
     vals = Claim.find(clauses, uses_key_fields=False)
-    return sorted(vals, key=lambda claim: claim.age, reverse=True)
+    return sorted(vals, key=claim_sort_key, reverse=True)
 
   if 'active' in extras:
     clauses['resolved'] = 0
@@ -231,7 +231,10 @@ def execute_search(user, search):
   if tag_searches:
     clauses['tags'] = {'$all': tag_searches}
   vals = Claim.find(clauses, uses_key_fields=False)
-  return sorted(vals, key=lambda claim: claim.age, reverse=True)
+  return sorted(vals, key=claim_sort_key, reverse=True)
+
+def claim_sort_key(claim):
+  return claim.history[-1]['time']
 
 # Parses a search string into a list of normalized search tokens.
 # Returns a triple: a list of full-text searches, a list of tag searches,
