@@ -66,6 +66,9 @@ x Make Paul admin
 x Allow users to call bets off ("resolve undecided")
 x Time zone issues
   ...some sort of scaling for bet multiplier
+x Add ability to reset password
+x Expose a way to search for only unresolved claims
+  Fix the caching bug post-bet or post-submit-claim
 
 Backend/scaling and other issues:
 x Don't take bounty or maxstake from the client
