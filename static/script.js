@@ -1634,14 +1634,18 @@ function change_password(password, new_password) {
     name: user.name,
     password: password,
     new_password: new_password,
-  }, function(result) {
-    if (result == 'success') {
-      $('#change-password-dialog').dialog('close');
-      setAlert('Password changed.');
-    } else {
-      $('#change-password-error').text(result);
-    }
-  });
+  }, function(new_password) {
+    return function(result) {
+      if (result == 'success') {
+        $('#change-password-dialog').dialog('close');
+        user.password = new_password;
+        saveUserState();
+        setAlert('Password changed.');
+      } else {
+        $('#change-password-error').text(result);
+      }
+    };
+  } (new_password));
 }
 
 function reset_password(username, token, new_password) {
