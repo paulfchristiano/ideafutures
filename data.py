@@ -109,7 +109,7 @@ class Data(object):
   # fields. As an optimization, if the query contains no key fields, the user
   # can skip this step by setting 'uses_key_fields' to False.
   @classmethod
-  def find(cls, query={}, uses_key_fields=True):
+  def find(cls, query={}, limit=0, uses_key_fields=True):
     if uses_key_fields:
       def sanitize(query):
         for (key, internal_key) in zip(cls.keys, cls.internal_keys):
@@ -121,7 +121,7 @@ class Data(object):
             sanitize(val)
       sanitize(query)
     results = []
-    for values in db[cls.collection].find(query):
+    for values in db[cls.collection].find(query, limit=limit):
       result = cls(values, internal=True)
       result.id_ = values['_id']
       result.version_ = values['_version']

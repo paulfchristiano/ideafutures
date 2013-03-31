@@ -44,6 +44,7 @@ DEFAULT_TAGS = ['general']
 DEFAULT_REPUTATION = 100.0
 
 MAX_UID = (1 << 31) - 1
+MAX_NUM_SEARCH_RESULTS = 100
 
 def is_admin(user):
   return user is not None and user.name in ('paulfchristiano', 'skishore')
@@ -216,7 +217,7 @@ def execute_search(user, search):
     tags = user.tags if user else []
     if tags:
       clauses['tags'] = {'$all': tags}
-    vals = Claim.find(clauses, uses_key_fields=False)
+    vals = Claim.find(clauses, limit=MAX_NUM_SEARCH_RESULTS, uses_key_fields=False)
     return sorted(vals, key=claim_sort_key, reverse=True)
 
   if 'active' in extras:
@@ -230,7 +231,7 @@ def execute_search(user, search):
     clauses['index'] = {'$all': [re.compile(search) for search in searches]}
   if tag_searches:
     clauses['tags'] = {'$all': tag_searches}
-  vals = Claim.find(clauses, uses_key_fields=False)
+  vals = Claim.find(clauses, limit=MAX_NUM_SEARCH_RESULTS, uses_key_fields=False)
   return sorted(vals, key=claim_sort_key, reverse=True)
 
 def claim_sort_key(claim):
