@@ -53,7 +53,7 @@ x   Users only see claims they have access to ANY private group for
 
 Remaining UI issues:
   Account settings page:
-    Allow users to see / modify their email
+x   Allow users to see / modify their email
     Bring back the "default search" functionality
 x High scores page
   Groups:
@@ -74,7 +74,7 @@ Backend/scaling and other issues:
 x Don't take bounty or maxstake from the client
 x Store pwd hashes at the server
 x   Salt hashes w/ salt stored outside repo
-  Pagination on main page
+x Pagination on main page
   Fixed-size LRU cache for searches / claims
   Use JSON for transport from the server to the client
 x Escape unconstrained content (descriptions and definitions)
