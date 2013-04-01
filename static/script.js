@@ -58,6 +58,8 @@ function ListClaims(search, extra) {
 
 var DEFAULT_DISPLAY = new ListClaims('', 'default');
 var TITLE = 'Reputation-based prediction market';
+var MAX_RESULTS_PER_PAGE = 10;
+var MAX_NUM_SEARCH_RESULTS = 100;
 
 function DisplayClaim(id) {
   this.type = 'displayclaim';
@@ -612,9 +614,20 @@ function drawClaims(results) {
 
   var mainFrame = "";
   for (var i = 0; i < results.length; i++){
-    mainFrame += topicBox(results[i]);
+    mainFrame += topicBox(results[i], Math.floor(i/MAX_RESULTS_PER_PAGE));
   }
+  mainFrame += '<div><span class="results-range"></span>';
+  mainFrame += '<span class="page-selectors">';
+  mainFrame += '<span class="page-selector" onclick="selectPage(0, -1)">Previous</span>';
+  for (var i = 0; i < Math.floor((results.length - 1)/MAX_RESULTS_PER_PAGE) + 1; i++) {
+    var cls = (i ? 'page-selector' : 'active page-selector');
+    mainFrame += '<span class="' + cls + '" data-page="' + i + '" ';
+    mainFrame += 'onclick="selectPage(' + i + ')">' + (i + 1) + '</span>';
+  }
+  mainFrame += '<span class="page-selector" onclick="selectPage(0, 1)">Next</span>';
+  mainFrame += '</span></div>';
   $('#mainframe').html(mainFrame);
+  updateResultsRange();
 
   for (var i = 0; i < results.length; i++){
     $('#displaybutton' + results[i].id).click(prepareLoader(results[i].id));
@@ -622,10 +635,38 @@ function drawClaims(results) {
   }
 }
 
-function topicBox(claim) {
+function selectPage(new_page, offset) {
+  var page = parseInt($('.active.page-selector').attr('data-page'), 10);
+  if (offset) {
+    new_page = page + offset;
+  }
+  if (new_page == page || !$('.page-selector[data-page="' + new_page + '"]').length) {
+    return;
+  }
+  $(window).scrollTop(0);
+  $('.page-selector').removeClass('active');
+  $('.paginated').removeClass('active');
+  $('.page-selector[data-page="' + new_page + '"]').addClass('active');
+  $('.paginated[data-page="' + new_page + '"]').addClass('active');
+  updateResultsRange();
+}
+
+function updateResultsRange() {
+  var page = parseInt($('.active.page-selector').attr('data-page'), 10);
+  var cur_results = $('.active.paginated').length;
+  var all_results = $('.paginated').length;
+  $('.results-range').html(
+      'Showing results ' + (MAX_RESULTS_PER_PAGE*page + 1) +
+      '-' + (MAX_RESULTS_PER_PAGE*page + cur_results) +
+      ' of ' + all_results + (all_results < MAX_NUM_SEARCH_RESULTS ? '.' : '+.'));
+}
+
+function topicBox(claim, page) {
   var lastBet = claim.history[claim.history.length - 1];
   var href = "#displayclaim+" + encodeURIComponent(claim.id);
-  var result = "<div class='topicbox'><h2>";
+  var cls = (page ? 'paginated' : 'active paginated');
+  var result = '<div class="' + cls + '" data-page="' + page + '">';
+  result += "<div class='topicbox'><h2>";
   if (claim.resolved == 1) {
     result += "<span class='ui-icon left-align ui-icon-check'/>"
   } else if (claim.resolved == 2) {
@@ -656,6 +697,7 @@ function topicBox(claim) {
   result += "</div>";
   result += "</div>";
   result += "<hr>";
+  result += "</div>";
   return result;
 }
 
