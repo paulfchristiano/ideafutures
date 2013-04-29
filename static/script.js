@@ -1479,7 +1479,8 @@ function autoParseXML(xml) {
       group_names: [],
       groups_version: 0,
     };
-    settings.email = $(xml).find('settings').find('email').text();
+    // TODO(skishore): Clean up all of the XML parsing to use .children instead of .find.
+    settings.email = $(xml).find('settings').children('email').text();
     $(xml).find('settings').find('tags').find('tag').each(function() {
       settings.tags.push($(this).text());
     });
