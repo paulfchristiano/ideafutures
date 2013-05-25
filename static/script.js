@@ -768,8 +768,8 @@ function drawClaim(claim) {
   }
 
   mainFrame += "<div id='implicitrightsidebar'>";
-  if (loggedIn() && isOpen(claim)) {
-    mainFrame += stakeBox();
+  if (loggedIn() && !claim.resolved) {
+    mainFrame += stakeBox(isOpen(claim));
   }
   mainFrame += historyBox(claim);
   mainFrame += "</div>";
@@ -804,8 +804,12 @@ function betBox(claim) {
   result += "</table>";
   result += '<div class="row">';
   result += '<a id="submitbet" class="thick orange left">Bet on it!</a>';
-  if ((user.name == claim.owner || isAdmin()) && !claim.resolved) {
-    result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
+  if (!claim.resolved) {
+    if (user.name == claim.owner || isAdmin()) {
+      result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
+    } else {
+      result += '<div class="left owner-label">Claim owner: ' + claim.owner + '</div>';
+    }
   }
   result += '<img id="betloader" class="loading left spaced" src="ajax-loader.gif"></img></div>';
   result += '<div class="clear error" id="beterror"></div>';
@@ -839,7 +843,7 @@ function closedBetBox(claim) {
   return result;
 }
 
-function stakeBox() {
+function stakeBox(open) {
   var result = "<table id='stakebox' class='center'>";
   result += "<tr><th colspan='3'><h3 class='short'>Outcomes:</h3></th></tr>";
   result += "<tr><td></td>";
@@ -847,15 +851,21 @@ function stakeBox() {
   result += "<span class='ui-icon left-align ui-icon-check'/></td>";
   result += "<td><span class='left-align'>If</span>";
   result += "<span class='ui-icon left-align ui-icon-close'/></td>";
-  result += "<tr><td>Before this bet</td>";
-  result += "<td><span id='oldtruestake' class='payoff'></span></td>";
-  result += "<td><span id='oldfalsestake' class='payoff'></span></td></tr>";
-  result += "<tr><td>This bet</td>";
-  result += "<td><span id='thisbettruestake' class='payoff'></span></td>";
-  result += "<td><span id='thisbetfalsestake' class='payoff'></span></td></tr>";
-  result += "<tr><td>After this bet</td>";
-  result += "<td><span id='curtruestake' class='payoff'></span></td>";
-  result += "<td><span id='curfalsestake' class='payoff'></span></td></tr>";
+  if (open) {
+    result += "<tr><td>Before this bet</td>";
+    result += "<td><span id='oldtruestake' class='payoff'></span></td>";
+    result += "<td><span id='oldfalsestake' class='payoff'></span></td></tr>";
+    result += "<tr><td>This bet</td>";
+    result += "<td><span id='thisbettruestake' class='payoff'></span></td>";
+    result += "<td><span id='thisbetfalsestake' class='payoff'></span></td></tr>";
+    result += "<tr><td>After this bet</td>";
+    result += "<td><span id='curtruestake' class='payoff'></span></td>";
+    result += "<td><span id='curfalsestake' class='payoff'></span></td></tr>";
+  } else {
+    result += "<tr><td>After all bets</td>";
+    result += "<td><span id='oldtruestake' class='payoff'></span></td>";
+    result += "<td><span id='oldfalsestake' class='payoff'></span></td></tr>";
+  }
   result += "</table>";
   return result;
 }
@@ -2315,6 +2325,12 @@ function getStake(claim, newHistory, outcome) {
 
   var result = 0;
   var p = 1;
+  if (!isOpen(claim)) {
+    p = newHistory[newHistory.length - 1].probability;
+    if (!outcome) {
+      p = 1 - p;
+    }
+  }
 
   for (var i = 0; i < newHistory.length; i++) {
     var nextP = newHistory[i].probability;
