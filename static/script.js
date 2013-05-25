@@ -120,7 +120,12 @@ function EditClaim(id) {
     window.location.hash = this.type + '+' + encodeURIComponent(this.id);
   };
   this.isForbidden = function() {
-    return (!isAdmin() && "You must be an admin to edit a claim.");
+    if (!isAdmin()) {
+      var claim = cache.claims[this.id];
+      if (claim && (user.name != claim.owner || claim.resolved || claim.history.length > 1)) {
+        return 'You can no longer edit this claim because someone has bet on it.';
+      }
+    }
   };
   this.draw = function() {
     drawSubmitClaim(cache.claims[this.id]);
@@ -394,8 +399,10 @@ function updateDisplay(displayState) {
     var newSidebar = loginSidebarBlock();
     if (displayState.type == 'displayclaim') {
       var claim = cache.claims[displayState.id];
-      if (isAdmin()) {
+      if (isAdmin(claim)) {
         newSidebar += adminSidebarBlock(claim);
+      } else if (user.name == claim.owner) {
+        newSidebar += editSidebarBlock(claim);
       }
     }
     $('#sidebar').html(newSidebar);
@@ -549,6 +556,16 @@ function adminSidebarBlock(claim) {
     result += "<div class='row'><a id='delete'>Delete this claim.</a></div>";
   }
   result += "</div>";
+  return result;
+}
+
+function editSidebarBlock(claim) {
+  if (claim.resolved || claim.history.length > 1) {
+    return '';
+  }
+  var result = '<div class="sidebarblock"><div class="row">';
+  result += '<a href="#editclaim+' + encodeURIComponent(claim.id) + '">Edit this claim before others bet.</a>';
+  result += '</div></div>';
   return result;
 }
 
@@ -1881,9 +1898,6 @@ function deleteClaim(id) {
 function submitClaim(claim) {
   if (typeof claim == 'undefined' && !loggedIn()) {
     setClaimError("You must log in to submit a claim.");
-    return;
-  } else if (typeof claim != 'undefined' && !isAdmin()) {
-    setClaimError("You must be an admin to edit a claim.");
     return;
   }
 

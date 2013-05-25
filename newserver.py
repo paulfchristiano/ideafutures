@@ -596,7 +596,6 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     claim.uid = randint(0, MAX_UID)
   return [('submitclaim', 'conflict')]
 
-@admin_only
 def editclaim_post(user, uid, description, definition, closes, tags, groups):
   try:
     uid = int(uid)
@@ -607,9 +606,9 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
   try:
     tags = deduplicate(json.loads(tags))
   except Exception, e:
-    return [('submitclaim', 'Your tags field was misformatted.')]
+    return [('editclaim', 'Your tags field was misformatted.')]
   if not is_valid_desc_def_tags(description, definition, tags):
-    return [('submitclaim', 'Your description, definition or tags were misformatted.')]
+    return [('editclaim', 'Your description, definition or tags were misformatted.')]
   try:
     # TODO: We should do some more validation on the groups here. However, it's not
     # urgent - this is an admin-only route.
@@ -617,7 +616,7 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
     groups = [group_name_from_label(group) for group in groups]
     assert(groups and (groups == ['all'] or 'all' not in groups))
   except Exception, e:
-    return [('submitclaim', 'Your groups field was misformatted.')]
+    return [('editclaim', 'Your groups field was misformatted.')]
 
   try:
     if closes is None or closes == '':
@@ -625,14 +624,19 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
     else:
       closes = datetime.strptime(closes, '%Y-%m-%dT%H:%M:%S')
   except Exception, e:
-    return [('submitclaim', 'Your closes field was misformatted.')]
+    return [('editclaim', 'Your closes field was misformatted.')]
 
   for i in range(10):
     claim = Claim.get(int(uid))
     if not claim or claim.resolved:
       return [('editclaim', 'conflict')]
     elif closes != '' and closes < claim.age:
-      return [('submitclaim', 'Your claim must close at some point in the future.')]
+      return [('editclaim', 'Your claim must close at some point in the future.')]
+    if not is_admin(user):
+      if user.name != claim.owner:
+        return [authentication_failed_error]
+      elif len(claim.history) > 1:
+        return [('editclaim', 'Someone else has bet on this claim. You can no longer edit it.')]
     claim.description = description
     claim.definition = definition
     claim.closes = closes
