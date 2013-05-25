@@ -833,10 +833,12 @@ function closedBetBox(claim) {
   result += "<tr><td><div id='oldbet' class='betslider'></div></td>";
   result += "<td><div id='oldbettext'>" + drawBet(claim.currentbet) +  "% </div></td></tr>";
   result += "</table>";
-  if ((user.name == claim.owner || isAdmin()) && !claim.resolved) {
-    result += '<div class="row">';
-    result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
-    result += '</div>';
+  if (!claim.resolved) {
+    if (user.name == claim.owner || isAdmin()) {
+      result += '<a id="resolve" class="thick gray left bet-button">Resolve</a>';
+    } else {
+      result += '<div class="left owner-label">Claim owner: ' + claim.owner + '</div>';
+    }
   }
   result += '<div class="clear error" id="beterror"></div>';
   result += "</div>";
