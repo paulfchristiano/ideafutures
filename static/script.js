@@ -508,6 +508,10 @@ function html_encode(str) {
   return $('<div/>').text(str).html();
 }
 
+function html_decode(str) {
+  return $('<div/>').html(str).text();
+}
+
 // TODO: Move this code (and similar functions) to a new file. Use string
 // formatting to build the HTML instead of string concatenations.
 function loginSidebarBlock(){
@@ -1332,7 +1336,7 @@ function loadHistoryRow(username) {
               html += drawReputation(data[i].stake) + '</td>';
               if (data[i].uid) {
                 html += '<td><a href="#displayclaim+' + data[i].uid;
-                html += '">' + html_encode(data[i].description) + '</a></td></tr>';
+                html += '">' + html_encode(html_decode(data[i].description)) + '</a></td></tr>';
               } else {
                 html += '<td>&lt;private claim&gt;</td>';
               }
