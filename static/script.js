@@ -2460,7 +2460,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 300,
+    width: 480,
     buttons: {
       "Submit": function() {
         if (!$('#group-label').val()) {
@@ -2489,7 +2489,7 @@ function initializeDialogs() {
     autoOpen: false,
     resizable: false,
     modal: true,
-    width: 300,
+    width: 480,
     buttons: {
       "Submit": function() {
         send_invites($('#invites-name').val(), $('#new-invites').tagit('assignedTags'));
