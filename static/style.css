@@ -424,16 +424,8 @@ div.betdescription, .group-header {
   clear:both;
 }
 
-.group-scores-list {
-  clear: both;
-  list-style-type: disc;
-  margin: 25px 0px -15px;
-  padding-left: 20px;
-  text-align: left;
-}
-
-.group-scores-list li {
-  margin-top: 4px;
+.group-scores-select {
+  margin: 0px 0px 0px 4px;
 }
 
 .members-list, .scores-list {

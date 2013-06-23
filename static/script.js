@@ -207,7 +207,11 @@ function Scores(group) {
   this.type = 'scores';
   this.group = group;
   this.setDisplayState = function() {
-    window.location.hash = this.type;
+    if (this.group == 'all') {
+      window.location.hash = this.type;
+    } else {
+      window.location.hash = this.type + '+' + this.group;
+    }
   };
   this.isForbidden = function() {
     if (this.group != 'all') {
@@ -219,7 +223,9 @@ function Scores(group) {
     drawScores(this.group, cache.scores[this.group], cache.settings);
   };
   this.updateActiveLink = function() {
-    $('#scoresnavlink').addClass('activeLink');
+    if (this.group == 'all') {
+      $('#scoresnavlink').addClass('activeLink');
+    }
   };
   this.getDisplayData = function(returnCall) {
     if (loggedIn()) {
@@ -1347,24 +1353,25 @@ function drawScores(group_name, scores, settings) {
   var mainFrame = "<div class='header'>";
   if (group_name == 'all') {
     mainFrame += '<h1>High scores</h1>';
-    if (settings && (settings.my_groups.length + settings.other_groups.length)) {
-      mainFrame += '<div class="row">';
-      mainFrame += 'Click on a user to see their betting history, ';
-      mainFrame += 'or see scores for a particular group:';
-      mainFrame += '</div>';
-      mainFrame += '<ul class="group-scores-list">';
-      all_groups = settings.my_groups.concat(settings.other_groups);
-      for (var i = 0; i < all_groups.length; i++) {
-        mainFrame += '<li><a href="#scores+' + all_groups[i].name + '">';
-        mainFrame += 'High scores for ' + all_groups[i].label + '</a></li>';
-      }
-      mainFrame += '</ul>';
-    } else {
-      mainFrame += '<div class="row">Click on a user to see their betting history.</div>';
-    }
   } else {
     group = getGroup(group_name, settings);
     mainFrame += '<h1>High scores for ' + group.label + '</h1>';
+  }
+  if (settings && (settings.my_groups.length + settings.other_groups.length)) {
+    mainFrame += '<div class="row">';
+    mainFrame += 'Click on a user to see their betting history, ';
+    mainFrame += 'or see scores for a particular group:';
+    mainFrame += '<select class="group-scores-select">';
+    mainFrame += '<option value="all">(All groups)</option>';
+    all_groups = settings.my_groups.concat(settings.other_groups);
+    for (var i = 0; i < all_groups.length; i++) {
+      mainFrame += '<option value="' + all_groups[i].name + '">';
+      mainFrame += all_groups[i].label;
+      mainFrame += '</option>';
+    }
+    mainFrame += '</select>';
+    mainFrame += '</div>';
+  } else {
     mainFrame += '<div class="row">Click on a user to see their betting history.</div>';
   }
   mainFrame += '</div>';
@@ -1385,6 +1392,14 @@ function drawScores(group_name, scores, settings) {
   mainFrame += '</table>';
 
   $('#mainframe').html(mainFrame);
+  $('.group-scores-select').val(group_name);
+  $('.group-scores-select').change(function() {
+    group_name = $('.group-scores-select').val();
+    history.replaceState({}, TITLE, '#scores+' + group_name);
+    displayState = new Scores(group_name);
+    updateDisplay(displayState);
+    getDisplayData(displayState);
+  });
   $('.scores-list tr').click(function() {
     loadHistoryRow(group_name, $(this).attr('data-name'));
   });
