@@ -306,13 +306,29 @@ def settings_query(user):
   result['groups'] = wrap(('group', wrap(group)) for group in groups)
   return [('settings', wrap(result))]
 
-def scores_query():
-  data = list({
+def scores_query(user, group):
+  if group == 'all':
+    data = list({
       'name': user['name_'],
       'reputation': user['reputation'],
     } for user in db.users.find({}, {'name_': 1, 'reputation': 1}))
-  data.sort(key = lambda score: -score['reputation'])
-  return [('scores', wrap(('score', wrap(score)) for score in data))]
+    data.sort(key = lambda score: -score['reputation'])
+  else:
+    if not user or group not in user.groups.keys():
+      return [authentication_failed_error]
+    claims = [claim for claim in Claim.find({'groups': group}) if claim.resolved]
+    filtered_uids = set(claim.uid for claim in claims)
+    users = db.users.find({'groups.%s' % (group,): 1}, {'name_': 1, 'history': 1})
+    data = []
+    for user in users:
+      uids = [uid for uid in user['history'] if int(uid) in filtered_uids]
+      delta = sum(user['history'][uid]['stake'] for uid in uids)
+      data.append({'name': user['name_'], 'reputation': DEFAULT_REPUTATION + delta})
+    data.sort(key = lambda score: -score['reputation'])
+  return [('scores', wrap(
+    [('group', group)] +
+    [('score', wrap(score)) for score in data]
+  ))]
 
 def group_query(user, group_name, invite, group_hash):
   group = Group.get(group_name)
@@ -809,7 +825,7 @@ class IdeaFuturesServer:
       if settings is not None:
         results.extend(settings_query(user))
       if scores is not None:
-        results.extend(scores_query())
+        results.extend(scores_query(user, scores))
       if group_name is not None:
         results.extend(group_query(user, group_name, invite, group_hash))
     except Exception:
@@ -819,18 +835,20 @@ class IdeaFuturesServer:
 
   #TODO: Rewrite other endpoints in this style.
   @cherrypy.expose
-  def history_query(self, name=None, password=None, other_name=None):
+  def history_query(self, name=None, password=None, group=None, other_name=None):
     user = authenticate(name, password)
     other = User.get(other_name)
     if other is None:
       return [invalid_query_error]
 
-    clauses = group_filter(user)
-    clauses['uid_'] = {'$in': map(int, other.history.keys())}
     filtered_uids = set(Claim.distinct('uid_', group_filter(user)))
+    if group != 'all':
+      group_uids = set(Claim.distinct('uid_', {'groups': group}))
 
     history = []
     for (uid, row) in other.history.iteritems():
+      if group != 'all' and int(uid) not in group_uids:
+        continue
       if int(uid) not in filtered_uids:
         row['description'] = ''
       else:

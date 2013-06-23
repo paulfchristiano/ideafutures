@@ -203,28 +203,42 @@ function Invite(group_name, invite, hash) {
   };
 }
 
-function Scores() {
+function Scores(group) {
   this.type = 'scores';
+  this.group = group;
   this.setDisplayState = function() {
     window.location.hash = this.type;
   };
   this.isForbidden = function() {
+    if (this.group != 'all') {
+      return (!loggedIn() && 'You must log in to see scores for a group.');
+    }
     return false;
   };
   this.draw = function() {
-    drawScores(cache.scores);
+    drawScores(this.group, cache.scores[this.group], cache.settings);
   };
   this.updateActiveLink = function() {
     $('#scoresnavlink').addClass('activeLink');
   };
   this.getDisplayData = function(returnCall) {
-    queryServer({'scores': 1}, returnCall);
+    if (loggedIn()) {
+      queryServer({'scores': this.group, 'settings': 1}, returnCall);
+    } else {
+      queryServer({'scores': this.group}, returnCall);
+    }
   };
   this.isCached = function() {
-    return 'scores' in cache;
+    if (loggedIn()) {
+      return this.group in cache.scores && 'settings' in cache;
+    }
+    return this.group in cache.scores;
   };
   this.isDirty = function() {
-    return 'scores' in dirty;
+    if (loggedIn()) {
+      return this.group in dirty.scores || 'settings' in dirty;
+    }
+    return this.group in dirty.scores;
   };
 }
 
@@ -275,7 +289,7 @@ var RESTRICTED_TAGS = [];
 var alertNum = 0;
 var currentTime = new Date();
 function newCache() {
-  return {'claims':{}, 'searches':{}, 'invites':{}};
+  return {'claims':{}, 'searches':{}, 'invites':{}, 'scores': {}};
 }
 var cache = newCache();
 var dirty = newCache();
@@ -352,7 +366,11 @@ function getDisplayState() {
         decodeURIComponent(params[3])
       );
     } else if (params[0] == 'scores') {
-      return new Scores();
+      if (params.length > 1) {
+        return new Scores(params[1]);
+      } else {
+        return new Scores('all');
+      }
     } else if (params[0] == 'password_reset') {
       return new PasswordReset(
         decodeURIComponent(params[1]),
@@ -1199,7 +1217,9 @@ function drawSettings(alltags, settings) {
 function groupBox(group, show_invite) {
   var status = getGroupStatus(group);
   var result = '<div class="group-box">';
-  result += '<h2 class="group-header">' + html_encode(group.label) + "</h2>";
+  result += '<h2 class="group-header"><a href="#scores+' + group.name + '">';
+  result += html_encode(group.label);
+  result += '</a></h2>';
   if (show_invite) {
     if (status) {
       var button_margin = 8*group.members.length + 11;
@@ -1314,10 +1334,39 @@ function drawInvite(invite, group) {
   });
 }
 
-function drawScores(scores) {
+function getGroup(group_name, settings) {
+  all_groups = settings.my_groups.concat(settings.other_groups);
+  for (var i = 0; i < all_groups.length; i++) {
+    if (all_groups[i].name == group_name) {
+      return all_groups[i];
+    }
+  }
+}
+
+function drawScores(group_name, scores, settings) {
   var mainFrame = "<div class='header'>";
-  mainFrame += '<h1>High scores</h1>';
-  mainFrame += '<div class="row">Click on a user to see their betting history.</div>';
+  if (group_name == 'all') {
+    mainFrame += '<h1>High scores</h1>';
+    if (settings && (settings.my_groups.length + settings.other_groups.length)) {
+      mainFrame += '<div class="row">';
+      mainFrame += 'Click on a user to see their betting history, ';
+      mainFrame += 'or see scores for a particular group:';
+      mainFrame += '</div>';
+      mainFrame += '<ul class="group-scores-list">';
+      all_groups = settings.my_groups.concat(settings.other_groups);
+      for (var i = 0; i < all_groups.length; i++) {
+        mainFrame += '<li><a href="#scores+' + all_groups[i].name + '">';
+        mainFrame += 'High scores for ' + all_groups[i].label + '</a></li>';
+      }
+      mainFrame += '</ul>';
+    } else {
+      mainFrame += '<div class="row">Click on a user to see their betting history.</div>';
+    }
+  } else {
+    group = getGroup(group_name, settings);
+    mainFrame += '<h1>High scores for ' + group.label + '</h1>';
+    mainFrame += '<div class="row">Click on a user to see their betting history.</div>';
+  }
   mainFrame += '</div>';
 
   mainFrame += '<table class="scores-list">';
@@ -1337,11 +1386,11 @@ function drawScores(scores) {
 
   $('#mainframe').html(mainFrame);
   $('.scores-list tr').click(function() {
-    loadHistoryRow($(this).attr('data-name'));
+    loadHistoryRow(group_name, $(this).attr('data-name'));
   });
 }
 
-function loadHistoryRow(username) {
+function loadHistoryRow(group_name, username) {
   var elt = $('#' + username + '-history-row');
   if (elt.html()) {
     elt.html('');
@@ -1352,6 +1401,7 @@ function loadHistoryRow(username) {
     $.post('history_query', {
       name: user.name,
       password: user.password,
+      group: group_name,
       other_name: username,
     }, function(username) {
       return function(json) {
@@ -1373,7 +1423,11 @@ function loadHistoryRow(username) {
             html += '</table>';
             elt.html(html);
           } else {
-            elt.html('This user has not yet bet on any claims.');
+            if (group_name == 'all') {
+              elt.html('This user has not yet bet on any claims.');
+            } else {
+              elt.html('This user has not yet bet on any claims in this group.');
+            }
           }
         }
       };
@@ -1546,18 +1600,19 @@ function autoParseXML(xml) {
   if ($(xml).find('scores').length > 0) {
     var users = [];
     var reputations = [];
+    var group = $(xml).find('scores').find('group').text();
     $(xml).find('scores').find('score').each(function() {
       users.push($(this).find('name').text());
       reputations.push(parseFloat($(this).find('reputation').text()));
     });
-    if (!('scores' in cache) ||
-        !arrayEquals(cache.scores.users, users) ||
-        !arrayEquals(cache.scores.reputations, reputations)) {
-      cache.scores = {
+    if (!(group in cache.scores) ||
+        !arrayEquals(cache.scores[group].users, users) ||
+        !arrayEquals(cache.scores[group].reputations, reputations)) {
+      cache.scores[group] = {
         users: users,
         reputations: reputations,
       }
-      dirty.scores = true;
+      dirty.scores[group] = true;
     }
   }
 }
