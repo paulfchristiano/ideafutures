@@ -758,10 +758,8 @@ def send_invite(group, email, invite):
         group.owner, group.name, link
       )
     )
-    # This is a hack to send text emails. It's necessary because Gmail sanitizes
-    # HTML emails with anchors pointing to localhost in them, for security reasons.
-    # We can remove this hack when we deploy.
-    #html = None
+    # This is a hack to send plaintext emails. Gmail might be filtering out HTML emails.
+    html = None
     send_mail_async(email, 'predictionbazaar.com - group invitation', text, html)
 
 def boot_members_post(user, group_name, boots):
