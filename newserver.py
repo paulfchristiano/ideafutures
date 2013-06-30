@@ -68,7 +68,7 @@ class User(Data):
     'tags',
     'groups',
     'history',
-    )
+  )
   num_key_fields = 1
 
   def wrap(self):
@@ -79,8 +79,22 @@ class User(Data):
 
 class Claim(Data):
   collection = 'claims'
-  fields = ('uid', 'age', 'bounty', 'closes', 'description', 'tags', 'groups', 'maxstake',
-            'owner', 'promoted', 'resolved', 'definition', 'index', 'history')
+  fields = (
+    'uid',
+    'age',
+    'bounty',
+    'closes',
+    'description',
+    'tags',
+    'groups',
+    'maxstake',
+    'owner',
+    'promoted',
+    'resolved',
+    'definition',
+    'index',
+    'history',
+  )
   num_key_fields = 1
 
   def wrap(self):
@@ -402,7 +416,7 @@ def makebet_post(user, uid, bet, version):
     uid = int(uid)
     bet = float(bet)
     version = int(version)
-  except Exception, e:
+  except Exception:
     return [invalid_query_error]
   if bet <= 0 or bet >= 1:
     return [('makebet', 'toocommitted')]
@@ -445,7 +459,7 @@ def resolveclaim_post(user, uid, outcome):
       'false': 2,
       'called_off': 3,
     }[outcome]
-  except Exception, e:
+  except Exception:
     return [invalid_query_error]
 
   # Try to resolve this claim. On success, update users' reputations.
@@ -486,7 +500,7 @@ def resolveclaim_post(user, uid, outcome):
 def reopenclaim_post(user, uid):
   try:
     uid = int(uid)
-  except Exception, e:
+  except Exception:
     return [invalid_query_error]
 
   # Try to reopen this claim. On success, update users' reputations.
@@ -525,7 +539,7 @@ def promoteclaim_post(user, uid, outcome):
   try:
     uid = int(uid)
     outcome = {'true':1, 'false':0}[outcome]
-  except Exception, e:
+  except Exception:
     return [invalid_query_error]
   Claim.atomic_update(uid, {'$set':{'promoted':outcome}})
   claim = Claim.get(uid)
@@ -537,7 +551,7 @@ def promoteclaim_post(user, uid, outcome):
 def deleteclaim_post(user, uid):
   try:
     uid = int(uid)
-  except Exception, e:
+  except Exception:
     return [invalid_query_error]
   claim = Claim.get(uid)
   if claim is None or claim.resolved:
@@ -563,7 +577,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
   definition = '' if not definition else escape(definition)
   try:
     tags = deduplicate(json.loads(tags))
-  except Exception, e:
+  except Exception:
     return [('submitclaim', 'Your tags field was misformatted.')]
   if not is_valid_desc_def_tags(description, definition, tags):
     return [('submitclaim', 'Your description, definition or tags were misformatted.')]
@@ -571,7 +585,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
     groups = deduplicate(json.loads(groups))
     groups = [group_name_from_label(group) for group in groups]
     assert(groups and (groups == ['all'] or (group in user.groups for group in groups)))
-  except Exception, e:
+  except Exception:
     return [('submitclaim', 'You can only make this claim visible to groups you are a member of.')]
 
   try:
@@ -582,7 +596,7 @@ def submitclaim_post(user, description, definition, bet, bounty, \
       closes = ''
     else:
       closes = datetime.strptime(closes, '%Y-%m-%dT%H:%M:%S')
-  except Exception, e:
+  except Exception:
     return [('submitclaim', 'Your closes field was misformatted.')]
   if bet <= 0 or bet >= 1 or bounty <= 0 or maxstake <= 0 or maxstake >= 0.5:
     return [('submitclaim', 'Your initial bet is out of range.')]
@@ -615,13 +629,13 @@ def submitclaim_post(user, description, definition, bet, bounty, \
 def editclaim_post(user, uid, description, definition, closes, tags, groups):
   try:
     uid = int(uid)
-  except Exception, e:
+  except Exception:
     return [invalid_query_error]
   description = '' if not description else escape(description)
   definition = '' if not definition else escape(definition)
   try:
     tags = deduplicate(json.loads(tags))
-  except Exception, e:
+  except Exception:
     return [('editclaim', 'Your tags field was misformatted.')]
   if not is_valid_desc_def_tags(description, definition, tags):
     return [('editclaim', 'Your description, definition or tags were misformatted.')]
@@ -631,7 +645,7 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
     groups = deduplicate(json.loads(groups))
     groups = [group_name_from_label(group) for group in groups]
     assert(groups and (groups == ['all'] or 'all' not in groups))
-  except Exception, e:
+  except Exception:
     return [('editclaim', 'Your groups field was misformatted.')]
 
   try:
@@ -639,7 +653,7 @@ def editclaim_post(user, uid, description, definition, closes, tags, groups):
       closes = ''
     else:
       closes = datetime.strptime(closes, '%Y-%m-%dT%H:%M:%S')
-  except Exception, e:
+  except Exception:
     return [('editclaim', 'Your closes field was misformatted.')]
 
   for i in range(10):
