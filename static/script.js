@@ -1317,6 +1317,7 @@ function drawInvite(invite, group) {
   $('.resolve-invite').click(
     function() {
       var choice = $(this).attr('data-choice');
+      var name = $(this).attr('data-name');
       if (!loggedIn()) {
         if (invite[0] == '(') {
           setInviteError('This invite was sent to ' + invite.substr(1, invite.length - 10) +
@@ -1327,11 +1328,12 @@ function drawInvite(invite, group) {
             $(this).val('');
           });
           $('#signup-email').val(invite.replace(/\(dot\)/g, '.'));
+          $('#signup-invite').val(name);
           clearSignupError();
           $('#signup-dialog').dialog('open');
         }
       } else {
-        resolve_invite($(this).attr('data-name'), choice);
+        resolve_invite(name, choice);
       }
     }
   );
@@ -1844,7 +1846,7 @@ function login(name, password){
   );
 }
 
-function signup(name, email, password){
+function signup(name, email, password, invite) {
   updateServer({'signup':1, 'name':name, 'email':email, 'password':password},
     function(name, password) {return function(xml) {
       var result = $(xml).find('signup').text();
@@ -1853,6 +1855,9 @@ function signup(name, email, password){
         user.name = name;
         user.password = password;
         saveUserState();
+        if (invite) {
+          resolve_invite(invite, 'accept');
+        }
         $(window).trigger('hashchange');
       } else if (result == 'usernametaken') {
         setSignupError('That username is taken.');
@@ -2466,7 +2471,8 @@ function initializeDialogs() {
           signup(
             $('#signup-username').val(),
             $('#signup-email').val(),
-            $('#signup-password').val()
+            $('#signup-password').val(),
+            $('#signup-invite').val()
           );
         }
       },
