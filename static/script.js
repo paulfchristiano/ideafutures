@@ -1228,8 +1228,8 @@ function groupBox(group, show_invite) {
   result += '</a></h2>';
   if (show_invite) {
     if (status) {
-      var button_margin = 8*group.members.length + 11;
-      var table_margin = button_margin - 31;
+      var button_margin = 8*group.members.length + 12;
+      var table_margin = button_margin - 114;
       result += '<a class="long orange right resolve-invite" data-name="' + group.name + '"';
       result += ' data-choice="decline" style="margin-top: ' + button_margin + 'px;">Cancel invite</a>';
     } else {
@@ -1247,8 +1247,8 @@ function groupBox(group, show_invite) {
     result += ' style="margin-top: ' + button_margin + 'px;">Invite members</a>';
     result += '<a class="long gray right boot-button" data-name="' + group.name + '">Boot members</a>';
   } else if (status == 'member') {
-    var button_margin = 8*group.members.length + 11;
-    var table_margin = button_margin - 31;
+    var button_margin = 8*group.members.length + 12;
+    var table_margin = button_margin - 114;
     result += '<a class="long gray right leave-button" data-name="' + group.name + '"';
     result += ' style="margin-top: ' + button_margin + 'px;">Leave group</a>';
   }
@@ -1297,11 +1297,11 @@ function drawInvite(invite, group) {
   } else {
     var status = getGroupStatus(group);
     if (status == 'owner') {
-      var mainFrame = "<div class='header'><h1>";
+      var mainFrame = "<div class='header'>";
       mainFrame += "<h1>Uh oh. It looks like you sent yourself an invite!</h1>";
       mainFrame += '</div>';
     } else if (status == 'member') {
-      var mainFrame = "<div class='header'><h1>";
+      var mainFrame = "<div class='header'>";
       mainFrame += "<h1>Uh oh. It looks like you got invited to this group again!</h1>";
       mainFrame += '</div>';
     } else {

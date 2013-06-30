@@ -73,9 +73,9 @@ class User(Data):
 
   def wrap(self):
     return wrap((
-        ('reputation', self.reputation),
-        ('committed', sum(self.committed.values()))
-        ))
+      ('reputation', self.reputation),
+      ('committed', sum(self.committed.values())),
+    ))
 
 class Claim(Data):
   collection = 'claims'
