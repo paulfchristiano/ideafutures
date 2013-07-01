@@ -484,7 +484,6 @@ def resolveclaim_post(user, uid, outcome):
             },
             '$set': {
               'history.%s' % (uid,): {
-                'description': claim.description,
                 'stake': stake,
                 'time': claim.closes,
               }
@@ -850,20 +849,23 @@ class IdeaFuturesServer:
   def history_query(self, name=None, password=None, group=None, other_name=None):
     user = authenticate(name, password)
     other = User.get(other_name)
-    if other is None:
-      return [invalid_query_error]
+    if group is None or other is None:
+      return str(invalid_query_error)
 
     filtered_uids = set(Claim.distinct('uid_', group_filter(user)))
     if group != 'all':
       group_uids = set(Claim.distinct('uid_', {'groups': group}))
+    descriptions = {
+      claim.uid: claim.description
+      for claim in Claim.find({'uid': {'$in': list(filtered_uids)}})
+    }
 
     history = []
     for (uid, row) in other.history.iteritems():
       if group != 'all' and int(uid) not in group_uids:
         continue
-      if int(uid) not in filtered_uids:
-        row['description'] = ''
-      else:
+      row['description'] = descriptions.get(int(uid), '')
+      if int(uid) in filtered_uids:
         row['uid'] = uid
       if row['stake']:
         history.append(row)

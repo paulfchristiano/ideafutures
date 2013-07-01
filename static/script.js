@@ -1408,6 +1408,9 @@ function drawScores(group_name, scores, settings) {
 }
 
 function loadHistoryRow(group_name, username) {
+  if (!username) {
+    return;
+  }
   var elt = $('#' + username + '-history-row');
   if (elt.html()) {
     elt.html('');
