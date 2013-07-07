@@ -279,9 +279,14 @@ function PasswordReset(username, token) {
 
 // The user is a dict which stores a 'name', 'password', and 'reputation'.
 // These values are not null if and only if the user is logged in.
-// TODO: Replace user passwords with MD5 hashes or the equivalent.
 function newUser() {
-  return {'name':null, 'password':null, 'reputation':null, 'committed':null};
+  return {
+    name: null,
+    password: null,
+    reputation: null,
+    committed: null,
+    notifications: null,
+  };
 }
 var user = newUser();
 function loggedIn() {
@@ -295,7 +300,12 @@ var RESTRICTED_TAGS = [];
 var alertNum = 0;
 var currentTime = new Date();
 function newCache() {
-  return {'claims':{}, 'searches':{}, 'invites':{}, 'scores': {}};
+  return {
+    claims: {},
+    searches: {},
+    invites: {},
+    scores: {},
+  };
 }
 var cache = newCache();
 var dirty = newCache();
@@ -310,6 +320,7 @@ function saveUserState() {
   $.cookie('password', user.password);
   $.cookie('reputation', user.reputation);
   $.cookie('committed', user.committed);
+  $.cookie('notifications', user.notifications);
 }
 
 function restoreUserState() {
@@ -317,6 +328,7 @@ function restoreUserState() {
   user.password = $.cookie('password');
   user.reputation = parseFloat($.cookie('reputation'));
   user.committed = parseFloat($.cookie('committed'));
+  user.notifications = parseInt($.cookie('notifications'), 10);
   if (user.name != null) {
     login(user.name, user.password);
   }
@@ -528,6 +540,15 @@ function updateActiveLink(displayState) {
   $('#settingsnavlink').removeClass('activeLink');
   $('#mybetsnavlink').removeClass('activeLink');
   $('#scoresnavlink').removeClass('activeLink');
+
+  // Set the text for the Account settings link. If the user is logged in and
+  // has open notifications, they should be shown on the top bar.
+  var settings_text = 'Account settings';
+  if (loggedIn() && user.notifications) {
+    settings_text += ' (' + user.notifications + ')';
+  }
+  $('#settingsnavlink').text(settings_text);
+
   displayState.updateActiveLink();
 }
 
@@ -1548,6 +1569,9 @@ function pingServer(query, queryType, returnCall) {
     query['name'] = user.name;
     query['password'] = user.password;
   }
+  if (queryType == 'query' && loggedIn() && user.notifications == null) {
+    query['get_notifications'] = true;
+  }
 
   $.post(queryType, query, function(xml) {
     autoParseXML(xml);
@@ -1695,6 +1719,10 @@ function parseUserFromXML(xml) {
     var newCommitted = parseFloat($(this).find('committed').text());
     if (!isNaN(newCommitted)) {
       user.committed = newCommitted;
+    }
+    var newNotifications = parseInt($(this).find('notifications').text(), 10);
+    if (!isNaN(newNotifications)) {
+      user.notifications = newNotifications;
     }
   });
 }

@@ -71,10 +71,12 @@ class User(Data):
   )
   num_key_fields = 1
 
-  def wrap(self):
+  def wrap(self, get_notifications=False):
+    notifications = len(unanswered_invites(self)) if get_notifications else ''
     return wrap((
       ('reputation', self.reputation),
       ('committed', sum(self.committed.values())),
+      ('notifications', notifications),
     ))
 
 class Claim(Data):
@@ -863,14 +865,15 @@ class IdeaFuturesServer:
   # These calls only request data from the server; they never change its state.
   # Multiple queries may be requested in a single message.
   @cherrypy.expose
-  def query(self, login=None, search=None, extra=None, claim=None, \
+  def query(self, login=None, search=None, extra=None, claim=None,
       alltags=None,  settings=None, name=None, password=None,
-      group_name=None, invite=None, group_hash=None, scores=None):
+      group_name=None, invite=None, group_hash=None, scores=None,
+      get_notifications=False):
     results = []
     try:
       user = authenticate(name, password)
       if user is not None:
-        results.append(('user', wrap(user)))
+        results.append(('user', user.wrap(get_notifications=get_notifications)))
       if login is not None:
         results.extend(login_query(name, password))
       if search is not None:
@@ -1046,7 +1049,7 @@ class IdeaFuturesServer:
               user, group_name, invite, group_hash, resolve_invite))
         # Need to re-authenticate the user to refresh any changes.
         user = authenticate(name, password)
-        results.append(('user', wrap(user)))
+        results.append(('user', user.wrap(get_notifications=True)))
       else:
         results.append(authentication_failed_error)
     except Exception:
