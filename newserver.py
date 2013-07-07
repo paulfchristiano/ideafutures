@@ -220,12 +220,40 @@ def group_filter(user):
   return {'groups': {'$in': ['all']}}
 
 def unanswered_invites(user):
+  '''
+  Returns a list of (group, link) pairs, where each group is one that this user has
+  been invited to and the link is a link to their invite page.
+
+  If the invite is an email invite and this user's email has not been verified, then
+  the link will be an empty string. If the user wants to accept this invite, they will
+  be sent another invite email.
+  '''
+  # TODO(skishore): Deduplicate logic this function shares with send_invites_post.
+  username = "(%s's email)" % (user.name,)
+  email = user.email.replace('.', '(dot)')
   clause = {'$or': [
-    {"invites.(%s's email)" % (user.name,): {'$exists': True}},
-    {'invites.%s' % (user.email.replace('.', '(dot)'),): {'$exists': True}},
+    {"invites.%s" % (invite,): {'$exists': True}} for invite in (username, email)
   ]}
   groups = Group.find(clause)
-  return [group for group in groups if group.name not in user.groups]
+  result = []
+  verified = any(group.invites.get(email) for group in groups)
+  for group in groups:
+    if group.name not in user.groups:
+      if username in group.invites:
+        result.append((group, get_invite_link(group, username)))
+      else:
+        link = get_invite_link(group, email) if verified else ''
+        result.append((group, link))
+  return result
+
+def get_invite_link(group, invite):
+  # TODO(skishore): Deduplicate logic this function shares with send_invite function.
+  group_hash = hash_group_invite(group, invite)
+  return '/#invite+%s+%s+%s' % (
+    encodeURIComponent(group.name),
+    encodeURIComponent(invite),
+    encodeURIComponent(group_hash),
+  )
 
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
@@ -326,6 +354,16 @@ def settings_query(user):
   result['tags'] = wrap(('tag', tag) for tag in sorted(user.tags))
   groups = Group.find({'name': {'$in': user.groups.keys()}})
   result['groups'] = wrap(('group', wrap(group)) for group in groups)
+  # Get records about as-yet unanswered invites and pass them back.
+  invites = []
+  for (group, link) in unanswered_invites(user):
+    invites.append({
+      'name': group.name,
+      'label': group.label,
+      'owner': group.owner,
+      'link': link,
+    })
+  result['invites'] = wrap(('invite', wrap(invite)) for invite in invites)
   return [('settings', wrap(result))]
 
 def scores_query(user, group):
@@ -750,9 +788,9 @@ def send_invites_post(user, group_name, invites):
   for user in User.find({'name': {'$in': usernames}}):
     send_invite(group, user.email, "(%s's email)" % (user.name,))
 
-def send_invite(group, email, invite):
+def send_invite(group, email, invite, resend=False):
   invite = invite.replace('.', '(dot)')
-  if invite not in group.invites:
+  if invite not in group.invites or resend:
     field = 'invites.%s' % (invite,)
     Group.atomic_update(group.name, {'$set': {field: ''}}, clause={field: None})
     group.invites[invite] = ''
@@ -943,6 +981,23 @@ class IdeaFuturesServer:
     PasswordReset.atomic_update(token, {'$set': {'state': 'used'}})
     User.atomic_update(name, {'$set': {'pwd_hash': hash_password(new_password)}})
     return 'success'
+
+  @cherrypy.expose
+  def resend_invite(self, name, password, group):
+    user = authenticate(name, password)
+    if not user:
+      return 'The password you entered was not correct.'
+    group = Group.get(group)
+    if not group:
+      return 'The group that you requested could not be found.'
+    invite = user.email.replace('.', '(dot)')
+    if invite not in group.invites or group.invites[invite]:
+      return 'This invitation has already been accepted.'
+    send_invite(group, user.email, invite, resend=True)
+    return (
+      'Since your email has not yet been verified, this invitation has been resent. '
+      'Check your email for it soon. Accepting the invite will also verify your email.'
+    )
 
   # These calls may change state at the server.
   # Only one update is allowed per message.

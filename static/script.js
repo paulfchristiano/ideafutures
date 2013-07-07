@@ -1141,6 +1141,21 @@ function drawSettings(alltags, settings) {
   mainFrame += ' (<a id="change-email">edit</a>)</div>';
   mainFrame += '<div class="row"><a id="change-password">Change your password.</a></div></div>';
   mainFrame += '<div style="clear: both;"></div>';
+  if (settings.invites.length) {
+    mainFrame += '<div class="unanswered-invites">You have ' + settings.invites.length + ' unanswered group invites:</div>';
+    mainFrame += '<ul class="unanswered-invites-list">';
+    for (var i = 0; i < settings.invites.length; i++) {
+      var invite = settings.invites[i];
+      mainFrame += '<li>' + invite.owner + ' invited you to ';
+      if (invite.link) {
+        mainFrame += '<a href="' + invite.link + '">'
+      } else {
+        mainFrame += '<a data-name="' + invite.name + '" onclick="resend_invite(this)">';
+      }
+      mainFrame += html_encode(invite.label) + '</a>.</li>';
+    }
+    mainFrame += '</ul>';
+  }
   mainFrame += '<div class="header"><h1>Manage your groups</h1>';
   if (settings.my_groups.length) {
     mainFrame += '<div class="row">';
@@ -1217,6 +1232,17 @@ function drawSettings(alltags, settings) {
   });
   $('.leave-button').click(function() {
     leave_group($(this).attr('data-name'));
+  });
+}
+
+function resend_invite(elt) {
+  group_name = $(elt).attr('data-name');
+  $.post('resend_invite', {
+    name: user.name,
+    password: user.password,
+    group: group_name,
+  }, function(result) {
+    show_general_dialog('Invitation resent', result);
   });
 }
 
@@ -1600,6 +1626,15 @@ function autoParseXML(xml) {
       }
       settings.group_names.push(group.name);
       settings.groups_version += group.version;
+    });
+    settings.invites = [];
+    $(xml).find('settings').find('invites').find('invite').each(function() {
+      settings.invites.push({
+        name: $(this).find('name').text(),
+        label: $(this).find('label').text(),
+        owner: $(this).find('owner').text(),
+        link: $(this).find('link').text(),
+      });
     });
 
     if (!('settings' in cache) ||

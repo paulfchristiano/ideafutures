@@ -848,3 +848,19 @@ h3.short {
   font-size: 14px;
   margin: 12px 8px -12px 0px;
 }
+
+.unanswered-invites {
+  font-weight: bold;
+  margin: 12px 0px 0px 2px;
+}
+
+.unanswered-invites-list {
+  margin: 0px;
+  padding: 0px;
+  text-align: left;
+}
+
+.unanswered-invites-list li {
+  margin: 4px 0px 0px 20px;
+  list-style-type: disc;
+}
