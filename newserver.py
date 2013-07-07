@@ -219,6 +219,14 @@ def group_filter(user):
     }
   return {'groups': {'$in': ['all']}}
 
+def unanswered_invites(user):
+  clause = {'$or': [
+    {"invites.(%s's email)" % (user.name,): {'$exists': True}},
+    {'invites.%s' % (user.email.replace('.', '(dot)'),): {'$exists': True}},
+  ]}
+  groups = Group.find(clause)
+  return [group for group in groups if group.name not in user.groups]
+
 # Executes searches for the tags in the list 'searches'. Returns a list of
 # claims in those tags, ordered from newest to oldest.
 def execute_search(user, search):
