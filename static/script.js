@@ -1122,7 +1122,8 @@ function setSubmitClaimInputHandlers(claim) {
   });
   var padding = parseInt($('#tags').css('padding-left'), 10);
   $('#tags').width($('#description').width() - padding - 2);
-  $('#tags').find('input').attr('maxlength', 16);
+  $('#tags').find('input').attr('maxlength', 32);
+  console.log('foo');
 
   var groups = ['all'];
   for (var i = 0; i < cache.settings.group_names.length; i++) {
@@ -2105,10 +2106,10 @@ function submitClaim(claim) {
     var tag = tags[i].replace(/ /g, '_').toLowerCase();
     if (RESTRICTED_TAGS.indexOf(tag) > -1) {
       setClaimError("The tag '" + tag + "' is reserved.");
-    } else if (tag.length < 4) {
+    } else if (tag.length < 2) {
       setClaimError("The tag '" + tag + "' is too short.");
       return;
-    } else if (tag.length > 16) {
+    } else if (tag.length > 32) {
       setClaimError("The tag '" + tag + "' is too long.");
       return;
     } else if (tag.match(/^[a-z_]+$/) == null) {
